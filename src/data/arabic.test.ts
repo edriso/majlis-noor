@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   arabic,
+  ayatCount,
   clock,
   digits,
   durationWords,
@@ -30,6 +31,15 @@ describe('counted nouns', () => {
     expect(pagesCount(103)).toBe('١٠٣ صفحات');
     expect(pagesCount(120)).toBe('١٢٠ صفحة');
     expect(readersCount(3)).toBe('٣ قرّاء');
+  });
+  it('counts ayat the same way', () => {
+    expect(ayatCount(1)).toBe('آية واحدة');
+    expect(ayatCount(2)).toBe('آيتان');
+    expect(ayatCount(3)).toBe('٣ آيات');
+    expect(ayatCount(10)).toBe('١٠ آيات');
+    expect(ayatCount(11)).toBe('١١ آية');
+    expect(ayatCount(103)).toBe('١٠٣ آيات');
+    expect(ayatCount(286)).toBe('٢٨٦ آية');
   });
 });
 
