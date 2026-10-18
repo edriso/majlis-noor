@@ -878,6 +878,114 @@ describe('who reads next', () => {
   });
 });
 
+describe('swapping who starts each page', () => {
+  // Two readers taking an ayah each from page 3, whose 11 ayat are followed
+  // by page 4's 8 and page 5's 5.
+  const alternating = {
+    start: page(3),
+    unit: 'ayah' as Unit,
+    size: 1,
+    rotate: 'page' as const,
+    members: [person('p1'), person('p2')],
+  };
+
+  /** Who opens each page from here, as the reducer passes the turn on. */
+  const openers = (s: State, pages: number) => {
+    const seen: number[] = [];
+    let last = 0;
+    while (seen.length < pages) {
+      const p = currentPage(s.session!);
+      if (p !== last) seen.push(where(s).reader);
+      last = p;
+      s = finish(s);
+    }
+    return seen;
+  };
+
+  it('has the other reader open the next page', () => {
+    const s = run(alternating);
+    expect(s.session!.config.rotate).toBe('page');
+    expect(openers(s, 4)).toEqual([0, 1, 0, 1]);
+  });
+
+  it('steps back across each line to the turn and the ayah that were read', () => {
+    let s = run(alternating);
+    const trail: [number, number, number][] = [];
+    for (let i = 0; i < 24; i++) {
+      trail.push([s.session!.turn, where(s).reader, ayat(s)[0]]);
+      s = finish(s);
+    }
+    expect(trail.map(([, , a]) => a)).toEqual(
+      Array.from({ length: 24 }, (_, i) => page(3) + i),
+    );
+    expect(s.session!.ayatRead).toBe(24);
+    for (let i = trail.length - 1; i >= 0; i--) {
+      s = reduce(s, { type: 'previousTurn' });
+      expect([s.session!.turn, where(s).reader, ayat(s)[0]]).toEqual(trail[i]);
+    }
+    expect(s.session!.ayatRead).toBe(0);
+    expect(s.session!.pagesRead).toBe(0);
+  });
+
+  it('goes round three readers', () => {
+    const s = run({
+      ...alternating,
+      members: [person('p1'), person('p2'), person('p3')],
+    });
+    expect(openers(s, 4)).toEqual([0, 1, 2, 0]);
+  });
+
+  it('starts afresh from whoever has the turn after a jump', () => {
+    let s = run(alternating, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 4 });
+    expect(where(s).reader).toBe(1);
+    expect(openers(s, 2)).toEqual([1, 0]);
+  });
+
+  it('starts afresh from whoever has the turn after the circle changes', () => {
+    // p2 has the turn on page 3 when a third reader joins: p2 opens the
+    // line from here, so the seat after them, p3, opens page 4.
+    let s = run(alternating, { type: 'finishTurn' });
+    s = reduce(s, {
+      type: 'configure',
+      config: {
+        ...s.session!.config,
+        members: [...s.session!.config.members, person('p3')],
+      },
+    });
+    expect(s.session!.config.members[where(s).reader].id).toBe('p2');
+    expect(ayat(s)[0]).toBe(page(3) + 1);
+    while (currentPage(s.session!) === 3) s = finish(s);
+    expect(s.session!.config.members[where(s).reader].id).toBe('p3');
+  });
+
+  it('names each seat’s next turn across the line', () => {
+    // Turn 10 is the last ayah of page 3, reader 0; page 4 is opened by
+    // reader 1 at turn 11, and reader 0 reads next at turn 12.
+    const s = finish(run(alternating), 10).session!;
+    expect([seatTurn(s, 0), seatTurn(s, 1)]).toEqual([10, 11]);
+    const t = finish(run(alternating), 18).session!;
+    // Turn 18 ends page 4 with reader 0; 19 is passed over, so reader 0
+    // opens page 5 at 20 and reader 1 reads at 21.
+    expect(nextTurnOf(t)).toBe(20);
+    expect([seatTurn(t, 0), seatTurn(t, 1)]).toEqual([18, 21]);
+  });
+
+  it('is put away where it means nothing', () => {
+    const cases: Partial<Config>[] = [
+      { mode: 'repeat' },
+      { members: [person('p1')] },
+      { unit: 'page' },
+      { unit: 'rub' },
+    ];
+    for (const c of cases)
+      expect(sanitizeConfig({ ...alternating, ...c }).rotate).toBe('none');
+    expect(
+      sanitizeConfig({ ...alternating, unit: 'page', rotate: 'surah' }).rotate,
+    ).toBe('surah');
+  });
+});
+
 describe('the close of a sitting', () => {
   it('says from where to where, how much, how long, and who sat', () => {
     const sheikh: Member = { id: 'r1', kind: 'reciter', reciter: 'husary' };
@@ -937,6 +1045,7 @@ describe('a saved halaqa', () => {
       start: ayahIndex(18, 1),
       unit: 'ayah',
       size: 5,
+      rotate: 'surah',
       goal: { to: 'page', page: 300 },
     });
     s = finish(s, 3);
@@ -969,6 +1078,7 @@ describe('a saved halaqa', () => {
       config: {
         unit: 'line',
         size: 7,
+        rotate: 'always',
         start: 7000,
         goal: { to: 'page', page: 9999 },
       },
@@ -987,6 +1097,7 @@ describe('a saved halaqa', () => {
     expect(s.config).toMatchObject({
       unit: 'page',
       size: 1,
+      rotate: 'none',
       start: 1,
       goal: { to: 'none' },
     });

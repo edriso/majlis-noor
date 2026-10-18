@@ -12,10 +12,14 @@ import {
   rangeOf,
   readerOf,
   round,
+  startOf,
+  turnAfter,
+  turnBefore,
   unitAfter,
   unitOf,
   unitsOf,
   unitStart,
+  type Anchor,
   type Plan,
   type Unit,
 } from './schedule';
@@ -255,5 +259,98 @@ describe('units', () => {
       expect(range.to).toBe(end);
       expect(range.from).toBe(unitStart('rub', anchor.at));
     });
+  });
+});
+
+describe('swapping who starts each page', () => {
+  /* Pages 3, 4 and 5 hold 11, 8 and 5 ayat. Two readers taking an ayah
+     each would have the same reader open page 3 and page 5 (an odd page
+     passes the start on by itself, an even one does not), so on page 5 the
+     counter skips a number to give it to the other. */
+  const two: Plan = {
+    readers: 2,
+    mode: 'continue',
+    unit: 'ayah',
+    size: 1,
+    rotate: 'page',
+  };
+  const page3: Anchor = { turn: 0, at: firstAyahOfPage(3) };
+
+  /** Every turn read from the anchor until `ayah`, as [turn, reader, ayah]. */
+  const walk = (plan: Plan, anchor: Anchor, until: number) => {
+    const seen: [number, number, number][] = [];
+    for (let t = anchor.turn; ; t = turnAfter(plan, anchor, t)) {
+      const at = startOf(plan, anchor, t)!;
+      if (at >= until) return seen;
+      seen.push([t, readerOf(plan, t), at]);
+    }
+  };
+  const openers = (plan: Plan, anchor: Anchor, pages: number[]) =>
+    pages.map((p) => {
+      const seen = walk(plan, anchor, firstAyahOfPage(p) + 1);
+      return seen[seen.length - 1][1];
+    });
+
+  it('has the seat after the last page’s first reader open the next', () => {
+    expect(openers(two, page3, [3, 4, 5, 6])).toEqual([0, 1, 0, 1]);
+    const seen = walk(two, page3, firstAyahOfPage(6));
+    // Every ayah once, in order, the readers alternating within a page.
+    expect(seen.map(([, , a]) => a)).toEqual(
+      Array.from({ length: 24 }, (_, i) => firstAyahOfPage(3) + i),
+    );
+    // Turn 19 is passed over: 18 ends page 4 with reader 0, who would
+    // otherwise open page 5 as well.
+    expect(seen.map(([t]) => t)).not.toContain(19);
+    expect(seen.find(([, , a]) => a === firstAyahOfPage(5))).toEqual([
+      20, 0, 32,
+    ]);
+    expect(startOf(two, page3, 19)).toBeNull();
+  });
+
+  it('steps back across each line to exactly the turn that was read', () => {
+    const seen = walk(two, page3, firstAyahOfPage(6));
+    for (let i = seen.length - 1; i > 0; i--)
+      expect(turnBefore(two, page3, seen[i][0])).toBe(seen[i - 1][0]);
+    // And before the anchor, turns are counted back as they always were.
+    expect(turnBefore(two, page3, 0)).toBe(-1);
+  });
+
+  it('does the same for three readers, skipping as many as it takes', () => {
+    const three = { ...two, readers: 3 };
+    expect(openers(three, page3, [3, 4, 5, 6])).toEqual([0, 1, 2, 0]);
+    const seen = walk(three, page3, firstAyahOfPage(6));
+    expect(seen.map(([, , a]) => a)).toHaveLength(24);
+    expect(turnBefore(three, page3, 13)).toBe(10);
+    expect(turnAfter(three, page3, 10)).toBe(13);
+  });
+
+  it('starts afresh from the anchor after a jump', () => {
+    // A jump to page 4 anchors the reader who has the turn, reader 1, at
+    // its first ayah: they open page 4, and reader 0 opens page 5.
+    const jumped = { turn: 7, at: firstAyahOfPage(4) };
+    expect(openers(two, jumped, [4, 5])).toEqual([1, 0]);
+  });
+
+  it('swaps at each surah instead, when asked', () => {
+    const surahs = { ...two, rotate: 'surah' as const };
+    // Al-Ikhlas has 4 ayat, al-Falaq 5: reader 0 opens both without the
+    // swap, so the counter skips once, at al-Falaq.
+    const ikhlas = { turn: 0, at: surahRange(112).from };
+    const opener = (s: number) =>
+      walk(surahs, ikhlas, surahRange(s).from + 1).at(-1)![1];
+    expect([112, 113, 114].map(opener)).toEqual([0, 1, 0]);
+  });
+
+  it('is ignored in repeat mode, and for a single reader', () => {
+    const repeat = { ...two, mode: 'repeat' as const };
+    expect(turnAfter(repeat, page3, 10)).toBe(11);
+    expect(startOf(repeat, page3, 22)).toBe(firstAyahOfPage(3) + 11);
+    const alone = { ...two, readers: 1 };
+    expect(turnAfter(alone, page3, 10)).toBe(11);
+  });
+
+  it('changes nothing for whole pages', () => {
+    const pages: Plan = { ...two, unit: 'page' };
+    expect(turnAfter(pages, { turn: 0, at: 3 }, 4)).toBe(5);
   });
 });

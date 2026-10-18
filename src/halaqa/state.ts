@@ -29,6 +29,8 @@ import {
   round,
   roundOf,
   startOf,
+  turnAfter,
+  turnBefore,
   UNIT_COUNT,
   unitAfter,
   unitOf,
@@ -36,6 +38,7 @@ import {
   type Anchor,
   type Mode,
   type Plan,
+  type Rotate,
   type Unit,
 } from './schedule';
 
@@ -98,6 +101,9 @@ export type Config = {
       `TURN_SIZES[unit]`. */
   unit: Unit;
   size: number;
+  /** Whether the seat that opens each page (or surah) moves round. Only
+      ever set where it means something: see `sanitizeConfig()`. */
+  rotate: Rotate;
   turnChange: TurnChange;
   /** How much longer than the reciter a timed reader's turn lasts: people
       read slower than a master reciter, children slower still. */
@@ -160,6 +166,7 @@ export const defaultConfig: Config = {
   mode: 'continue',
   unit: 'page',
   size: 1,
+  rotate: 'none',
   turnChange: 'manual',
   allowance: 1,
   reciter: defaultReciter,
@@ -186,6 +193,7 @@ export const planOf = (c: Config): Plan => ({
   mode: c.members.length === 1 ? 'continue' : c.mode,
   unit: c.unit,
   size: c.size,
+  rotate: c.rotate,
 });
 
 /* Members are told apart by an id that stays with them when the circle is
@@ -308,12 +316,21 @@ export const nextStart = (s: Session) => {
 };
 
 /** The turn after the current one. */
-export const nextTurnOf = (s: Session) => s.turn + 1;
+export const nextTurnOf = (s: Session) =>
+  turnAfter(planOf(s.config), s.anchor, s.turn);
 
 /** The next turn, from the current one on, that belongs to `seat`: what
     the circle shows under each seat. */
 export function seatTurn(s: Session, seat: number) {
   const plan = planOf(s.config);
+  let turn = s.turn;
+  // Within a page the seats come round in order; swapping who starts
+  // passes over at most a round's worth of numbers at each line, so a seat
+  // always comes up within a few rounds.
+  for (let i = 0; i < 4 * plan.readers * plan.readers; i++) {
+    if (readerOf(plan, turn) === seat) return turn;
+    turn = turnAfter(plan, s.anchor, turn);
+  }
   return (
     s.turn + ((seat - readerOf(plan, s.turn) + plan.readers) % plan.readers)
   );
@@ -324,7 +341,7 @@ export function seatTurn(s: Session, seat: number) {
 export function canStepBack(s: Session) {
   if (s.pageInTurn > 0) return true;
   const plan = planOf(s.config);
-  const turn = s.turn - 1;
+  const turn = turnBefore(plan, s.anchor, s.turn);
   return turn >= 0 && !isBeforeStart(plan, s.anchor, turn);
 }
 
@@ -350,7 +367,8 @@ const samePlan = (a: Plan, b: Plan) =>
   a.readers === b.readers &&
   a.mode === b.mode &&
   a.unit === b.unit &&
-  a.size === b.size;
+  a.size === b.size &&
+  a.rotate === b.rotate;
 
 export type Action =
   | { type: 'draft'; config: Config }
@@ -474,7 +492,7 @@ export function reduce(state: State, action: Action): State {
       const done = finishedBy(s, s.turn);
       return set({
         ...s,
-        turn: s.turn + 1,
+        turn: turnAfter(plan, s.anchor, s.turn),
         pageInTurn: 0,
         pagesRead: s.pagesRead + done.pages,
         ayatRead: s.ayatRead + done.ayat,
@@ -483,7 +501,7 @@ export function reduce(state: State, action: Action): State {
     }
 
     case 'previousTurn': {
-      const turn = s.turn - 1;
+      const turn = turnBefore(plan, s.anchor, s.turn);
       if (turn < 0 || isBeforeStart(plan, s.anchor, turn)) return state;
       const undone = finishedBy(s, turn);
       const pagesRead = Math.max(0, s.pagesRead - undone.pages);
@@ -510,7 +528,7 @@ export function reduce(state: State, action: Action): State {
       // else begins in the next page, as a jump to it would.
       if (plan.unit !== 'page')
         return set(jumpTo(s, firstAyahOfPage(page + 1)));
-      const first = startOf(plan, s.anchor, s.turn);
+      const first = startOf(plan, s.anchor, s.turn) ?? page;
       return set({ ...s, anchor: anchorAt(s.turn, clampPage(first + 1)) });
     }
 
@@ -520,7 +538,7 @@ export function reduce(state: State, action: Action): State {
       if (page <= 1) return state;
       if (plan.unit !== 'page')
         return set(jumpTo(s, firstAyahOfPage(page - 1)));
-      const first = startOf(plan, s.anchor, s.turn);
+      const first = startOf(plan, s.anchor, s.turn) ?? page;
       if (first <= 1) return state;
       return set(jumpTo(s, firstAyahOfPage(clampPage(first - 1))));
     }
@@ -609,7 +627,7 @@ export function reduce(state: State, action: Action): State {
          turn now covers ayat they did not read), the round starts over
          from the first seat. If not, the reader carries on where they
          were, and those ahead keep their marks. */
-      const first = startOf(plan, s.anchor, s.turn);
+      const first = startOf(plan, s.anchor, s.turn) ?? 1;
       const read = currentRange(s);
       const firstNext =
         next.unit === plan.unit
@@ -778,6 +796,17 @@ function sanitizeGoal(v: unknown): Goal {
   return { to: 'none' };
 }
 
+/** Units in the order they nest: an ayah inside a page, a page (most of the
+    time) inside a surah. Swapping who starts each page only means something
+    for turns smaller than a page, and each surah for turns smaller than a
+    surah. */
+const unitRank: Record<Unit | Exclude<Rotate, 'none'>, number> = {
+  ayah: 0,
+  page: 1,
+  rub: 2,
+  surah: 3,
+};
+
 /** Whatever was stored, made into a valid configuration. A stored value is
     data from an older version or a hand-edited store, never trusted. One
     saved before turns could be counted in anything but pages has
@@ -795,11 +824,18 @@ export function sanitizeConfig(raw: unknown): Config {
     c.size === undefined && unit === 'page'
       ? oneOf(c.pagesPerTurn, sizes, sizes[0])
       : oneOf(c.size, sizes, sizes[0]);
+  const rotate = oneOf(c.rotate, ['none', 'page', 'surah'] as const, 'none');
+  const rotates =
+    rotate !== 'none' &&
+    mode === 'continue' &&
+    members.length > 1 &&
+    unitRank[unit] < unitRank[rotate];
   return {
     members,
     mode,
     unit,
     size,
+    rotate: rotates ? rotate : 'none',
     turnChange: c.turnChange === 'reciter' ? 'reciter' : 'manual',
     allowance: oneOf(c.allowance, [1, 1.25, 1.5] as const, 1),
     reciter: knownReciter(c.reciter),
@@ -873,7 +909,7 @@ function lastBefore(s: Session) {
   const turn =
     plan.mode === 'repeat'
       ? roundOf(plan, s.turn) * plan.readers - 1
-      : s.turn - 1;
+      : turnBefore(plan, s.anchor, s.turn);
   const range = turnRange(s, turn);
   return isEmpty(range) ? 0 : range.to - 1;
 }
