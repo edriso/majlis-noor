@@ -16,6 +16,7 @@ import {
   isComplete,
   memberName,
   newMember,
+  nextStart,
   nextTurnOf,
   reduce,
   sanitizeConfig,
@@ -188,6 +189,52 @@ describe('a halaqa', () => {
 
   it('ends', () => {
     expect(run({}, { type: 'end' }).session).toBeNull();
+  });
+});
+
+describe('ending keeps the place', () => {
+  it('starts the next halaqa where this one stopped', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = finish(s);
+    s = reduce(s, { type: 'end' });
+    expect(s.config.start).toBe(page(12));
+    s = reduce(s, { type: 'start', config: s.config });
+    expect(where(s)).toEqual({ page: 12, reader: 0 });
+  });
+
+  it('keeps the page open in a turn of two pages', () => {
+    const s = run({ start: page(20), size: 2 }, { type: 'nextPage' });
+    expect(nextStart(s.session!)).toBe(page(21));
+    expect(reduce(s, { type: 'end' }).config.start).toBe(page(21));
+  });
+
+  it('keeps the ayah, part-way down a page', () => {
+    const s = run(
+      { start: ayahIndex(2, 1), unit: 'ayah', size: 3 },
+      { type: 'finishTurn' },
+      { type: 'end' },
+    );
+    expect(s.config.start).toBe(ayahIndex(2, 4));
+  });
+
+  it('goes back to al-Fatihah after a khatm', () => {
+    const s = run(
+      { start: page(604), members: [person('p1')] },
+      { type: 'finishTurn' },
+      { type: 'end' },
+    );
+    expect(s.config.start).toBe(1);
+  });
+
+  it('keeps the circle as it was changed in the sitting', () => {
+    let s = run({ start: page(10) });
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, mode: 'repeat' },
+    });
+    s = reduce(s, { type: 'end' });
+    expect(s.config.mode).toBe('repeat');
+    expect(s.config.start).toBe(page(10));
   });
 });
 

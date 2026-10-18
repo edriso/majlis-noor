@@ -5,12 +5,7 @@ import { ReadingScreen } from './screens/ReadingScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { useHalaqa } from './halaqa/useHalaqa';
 import { player, wakeSound } from './halaqa/useRecitation';
-import {
-  isComplete,
-  placeOf,
-  type Prefs,
-  type State,
-} from './halaqa/state';
+import { nextStart, type Prefs, type State } from './halaqa/state';
 import { THEMES } from './styles/themes';
 
 /**
@@ -78,12 +73,12 @@ export function App() {
   );
 }
 
-/** A new halaqa set up beside an unfinished one starts where that one
-    stopped: the readers may change from one sitting to the next, the place
-    in the Mushaf rarely does. */
+/** A new halaqa starts where the last one stopped: the readers may change
+    from one sitting to the next, the place in the Mushaf rarely does. Ending
+    a halaqa writes its place into the config; one left open is asked. */
 function initialConfig(state: State) {
   const { session } = state;
-  return session && !isComplete(session)
-    ? { ...state.config, start: placeOf(session) }
+  return session
+    ? { ...state.config, start: nextStart(session) }
     : state.config;
 }

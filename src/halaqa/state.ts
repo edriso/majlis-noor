@@ -223,8 +223,8 @@ export const isComplete = (s: Session) => isEmpty(currentRange(s));
 /**
  * Where the circle is: the first ayah it has not yet left behind. That is
  * the start of the turn, or of the page open in it if the reader has turned
- * on; after a khatm, the end of the Mushaf. A change to the circle carries
- * on from here.
+ * on; after a khatm, the end of the Mushaf. The next sitting starts here,
+ * and a change to the circle carries on from here.
  */
 export function placeOf(s: Session) {
   const range = currentRange(s);
@@ -243,6 +243,13 @@ export function currentPage(s: Session) {
   if (pages.length) return pages[Math.min(s.pageInTurn, pages.length - 1)];
   return pageOfAyah(placeOf(s) - 1);
 }
+
+/** Where the next sitting starts if this one ends now: where it stopped,
+    or al-Fatihah after a khatm. */
+export const nextStart = (s: Session) => {
+  const place = placeOf(s);
+  return place > AYAH_COUNT ? 1 : place;
+};
 
 /** The turn after the current one. */
 export const nextTurnOf = (s: Session) => s.turn + 1;
@@ -349,7 +356,15 @@ export function reduce(state: State, action: Action): State {
     };
   }
 
-  if (action.type === 'end') return { ...state, session: null };
+  // Ending keeps the place: the next halaqa starts where this one stopped.
+  if (action.type === 'end')
+    return state.session
+      ? {
+          ...state,
+          config: { ...state.config, start: nextStart(state.session) },
+          session: null,
+        }
+      : state;
 
   const s = state.session;
   if (!s) return state;
