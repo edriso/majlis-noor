@@ -282,6 +282,20 @@ describe('the player', () => {
     expect(player.position()).toBeNull();
   });
 
+  it('stops on time when the speed changes on the last words', async () => {
+    const done = vi.fn();
+    player.play('listen', [queue[0]], { onDone: done });
+    media.load();
+    await flush();
+    media.at(69.6);
+    // 400 ms of recording left, timed at 1: the timer is set for 400 ms.
+    player.setRate(2);
+    media.currentTime = 70;
+    // At double speed the same 400 ms take 200 on the clock.
+    await vi.advanceTimersByTimeAsync(200);
+    expect(done).toHaveBeenCalledOnce();
+  });
+
   it('notices a pause it did not make', async () => {
     player.play('turn', queue);
     media.load();
