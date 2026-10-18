@@ -65,7 +65,11 @@ describe('the close of a sitting', () => {
       ],
       amount: '٤ صفحات · ٢٩ آية · ٢٥ دقيقة',
       present: { label: 'الحاضرون', names: 'أنت، فاطمة، والشيخ الحصري' },
-      supplication: SUPPLICATION,
+      supplication: [
+        'سبحانك اللهم وبحمدك،',
+        'أشهد أن لا إله إلا أنت،',
+        'أستغفرك وأتوب إليك',
+      ],
       brand: 'مجلس نور',
     });
   });

@@ -30,7 +30,9 @@ export type CardText = {
   /** Who sat, under a word that agrees with how many they were; null for
       «أنت» alone, whom the card is already speaking to. */
   present: { label: string; names: string } | null;
-  supplication: string;
+  /** The closing supplication in its three phrases, each a line of its
+      own where there is room: a supplication is said phrase by phrase. */
+  supplication: string[];
   brand: string;
 };
 
@@ -165,7 +167,7 @@ export function cardText(summary: Summary, endedAt: number): CardText {
       : [NOTHING_READ],
     amount: amount || null,
     present: presentLine(summary.members),
-    supplication: SUPPLICATION,
+    supplication: SUPPLICATION.split(/(?<=،) /),
     brand: BRAND,
   };
 }
