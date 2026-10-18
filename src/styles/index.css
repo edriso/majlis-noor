@@ -20,6 +20,7 @@
 @import url('./faces.css') layer(components);
 @import url('./reciters.css') layer(components);
 @import url('./sheet.css') layer(components);
+@import url('./place-picker.css') layer(components);
 
 @import url('./setup.css') layer(screens);
 @import url('./settings.css') layer(screens);

@@ -1,0 +1,163 @@
+/* The place chooser (PlacePicker.tsx): a surah found by name or number in a
+   list, a juz from a grid, a page by its number. Where the reader is now is
+   ringed in gold, as a chosen option is. */
+
+.place-picker {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ---------- سورة ---------- */
+
+.place-surahs {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* The browser's own search box (rounded, inset) is undone; its clear
+   button stays. */
+.place-search {
+  appearance: none;
+}
+.place-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+}
+.place-list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  /* A fixed height, not a most: a sheet sized to what it holds would
+     otherwise shrink and grow with every letter typed, and move the field
+     being typed in. */
+  height: min(52dvh, 440px);
+  margin: 0;
+  /* Room for the focus ring, which sits 3px outside an item and would be
+     clipped by the scrolling edge. */
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-border) transparent;
+}
+.place-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--target);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg);
+  text-align: start;
+  line-height: var(--leading-tight);
+  transition: background-color var(--duration-short) var(--ease);
+}
+.place-item:hover {
+  background: var(--hover);
+}
+.place-item[aria-pressed='true'] {
+  background: var(--well);
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.place-item-number {
+  min-width: 2.2em;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.place-item-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.place-item-page {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* ---------- جزء ---------- */
+
+.place-juz {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.place-juz-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-1);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg);
+  line-height: 1.15;
+  transition:
+    background-color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease);
+}
+.place-juz-button:hover {
+  border-color: var(--muted);
+  background: var(--hover);
+}
+.place-juz-button[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.place-juz-word {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.place-juz-number {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* ---------- صفحة ---------- */
+
+.place-page {
+  display: grid;
+  gap: var(--space-2);
+}
+.place-page .field-label {
+  margin: 0;
+}
+.place-page-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.place-page-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: center;
+}
+.place-page-where {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+
+@media (forced-colors: active) {
+  .place-item[aria-pressed='true'],
+  .place-juz-button[aria-pressed='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
