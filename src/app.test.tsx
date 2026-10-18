@@ -431,6 +431,26 @@ describe('a circle that reads by the ayah', () => {
     expect(status()).toContain('دورك');
   });
 
+  it('lets the seat that opens each page move round', async () => {
+    // Page 299 holds al-Kahf 46 to 53, eight ayat: taking one each, «أنت»
+    // opens it and Omar ends it, so Omar opens page 300 too, and «أنت»
+    // the page after.
+    const user = await startWith({
+      ...ayat,
+      size: 1,
+      rotate: 'page',
+      start: ayahIndex(18, 46),
+    });
+    for (let i = 0; i < 7; i++) await user.click(primary());
+    expect(status()).toContain('دور عمر · الآية ٥٣');
+    expect(primary().textContent).toContain('عمر · الآية ٥٤');
+    await user.click(primary());
+    expect(status()).toContain('دور عمر · الآية ٥٤');
+    expect(primary().textContent).toContain('أنت · الآية ٥٥');
+    await user.click(screen.getByRole('button', { name: 'القارئ السابق' }));
+    expect(status()).toContain('دور عمر · الآية ٥٣');
+  });
+
   it('recites exactly the ayat of a reciter’s turn', async () => {
     await startWith({ ...ayat, members: [minshawi, you] });
     await act(() => vi.dynamicImportSettled());
@@ -460,6 +480,50 @@ describe('a circle that reads by the ayah', () => {
     expect([clock(ms), clock(ms - 1000)]).toContain(
       timer.getAttribute('aria-label')!.split('،')[0],
     );
+  });
+});
+
+describe('a recording that does not fit its timings', () => {
+  // Abdul Basit's al-Baqarah is listed as not fitting (see timings.ts).
+  const abdulbasit = { id: 'r1', kind: 'reciter', reciter: 'abdulbasit' };
+
+  it('lets a reciter’s turn be skipped, and offers no retry', async () => {
+    const user = await startWith({ members: [abdulbasit, you], start: 8 });
+    await act(() => vi.dynamicImportSettled());
+    expect(primary().getAttribute('aria-label')).toBe(
+      'تخطَّ، لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط، التالي: أنت، الصفحة ٣',
+    );
+    expect(screen.getByRole('status').textContent).toContain(
+      'لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط',
+    );
+    const bar = document.querySelector<HTMLElement>('.action-bar')!;
+    expect(within(bar).queryByRole('button', { name: /أعد المحاولة/ })).toBe(
+      null,
+    );
+    await user.click(primary());
+    expect(status()).toContain('دورك · الصفحة ٣');
+  });
+
+  it('offers another sheikh for «استمع»', async () => {
+    const user = await startWith({
+      members: [you],
+      start: 8,
+      reciter: 'abdulbasit',
+    });
+    await act(() => vi.dynamicImportSettled());
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'شيخ آخر: لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط',
+      }),
+    );
+    const sheet = screen.getByRole('dialog', { name: 'شيخ الاستماع' });
+    await user.click(
+      within(sheet).getByRole('button', { name: /^محمد صديق المنشاوي/ }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(
+      await screen.findByRole('button', { name: 'استمع إلى الصفحة ٢' }),
+    ).toBeTruthy();
   });
 });
 
