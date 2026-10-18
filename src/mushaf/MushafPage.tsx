@@ -10,6 +10,7 @@ import { loadPageFont, pageFontFamily } from './fonts';
 import { usePage } from './usePage';
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,6 +23,10 @@ import {
 export const BASMALA_GLYPHS = ['ﱁ', 'ﱂ', 'ﱃ', 'ﱄ'];
 const BASMALA_TEXT = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
 
+export const FONT_NOTE = 'تعذّر تحميل خطّ الصفحة، والنص معروض بخطّ بديل';
+const RETRY = 'أعد المحاولة';
+const RETRYING = 'جارٍ المحاولة…';
+
 /**
  * One page of the Madani Mushaf, laid out on its fifteen lines (eight on the
  * opening two pages) exactly as printed: the surah name at the top right,
@@ -33,7 +38,8 @@ const BASMALA_TEXT = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱ�
  * width (`cqi`), which is what lets one component fill a phone and a desktop.
  *
  * When the page's font cannot load, its text is drawn in a Quran font on the
- * same lines, each line made smaller if it would not fit.
+ * same lines, each line made smaller if it would not fit, and a note at the
+ * foot says so and offers to try again.
  */
 export function MushafPage({
   page,
@@ -47,14 +53,17 @@ export function MushafPage({
   const name = surahOfPage(page).name;
   const juz = juzOfPage(page);
   const ready = state.status === 'ready' ? state : null;
+  const fallback = ready?.font === 'text';
   const sajdah = ready?.page.sajdah?.length;
   const linesRef = useRef<HTMLDivElement>(null);
-  useFittedLines(linesRef, ready?.font === 'text' ? ready.page : null);
+  const noteId = useId();
+  useFittedLines(linesRef, fallback ? ready.page : null);
 
   return (
     <article
       className="mushaf-page"
       data-opening={opening || undefined}
+      data-fallback={fallback || undefined}
       aria-label={`الصفحة ${arabic(page)}، سورة ${name}، الجزء ${arabic(juz)}`}
       aria-busy={!ready}
       lang="ar"
@@ -75,7 +84,10 @@ export function MushafPage({
 
       <div className="mushaf-frame">
         {ready ? (
+          // Keyed by the font, so a page that gets its font on a retry is
+          // drawn afresh, the basmala in its glyphs too.
           <div
+            key={ready.font}
             ref={linesRef}
             className="mushaf-lines"
             data-font={ready.font}
@@ -100,14 +112,49 @@ export function MushafPage({
         )}
       </div>
 
-      <footer className="mushaf-folio" aria-hidden="true">
-        <span>{arabic(page)}</span>
-      </footer>
+      {fallback ? (
+        // In the folio's place: the page number is in the bar above, and
+        // the note needs the room more.
+        <div className="mushaf-note">
+          <p id={noteId}>{FONT_NOTE}</p>
+          <RetryButton
+            retrying={ready.retrying}
+            onClick={ready.retryFont}
+            describedBy={noteId}
+          />
+        </div>
+      ) : (
+        <footer className="mushaf-folio" aria-hidden="true">
+          <span>{arabic(page)}</span>
+        </footer>
+      )}
 
       {ready && sajdah ? (
         <p className="visually-hidden">في هذه الصفحة سجدة تلاوة.</p>
       ) : null}
     </article>
+  );
+}
+
+function RetryButton({
+  retrying,
+  onClick,
+  describedBy,
+}: {
+  retrying: boolean;
+  onClick: () => void;
+  describedBy?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="mushaf-retry"
+      onClick={onClick}
+      aria-disabled={retrying || undefined}
+      aria-describedby={describedBy}
+    >
+      {retrying ? RETRYING : RETRY}
+    </button>
   );
 }
 

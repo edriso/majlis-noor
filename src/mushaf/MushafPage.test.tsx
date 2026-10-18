@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPage, type Page } from '@/data/mushaf';
 import { loadPageFont } from './fonts';
-import { fitLines, MushafPage } from './MushafPage';
+import { FONT_NOTE, fitLines, MushafPage } from './MushafPage';
 
 vi.mock('@/data/mushaf', async (actual) => ({
   ...(await actual<typeof import('@/data/mushaf')>()),
@@ -31,7 +32,14 @@ const page77: Page = {
   ] as Page['lines'],
 };
 
+function later<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => (resolve = res));
+  return { promise, resolve };
+}
+
 const article = () => screen.getByRole('article');
+const retry = () => screen.getByRole('button', { name: 'أعد المحاولة' });
 
 beforeEach(() => {
   vi.mocked(loadPage).mockReset().mockResolvedValue(page77);
@@ -39,22 +47,72 @@ beforeEach(() => {
 });
 
 describe('a page whose font cannot load', () => {
-  it('is drawn from its text, every line whole and in order', async () => {
+  beforeEach(() => {
     vi.mocked(loadPageFont).mockRejectedValue(new Error('blocked'));
+  });
+
+  it('is drawn from its text, every line whole and in order', async () => {
     render(<MushafPage page={77} />);
-    await waitFor(() =>
-      expect(
-        article().querySelector('.mushaf-lines')?.getAttribute('data-font'),
-      ).toBe('text'),
-    );
+    await screen.findByText(FONT_NOTE);
+    const lines = article().querySelector('.mushaf-lines');
+    expect(lines?.getAttribute('data-font')).toBe('text');
     expect(
       [...article().querySelectorAll('.mushaf-text')].map((l) => l.textContent),
     ).toEqual(LINES);
   });
+
+  it('says so in place of the folio, with a retry the note describes', async () => {
+    render(<MushafPage page={77} />);
+    await screen.findByText(FONT_NOTE);
+    expect(article().dataset.fallback).toBe('true');
+    expect(article().querySelector('.mushaf-folio')).toBeNull();
+    const button = retry();
+    const note = document.getElementById(
+      button.getAttribute('aria-describedby') ?? '',
+    );
+    expect(note?.textContent).toBe(FONT_NOTE);
+  });
+
+  it('draws the glyphs when a retry gets the font', async () => {
+    const user = userEvent.setup();
+    const retried = later<void>();
+    // Page 77's font fails, then comes on the retry; the basmala asks for
+    // page 1's, which the host still refuses.
+    let page77Tries = 0;
+    vi.mocked(loadPageFont).mockImplementation((p) =>
+      p === 77 && page77Tries++ > 0
+        ? retried.promise
+        : Promise.reject(new Error('blocked')),
+    );
+    render(<MushafPage page={77} />);
+    await screen.findByText(FONT_NOTE);
+    await user.click(retry());
+    expect(screen.getByRole('button', { name: 'جارٍ المحاولة…' }));
+
+    await act(async () => retried.resolve());
+    await waitFor(() =>
+      expect(
+        article().querySelector('.mushaf-lines')?.getAttribute('data-font'),
+      ).toBe('glyphs'),
+    );
+    expect(screen.queryByText(FONT_NOTE)).toBeNull();
+    expect(article().dataset.fallback).toBeUndefined();
+    expect(article().querySelector('.mushaf-folio')?.textContent).toBe('٧٧');
+  });
+
+  it('keeps the note when the font fails again', async () => {
+    const user = userEvent.setup();
+    render(<MushafPage page={77} />);
+    await screen.findByText(FONT_NOTE);
+    await user.click(retry());
+    await waitFor(() => expect(retry()));
+    expect(screen.getByText(FONT_NOTE));
+    expect(loadPageFont).toHaveBeenCalledWith(77);
+  });
 });
 
 describe('a page drawn in its own font', () => {
-  it('carries each line as hidden text for screen readers', async () => {
+  it('carries each line as hidden text for screen readers, and no note', async () => {
     render(<MushafPage page={77} />);
     await waitFor(() =>
       expect(
@@ -65,6 +123,8 @@ describe('a page drawn in its own font', () => {
     expect(
       [...article().querySelectorAll('.mushaf-text')].map((l) => l.textContent),
     ).toEqual(LINES);
+    expect(screen.queryByText(FONT_NOTE)).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });
 

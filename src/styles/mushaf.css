@@ -15,7 +15,11 @@
      15 × 9.6  lines                       144.0
      7.0       folio, and 3.2 under it      10.2
                                            ─────
-                                           169.7  */
+                                           169.7
+
+   A page drawn from its text, because its font could not load, has the
+   note in place of the folio, 20.5 instead of 10.2, so it is 180.0: see
+   "When the page font could not load" below. */
 
 .mushaf-page {
   container-type: inline-size;
@@ -214,6 +218,60 @@
   font-size: 3.2cqi;
   font-weight: 700;
   line-height: 1;
+}
+
+/* ---------- When the page font could not load ---------- */
+
+/* The note takes the folio's place at the foot of the page, with more
+   room than the folio had, because its button must be 44px tall even on
+   the smallest page a phone held upright shows: 221px wide at 320×568,
+   where 20.5cqi is 45px. The page is then taller for its width,
+   169.7 - 10.2 + 20.5 = 180.0, and the layout fits that shape instead. */
+.mushaf-page[data-fallback] {
+  --page-height: 1.8;
+}
+.mushaf-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqi;
+  height: 20.5cqi;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: clamp(11px, 3.2cqi, 15px);
+  line-height: 1.3;
+}
+.mushaf-note p {
+  min-width: 0;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.mushaf-retry {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 max(12px, 3cqi);
+  border: 1px solid var(--ink-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: clamp(13px, 3.4cqi, 16px);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background-color 160ms var(--ease);
+}
+.mushaf-retry:hover {
+  background: var(--paper-shade);
+}
+.mushaf-retry[aria-disabled='true'] {
+  cursor: progress;
+}
+/* The app's gold ring would barely show on the paper. */
+.mushaf-page :focus-visible {
+  outline-color: var(--ink);
 }
 
 /* ---------- Loading ---------- */
