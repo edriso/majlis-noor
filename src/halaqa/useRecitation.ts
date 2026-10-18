@@ -55,6 +55,18 @@ export function useTimings(ids: readonly string[]) {
   return { timings: loaded, retry: () => setAttempt((a) => a + 1) };
 }
 
+/** Ends what plays over the recitation `key` (an ayah heard alone), which
+    puts it back where it stood, and carries it on if it was not already
+    reciting: the press that asks for it is asking to hear it. */
+function takeBack(key: string) {
+  const over = player.getState();
+  if (over.waiting?.key !== key) return;
+  player.stop(over.key);
+  const now = player.getState();
+  if (now.key === key && now.status !== 'playing' && now.status !== 'loading')
+    player.resume();
+}
+
 /** What the lock screen and a headset show for a recitation. Whether the
     photo is shown there is the player's to decide (`setArtwork`), from the
     reader's photos setting. */
@@ -80,6 +92,10 @@ function metaFor(reciter: string, page: number): Meta {
  *
  * `turnKey` names the turn and the pages it covers; a new one is a new
  * recitation from the start.
+ *
+ * An ayah heard alone (useAyahListen) pauses the turn while it plays, and
+ * the turn says `paused` until it carries on; its button ends the ayah and
+ * carries it on at once.
  */
 export function useReciterTurn({
   reciter,
@@ -129,20 +145,31 @@ export function useReciterTurn({
     return () => player.stop(key);
   }, [key, reciter, t, pagesKey]);
 
-  useEffect(() => {
-    const s = player.getState();
-    if (key && s.key === key && s.page !== page && s.status !== 'ended')
-      player.seekPage(page);
-  }, [key, page]);
-
   const mine = key !== '' && state.key === key;
+  // An ayah heard alone plays over the turn, which waits as it stood.
+  const waiting =
+    key !== '' && state.waiting?.key === key ? state.waiting : null;
+  const own = mine ? state : waiting;
+
+  // Also when the turn comes back from under an ayah, during which the
+  // reader may have turned the page.
+  useEffect(() => {
+    if (!mine) return;
+    const s = player.getState();
+    if (s.page !== page && s.status !== 'ended') player.seekPage(page);
+  }, [mine, page]);
+
   const status: PlayerStatus = !reciter
     ? 'idle'
     : t === null
       ? 'error'
-      : mine
-        ? state.status
-        : 'loading';
+      : waiting
+        ? waiting.status === 'error'
+          ? 'error'
+          : 'paused'
+        : mine
+          ? state.status
+          : 'loading';
 
   return {
     /** What his recitation plays under, for `usePlaybackPosition`; empty
@@ -154,12 +181,13 @@ export function useReciterTurn({
         The turn waits; the screen offers «تخطَّ» beside trying again. */
     failed: status === 'error',
     /** Time left in the turn, once its recitation is known. */
-    left: mine ? Math.max(0, state.total - state.played) / rate : null,
-    total: mine ? state.total / rate : null,
+    left: own ? Math.max(0, own.total - own.played) / rate : null,
+    total: own ? own.total / rate : null,
     /** Pause, carry on, start after the browser asked for a tap, or try
         again after a failure. */
     toggle: () => {
       if (t === null) onRetry();
+      else if (waiting) takeBack(key);
       else if (status === 'playing' || status === 'loading') player.pause();
       else if (mine) player.resume();
     },
@@ -211,12 +239,16 @@ export function useListen({
   }, [key]);
 
   const raw = state.key === key ? state.status : 'idle';
+  // Waiting under an ayah heard alone, to carry on after it.
+  const waiting = state.waiting?.key === key;
   const status: PlayerStatus =
     pending?.key === key
       ? pending.status
-      : raw === 'blocked' || raw === 'ended'
-        ? 'idle'
-        : raw;
+      : waiting
+        ? 'paused'
+        : raw === 'blocked' || raw === 'ended'
+          ? 'idle'
+          : raw;
 
   const start = () => {
     const token = live.current;
@@ -254,7 +286,8 @@ export function useListen({
     return true;
   };
   const resume = () => {
-    if (raw === 'paused') player.resume();
+    if (waiting) takeBack(key);
+    else if (raw === 'paused') player.resume();
   };
 
   return {
