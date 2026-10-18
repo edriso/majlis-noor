@@ -7,7 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 
 const addReader = (user: ReturnType<typeof userEvent.setup>) =>
@@ -100,6 +100,9 @@ describe('the start screen', () => {
     render(<App />);
     await user.click(screen.getByRole('button', { name: /أضف شيخًا/ }));
     const sheet = screen.getByRole('dialog', { name: 'أضف شيخًا إلى الحلقة' });
+    // A sample plays from its reciter's timings, which the list asks for
+    // as it opens; the sheet opens at once, so they are awaited here.
+    await act(() => vi.dynamicImportSettled());
     // Heard before chosen: the sample button presses and unpresses.
     const sample = within(sheet).getByRole('button', {
       name: /^استمع إلى محمد صديق المنشاوي/,
