@@ -1,14 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
+import { render } from '@testing-library/react';
+import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { App } from '@/App';
 import { defaultPrefs } from '@/halaqa/state';
-import { DEFAULT_THEME, THEME_TOKENS, THEMES, themeHtml } from './themes';
+import { LEGACY_KEYS, STORAGE_KEY } from '@/halaqa/storage';
+import {
+  bootScript,
+  DEFAULT_THEME,
+  FIRST_VISIT,
+  systemTheme,
+  THEME_TOKENS,
+  THEMES,
+  themeHtml,
+} from './themes';
 
 /* themes.ts carries the theme colours that script and HTML need, and
    tokens.css defines the themes for the stylesheets. These tests keep the
    two from drifting, and check that the HTML written from themes.ts still
-   paints a saved theme before the bundle loads. */
+   paints a saved theme before the bundle loads, and a first visit in the
+   system's light or dark, as the app itself then opens. */
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const tokens = read('src/styles/tokens.css');
@@ -47,8 +60,9 @@ describe('themes.ts and tokens.css', () => {
     },
   );
 
-  it('agree on the default, which is also a first visit’s', () => {
+  it('agree on the default, which a dark system’s first visit takes', () => {
     expect(DEFAULT_THEME).toBe(defaultPrefs.theme);
+    expect(FIRST_VISIT.dark).toBe(DEFAULT_THEME);
     // The default theme's rule is the one that also styles a bare :root.
     expect(tokens).toContain(`:root,\n:root[data-theme='${DEFAULT_THEME}'] {`);
   });
@@ -105,9 +119,16 @@ describe('index.html as the build writes it', () => {
     expect(style).toContain('color: var(--boot-gold)');
   });
 
+  /** A system that prefers light or dark, as `matchMedia` answers it. */
+  const system = (scheme: 'light' | 'dark') => (query: string) =>
+    ({
+      matches: query === `(prefers-color-scheme: ${scheme})`,
+    }) as MediaQueryList;
+
   /** Runs the inline boot script against this document, as the browser
-      runs it before the bundle. */
-  const boot = () => {
+      runs it before the bundle, on a system that prefers `scheme`, or on
+      one that cannot say. */
+  const boot = (scheme?: 'light' | 'dark') => {
     const page = new DOMParser().parseFromString(html, 'text/html');
     const script = [...page.querySelectorAll('head script')].find(
       (s) => !s.getAttribute('src'),
@@ -115,7 +136,11 @@ describe('index.html as the build writes it', () => {
     expect(script).toBeTruthy();
     document.head.innerHTML = `<meta name="theme-color" content="${THEMES[DEFAULT_THEME].ground}">`;
     // Nothing but what a page has before any of its bundle has run.
-    runInNewContext(script!, { document, localStorage });
+    runInNewContext(script!, {
+      document,
+      localStorage,
+      ...(scheme ? { matchMedia: system(scheme) } : {}),
+    });
     return {
       theme: document.documentElement.dataset.theme,
       color: document
@@ -143,22 +168,108 @@ describe('index.html as the build writes it', () => {
     });
   });
 
-  it('leaves the default for a theme it does not know, or no theme', () => {
+  it('leaves the default for a theme it does not know', () => {
     localStorage.setItem(
       'majlis-noor:v1',
       JSON.stringify({ prefs: { theme: 'neon' } }),
     );
-    expect(boot()).toEqual({
+    expect(boot('light')).toEqual({
       theme: undefined,
       color: THEMES[DEFAULT_THEME].ground,
     });
-    localStorage.setItem('majlis-noor:v1', '{not json');
+  });
+
+  it('paints a first visit in the system’s light or dark', () => {
+    expect(boot('light')).toEqual({
+      theme: FIRST_VISIT.light,
+      color: THEMES[FIRST_VISIT.light].ground,
+    });
+    expect(boot('dark')).toEqual({
+      theme: FIRST_VISIT.dark,
+      color: THEMES[FIRST_VISIT.dark].ground,
+    });
+    // A browser that cannot say keeps the default.
     expect(boot().color).toBe(THEMES[DEFAULT_THEME].ground);
+  });
+
+  it('takes the system’s side for a saved value it cannot read, as the app does', () => {
+    localStorage.setItem('majlis-noor:v1', '{not json');
+    expect(boot('light').theme).toBe(FIRST_VISIT.light);
+  });
+
+  it('never lets the system outweigh a saved halaqa', () => {
+    localStorage.setItem(
+      'majlis-noor:v1',
+      JSON.stringify({ prefs: { theme: 'green' } }),
+    );
+    expect(boot('light').theme).toBe('green');
+    // Saved before themes could be chosen: the default, as the app reads it.
+    localStorage.setItem('majlis-ayah:v1', JSON.stringify({ readers: ['أ'] }));
+    localStorage.removeItem('majlis-noor:v1');
+    expect(boot('light').color).toBe(THEMES[DEFAULT_THEME].ground);
   });
 
   it('fails the build if index.html loses a token', () => {
     expect(() =>
-      themeHtml(read('index.html').replace('%THEME_COLORS%', '{}')),
-    ).toThrow(/%THEME_COLORS%/);
+      themeHtml(read('index.html').replace('%THEME_SCRIPT%', '')),
+    ).toThrow(/%THEME_SCRIPT%/);
   });
+});
+
+describe('a first visit', () => {
+  const original = window.matchMedia;
+  afterEach(() => {
+    window.matchMedia = original;
+    delete document.documentElement.dataset.theme;
+  });
+  const prefer = (scheme: 'light' | 'dark') => {
+    window.matchMedia = ((query: string) => ({
+      matches: query === `(prefers-color-scheme: ${scheme})`,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  };
+
+  it('is sand by day and green by night', () => {
+    prefer('light');
+    expect(systemTheme()).toBe('sand');
+    prefer('dark');
+    expect(systemTheme()).toBe('green');
+  });
+
+  it('opens the app in the system’s theme with nothing saved', () => {
+    prefer('light');
+    render(createElement(App));
+    expect(document.documentElement.dataset.theme).toBe('sand');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).prefs.theme).toBe(
+      'sand',
+    );
+  });
+
+  it('opens it in the saved theme whatever the system says', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ prefs: { theme: 'blue' } }),
+    );
+    prefer('light');
+    render(createElement(App));
+    expect(document.documentElement.dataset.theme).toBe('blue');
+  });
+
+  it('reads the halaqa under the keys the app keeps it under', () => {
+    expect(bootScript()).toContain(
+      JSON.stringify([STORAGE_KEY, ...LEGACY_KEYS]),
+    );
+  });
+});
+
+/* Each theme tells the browser whether it is light or dark, so its own
+   controls, scrollbars and form fields follow the ground. */
+it.each(Object.keys(THEMES))('%s says whether it is light or dark', (theme) => {
+  const rule = tokens.slice(tokens.indexOf(`:root[data-theme='${theme}']`));
+  const scheme = /color-scheme:\s*(light|dark)/.exec(
+    rule.slice(0, rule.indexOf('}')),
+  )?.[1];
+  expect(scheme).toBe(theme === 'sand' ? 'light' : 'dark');
 });

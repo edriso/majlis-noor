@@ -4,7 +4,8 @@
    bundle loads and given to the browser's own chrome, the gold the boot
    screen writes the name in, and each theme's dot in the colour choice.
    themes.test.ts fails if a value here and its token disagree, and
-   vite.config.ts writes index.html's copies from here at build time. */
+   vite.config.ts writes index.html's copies from here at build time,
+   with the script that paints a saved theme before the bundle loads. */
 
 import type { Theme } from '../halaqa/state.ts';
 
@@ -25,8 +26,30 @@ export const THEMES: Record<Theme, ThemeColours> = {
   sand: { ground: '#e3dccd', gold: '#7c5714', swatch: '#eadcc0' },
 };
 
-/** The theme of a first visit, and of `:root` with no `data-theme`. */
+/** The theme of `:root` with no `data-theme`, of a saved halaqa that never
+    chose one, and of a first visit on a dark system. */
 export const DEFAULT_THEME: Theme = 'green';
+
+/** A first visit, with nothing saved, takes the system's side: the
+    courtyard by day on a light system, the carpet at night on a dark one.
+    From then on the theme is saved like any other choice, and kept. */
+export const FIRST_VISIT: Record<'light' | 'dark', Theme> = {
+  light: 'sand',
+  dark: DEFAULT_THEME,
+};
+
+/** The theme for a first visit on this device. Without `matchMedia`, the
+    default, as on a dark system. */
+export function systemTheme(): Theme {
+  const light =
+    typeof matchMedia === 'function' &&
+    matchMedia('(prefers-color-scheme: light)').matches;
+  return FIRST_VISIT[light ? 'light' : 'dark'];
+}
+
+/** Where the halaqa is kept, and the old name's key read when it is empty:
+    src/halaqa/storage.ts's, which themes.test.ts holds these to. */
+const KEYS = ['majlis-noor:v1', 'majlis-ayah:v1'];
 
 /** The tokens in index.html that `themeHtml` fills, so a page that lost
     one fails the build instead of shipping a theme with no colour. */
@@ -34,15 +57,56 @@ export const THEME_TOKENS = [
   '%THEME%',
   '%THEME_COLOR%',
   '%THEME_GROUNDS%',
-  '%THEME_COLORS%',
+  '%THEME_SCRIPT%',
 ] as const;
+
+/**
+ * The script index.html runs before the bundle, so that the first paint is
+ * already in the reader's theme. It reads the theme the way the app will
+ * (src/halaqa/storage.ts, then sanitizeState): the halaqa under the app's
+ * key or the old name's; a saved halaqa with no theme, or one it does not
+ * know, keeps the default; nothing saved, or nothing readable, takes the
+ * system's side (`FIRST_VISIT`). Old JavaScript, since it runs in whatever
+ * browser opens the page, and it must never throw.
+ */
+export function bootScript(): string {
+  const colours = JSON.stringify(
+    Object.fromEntries(entries().map(([t, c]) => [t, c.ground])),
+  );
+  const q = JSON.stringify;
+  return `(function () {
+        var colors = ${colours};
+        var theme;
+        try {
+          var keys = ${q(KEYS)};
+          var raw = null;
+          for (var i = 0; i < keys.length && raw === null; i++)
+            raw = localStorage.getItem(keys[i]);
+          if (raw !== null) {
+            var saved = JSON.parse(raw);
+            theme = (saved && saved.prefs && saved.prefs.theme) || ${q(DEFAULT_THEME)};
+          }
+        } catch (_) {}
+        if (!theme)
+          theme =
+            typeof matchMedia === 'function' &&
+            matchMedia('(prefers-color-scheme: light)').matches
+              ? ${q(FIRST_VISIT.light)}
+              : ${q(FIRST_VISIT.dark)};
+        if (colors[theme]) {
+          document.documentElement.dataset.theme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', colors[theme]);
+        }
+      })();`;
+}
 
 /**
  * index.html with its theme colours written in: the default theme on
  * `<html>`, its ground as `theme-color`, each theme's ground and boot gold as
- * CSS for the boot screen, and the grounds again as the map the inline boot
- * script reads. That script runs before the bundle, so it cannot import
- * this; the build hands it its own copy instead.
+ * CSS for the boot screen, and the boot script (`bootScript`). That script
+ * runs before the bundle, so it cannot import this; the build hands it its
+ * own copy instead.
  */
 export function themeHtml(html: string): string {
   const missing = THEME_TOKENS.filter((t) => !html.includes(t));
@@ -58,14 +122,14 @@ export function themeHtml(html: string): string {
       .filter(([t]) => t !== DEFAULT_THEME)
       .map(([t, c]) => rule(`html[data-theme='${t}']`, c)),
   ].join('\n      ');
-  const colors = JSON.stringify(
-    Object.fromEntries(entries().map(([t, c]) => [t, c.ground])),
+  return (
+    html
+      // A function, so nothing in the script is read as a `$&` pattern.
+      .replaceAll('%THEME_SCRIPT%', () => bootScript())
+      .replaceAll('%THEME_GROUNDS%', grounds)
+      .replaceAll('%THEME_COLOR%', THEMES[DEFAULT_THEME].ground)
+      .replaceAll('%THEME%', DEFAULT_THEME)
   );
-  return html
-    .replaceAll('%THEME_COLORS%', colors)
-    .replaceAll('%THEME_GROUNDS%', grounds)
-    .replaceAll('%THEME_COLOR%', THEMES[DEFAULT_THEME].ground)
-    .replaceAll('%THEME%', DEFAULT_THEME);
 }
 
 const entries = () => Object.entries(THEMES) as [Theme, ThemeColours][];

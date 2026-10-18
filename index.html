@@ -49,23 +49,11 @@
       body { margin: 0; }
       .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; color: var(--boot-gold); font: 600 28px/1.5 'Reem Kufi', system-ui, sans-serif; }
     </style>
+    <!-- Paints the saved theme, or on a first visit the system's, before
+         the bundle loads. Written in at build time by bootScript() in
+         src/styles/themes.ts, which reads the theme as the app will. -->
     <script>
-      try {
-        // The key the app keeps its halaqa under, or the one it used as
-        // مجلس آية, which src/halaqa/storage.ts adopts on first load.
-        var saved = JSON.parse(
-          localStorage.getItem('majlis-noor:v1') ||
-            localStorage.getItem('majlis-ayah:v1') ||
-            'null'
-        );
-        var theme = saved && saved.prefs && saved.prefs.theme;
-        // Each theme's ground, written in from src/styles/themes.ts.
-        var colors = %THEME_COLORS%;
-        if (colors[theme]) {
-          document.documentElement.dataset.theme = theme;
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', colors[theme]);
-        }
-      } catch (_) {}
+      %THEME_SCRIPT%
     </script>
   </head>
   <body>

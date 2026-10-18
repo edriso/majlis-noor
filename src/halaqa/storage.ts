@@ -14,16 +14,22 @@ import { initialState, sanitizeState, type State } from './state';
 export const STORAGE_KEY = 'majlis-noor:v1';
 export const LEGACY_KEYS = ['majlis-ayah:v1'];
 
-export function loadState(): State {
+/**
+ * The halaqa saved on this device, or `fresh` when there is none: a first
+ * visit, which useHalaqa gives the system's light or dark theme. Anything
+ * saved wins, a theme with it, even one chosen on a system that has since
+ * turned dark; index.html's boot script reads it the same way.
+ */
+export function loadState(fresh: State = initialState): State {
   try {
     const raw = [STORAGE_KEY, ...LEGACY_KEYS]
       .map((key) => localStorage.getItem(key))
       .find((value) => value !== null);
-    return raw ? sanitizeState(JSON.parse(raw)) : initialState;
+    return raw ? sanitizeState(JSON.parse(raw)) : fresh;
   } catch {
     // Storage blocked (a private window, a sandboxed frame) or a corrupt
     // value: start fresh rather than not at all.
-    return initialState;
+    return fresh;
   }
 }
 
