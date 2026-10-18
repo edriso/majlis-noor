@@ -123,9 +123,8 @@ describe('the start screen', () => {
     expect(screen.getByRole('status').textContent).toContain(
       'المنشاوي: المقعد ١ من ٢',
     );
-    // A full circle takes no one else.
-    await addReader(user);
-    await addReader(user);
+    // A full circle, eight seats, takes no one else.
+    for (let i = 0; i < 6; i++) await addReader(user);
     expect(
       screen
         .getByRole('button', { name: /أضف قارئًا/ })

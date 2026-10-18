@@ -16,6 +16,7 @@ import {
   defaultConfig,
   initialState,
   isComplete,
+  MAX_MEMBERS,
   memberName,
   newMember,
   nextStart,
@@ -430,7 +431,7 @@ describe('the circle', () => {
     expect(where(s)).toEqual({ page: 25, reader: 0 });
   });
 
-  it('adds members with the first free id, up to four', () => {
+  it('adds members with the first free id, up to eight', () => {
     const members: Member[] = [person('p1'), person('p3')];
     expect(newMember(members, 'person')!.id).toBe('p2');
     expect(newMember(members, 'reciter', 'alafasy')).toEqual({
@@ -438,8 +439,22 @@ describe('the circle', () => {
       kind: 'reciter',
       reciter: 'alafasy',
     });
-    const full = [...members, person('p2'), person('p4')];
-    expect(newMember(full, 'person')).toBeNull();
+    const seven = [1, 2, 3, 4, 5, 6, 7].map((n) => person(`p${n}`));
+    expect(newMember(seven, 'person')!.id).toBe('p8');
+    expect(newMember([...seven, person('p8')], 'person')).toBeNull();
+    expect(MAX_MEMBERS).toBe(8);
+  });
+
+  it('goes round eight seats', () => {
+    const eight = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => person(`p${n}`));
+    let s = run({ start: page(1), members: eight });
+    const order = [where(s).reader];
+    for (let i = 0; i < 8; i++) {
+      s = finish(s);
+      order.push(where(s).reader);
+    }
+    expect(order).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 0]);
+    expect(where(s).page).toBe(9);
   });
 });
 
@@ -454,6 +469,7 @@ describe('member names', () => {
   });
   it('numbers the rest by who they are, not where they sit', () => {
     expect(memberName(person('p3'))).toBe('القارئ الثالث');
+    expect(memberName(person('p8'))).toBe('القارئ الثامن');
   });
   it('names a reciter by the name he is known by', () => {
     expect(memberName({ id: 'r1', kind: 'reciter', reciter: 'husary' })).toBe(
@@ -1085,7 +1101,25 @@ describe('a saved halaqa', () => {
       person('p2', 'عمر'),
       { id: 'r1', kind: 'reciter', reciter: 'husary' },
       person('p3'),
+      person('p4'),
     ]);
+  });
+
+  it('checks member ids by number, up to eight', () => {
+    const ids = (members: unknown[]) =>
+      sanitizeState({ config: { members } }).config.members.map((m) => m.id);
+    expect(
+      ids([
+        { id: 'p8', kind: 'person' },
+        { id: 'r8', kind: 'reciter' },
+        { id: 'p10', kind: 'person' },
+        { id: 'p01', kind: 'person' },
+        { id: 'r1', kind: 'person' },
+        { id: 'p0', kind: 'person' },
+      ]),
+    ).toEqual(['p8', 'r8', 'p1', 'p2', 'p3', 'p4']);
+    const many = Array.from({ length: 12 }, () => ({ kind: 'person' }));
+    expect(ids(many)).toHaveLength(MAX_MEMBERS);
   });
 
   it('starts fresh from nothing', () => {

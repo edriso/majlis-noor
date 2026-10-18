@@ -15,13 +15,15 @@ import { ReciterFace } from './ReciterAvatar';
 /** Where each seat sits, in degrees with 0 at the right and 90 at the foot.
     The first member sits at the near right, where a right-to-left reader
     starts, and the turn travels round from there, up the right side and
-    over the top. */
-const SEAT_ANGLES: Record<number, number[]> = {
-  1: [90],
-  2: [0, 180],
-  3: [30, -90, 150],
-  4: [45, -45, -135, 135],
-};
+    over the top, the seats evenly spaced: for four, 45, -45, -135, 135. A
+    lone reader sits at the foot. */
+const seatAngles = (n: number) =>
+  n === 1
+    ? [90]
+    : Array.from({ length: n }, (_, i) => {
+        const angle = 90 - 180 / n - (i * 360) / n;
+        return angle <= -180 ? angle + 360 : angle;
+      });
 
 /**
  * The circle: everyone in it, in their order, the one reading lit in gold.
@@ -54,7 +56,7 @@ export function HalaqaCircle({
   sounding?: boolean;
 }) {
   const n = plan.readers;
-  const angles = SEAT_ANGLES[n];
+  const angles = seatAngles(n);
   const active = readerOf(plan, turn);
   const next = readerOf(plan, turn + 1);
   // Cumulative, so the mark keeps turning the same way rather than spinning

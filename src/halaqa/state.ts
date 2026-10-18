@@ -52,9 +52,10 @@ export type Speed = 0.75 | 1 | 1.25;
     runs out or a reciter finishes, since nobody touched the screen. */
 export type Cue = 'chime' | 'none';
 
-/** Four seats: three readers and a reciter, or any mix. More would crowd
-    the circle on a phone, and a bigger gathering has its own teacher. */
-export const MAX_MEMBERS = 4;
+/** Eight seats: a family, a class, or a few readers and a sheikh. More
+    would crowd the circle on a phone, and a bigger gathering has its own
+    teacher. */
+export const MAX_MEMBERS = 8;
 
 /**
  * How much a turn may hold, unit by unit. The start screen offers these and
@@ -188,7 +189,7 @@ export const planOf = (c: Config): Plan => ({
 });
 
 /* Members are told apart by an id that stays with them when the circle is
-   reordered: `p1`…`p4` for people, `r1`…`r4` for reciters. A person's
+   reordered: `p1`…`p8` for people, `r1`…`r8` for reciters. A person's
    default name comes from that number, not from where they sit, so moving
    «القارئ الثاني» up the list moves that reader, visibly, rather than
    renaming two seats. `p1` is the person holding the device: «أنت». */
@@ -214,6 +215,20 @@ export function turnPhrase(m: Member) {
   return isYou(m) ? 'دورك' : `دور ${memberName(m)}`;
 }
 
+const prefixOf = (kind: MemberKind) => (kind === 'person' ? 'p' : 'r');
+
+/** The number in an id a member of this kind may have, or null. Read as
+    digits and bounded, rather than matched against a character class,
+    which could not count past nine; and written plainly, so «p01» is not a
+    second «p1». */
+function idNumber(id: unknown, kind: MemberKind) {
+  if (typeof id !== 'string' || !/^[pr]\d+$/.test(id)) return null;
+  const n = Number(id.slice(1));
+  return id === `${prefixOf(kind)}${n}` && n >= 1 && n <= MAX_MEMBERS
+    ? n
+    : null;
+}
+
 /** A new member of the given kind, with the first id not taken. Returns
     null when the circle is full. */
 export function newMember(
@@ -222,11 +237,10 @@ export function newMember(
   reciter: string = defaultReciter,
 ): Member | null {
   if (members.length >= MAX_MEMBERS) return null;
-  const prefix = kind === 'person' ? 'p' : 'r';
   const taken = new Set(members.map((m) => m.id));
   let n = 1;
-  while (taken.has(`${prefix}${n}`)) n++;
-  const id = `${prefix}${n}`;
+  while (taken.has(`${prefixOf(kind)}${n}`)) n++;
+  const id = `${prefixOf(kind)}${n}`;
   return kind === 'person' ? { id, kind, name: '' } : { id, kind, reciter };
 }
 
@@ -720,11 +734,6 @@ const intIn = (v: unknown, min: number, max: number, fallback: number) =>
 const knownReciter = (id: unknown) =>
   reciters.some((r) => r.id === id) ? (id as string) : defaultReciter;
 
-const idPattern: Record<MemberKind, RegExp> = {
-  person: new RegExp(`^p[1-${MAX_MEMBERS}]$`),
-  reciter: new RegExp(`^r[1-${MAX_MEMBERS}]$`),
-};
-
 /** The members of a stored configuration, repaired: each a known kind with a
     unique id of its kind, a person's name a string of at most 40
     characters, a reciter one that exists. A configuration saved before
@@ -743,8 +752,7 @@ function sanitizeMembers(c: Record<string, unknown>): Member[] {
     const m = item as Record<string, unknown>;
     const kind: MemberKind = m.kind === 'reciter' ? 'reciter' : 'person';
     const own =
-      typeof m.id === 'string' &&
-      idPattern[kind].test(m.id) &&
+      idNumber(m.id, kind) !== null &&
       !members.some((other) => other.id === m.id);
     const id = own ? (m.id as string) : newMember(members, kind)!.id;
     members.push(
