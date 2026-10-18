@@ -1,16 +1,35 @@
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { BASMALA_GLYPHS } from '@/mushaf/MushafPage';
 import {
+  AYAH_COUNT,
+  ayahIndex,
+  ayahOfKey,
+  ayatOfPage,
+  firstAyahOfPage,
+  juzOfAyah,
   juzOfPage,
+  juzRange,
   juzStarts,
   loadedPage,
   loadPage,
   PAGE_COUNT,
+  pageOfAyah,
+  pagesOfRange,
+  RUB_COUNT,
   rubLabel,
+  rubOfAyah,
+  rubOfPage,
+  rubRange,
+  rubStart,
+  surahOfAyah,
   surahOfPage,
+  surahRange,
   surahs,
+  verseKey,
+  verseOf,
   type Page,
 } from './mushaf';
 
@@ -19,11 +38,24 @@ import {
 // jsdom's URL is not one Node's file functions accept.)
 const dir = join(import.meta.dirname, '../../public/pages');
 const files = readdirSync(dir);
-const pages: Page[] = Array.from(
-  { length: PAGE_COUNT },
-  (_, i) =>
-    JSON.parse(readFileSync(join(dir, `${i + 1}.json`), 'utf8')) as Page,
+const raw = Array.from({ length: PAGE_COUNT }, (_, i) =>
+  readFileSync(join(dir, `${i + 1}.json`), 'utf8'),
 );
+const pages: Page[] = raw.map((text) => JSON.parse(text) as Page);
+
+/** Every ayah's verse key on a page, in reading order, each once. */
+const keysOf = (p: Page) => [
+  ...new Set(
+    p.lines.flatMap((l) => (l.t === 'text' ? l.w.map(([, k]) => k) : [])),
+  ),
+];
+
+/** Every verse key in the Mushaf in reading order: index i is ayah i + 1. */
+const order = pages.flatMap(keysOf);
+
+/** SHA-256 of the 604 page files read in order, as built on 2026-10-04. */
+const PAGES_SHA256 =
+  '376544220476eb2927a65559afcad10b24727c50481cdbf5049ebf835b8cafa4';
 
 describe('the Mushaf', () => {
   it('has exactly 604 pages', () => {
@@ -31,6 +63,15 @@ describe('the Mushaf', () => {
     expect(pages.map((p) => p.page)).toEqual(
       Array.from({ length: PAGE_COUNT }, (_, i) => i + 1),
     );
+  });
+
+  it('is, byte for byte, the Mushaf that was built and checked', () => {
+    // Rebuilding the pages must leave every file exactly as it is. A change
+    // here is a change to the Quran's pages: it needs a reason, a review of
+    // every page it touches, and then this digest.
+    const digest = createHash('sha256');
+    for (const text of raw) digest.update(text);
+    expect(digest.digest('hex')).toBe(PAGES_SHA256);
   });
 
   it('sets every page on 15 lines, and the opening two on 8', () => {
@@ -107,6 +148,115 @@ describe('the Mushaf', () => {
     expect(rubLabel(2)).toBe('ربع الحزب ١');
     expect(rubLabel(7)).toBe('نصف الحزب ٢');
     expect(rubLabel(240)).toBe('ثلاثة أرباع الحزب ٦٠');
+  });
+});
+
+describe('the index, checked against the pages', () => {
+  it('numbers every ayah through the Mushaf, both ways', () => {
+    expect(order).toHaveLength(AYAH_COUNT);
+    order.forEach((key, i) => {
+      expect(ayahOfKey(key), key).toBe(i + 1);
+      expect(verseKey(i + 1)).toBe(key);
+    });
+    expect(ayahIndex(2, 255)).toBe(262);
+    expect(verseOf(262)).toEqual({ surah: 2, ayah: 255 });
+    expect(verseOf(1)).toEqual({ surah: 1, ayah: 1 });
+    expect(verseOf(AYAH_COUNT)).toEqual({ surah: 114, ayah: 6 });
+  });
+
+  it('knows the first ayah of every page, and the page of every ayah', () => {
+    for (const p of pages) {
+      const keys = keysOf(p);
+      expect(firstAyahOfPage(p.page), `page ${p.page}`).toBe(
+        ayahOfKey(keys[0]),
+      );
+      const { from, to } = ayatOfPage(p.page);
+      expect(order.slice(from - 1, to - 1)).toEqual(keys);
+      for (const key of keys) expect(pageOfAyah(ayahOfKey(key))).toBe(p.page);
+    }
+    // The page after the last begins just past the end, so the last page
+    // is a stretch like any other.
+    expect(firstAyahOfPage(PAGE_COUNT + 1)).toBe(AYAH_COUNT + 1);
+    expect(ayatOfPage(PAGE_COUNT)).toEqual({ from: 6222, to: 6237 });
+  });
+
+  it('gives each surah its ayat', () => {
+    for (const s of surahs) {
+      const { from, to } = surahRange(s.n);
+      expect(to - from, s.name).toBe(s.ayat);
+      expect(order[from - 1]).toBe(`${s.n}:1`);
+      expect(surahOfAyah(from)).toBe(s.n);
+      expect(surahOfAyah(to - 1)).toBe(s.n);
+      // The header is on the page of the first ayah, or at the foot of the
+      // page before it, where a surah begins on a new page.
+      expect(pageOfAyah(from) - s.page, s.name).toBeOneOf([0, 1]);
+    }
+    expect(surahRange(1)).toEqual({ from: 1, to: 8 });
+    expect(surahRange(114)).toEqual({ from: 6231, to: 6237 });
+  });
+
+  it('begins the hizb quarters where the print does', () => {
+    /* The print sets ۞ at the head of a quarter. The pages' readable text
+       is cut into ayat by the end-of-ayah marks, ﴿٧﴾, so the n-th piece is
+       ayah n, and a ۞ in it marks that ayah. */
+    const text = pages
+      .flatMap((p) => p.lines.flatMap((l) => (l.t === 'text' ? [l.x] : [])))
+      .join(' ');
+    const pieces = text.split(/﴿[^﴾]+﴾/).slice(0, -1);
+    expect(pieces).toHaveLength(AYAH_COUNT);
+    const marked = pieces.flatMap((t, i) => (t.includes('۞') ? [i + 1] : []));
+    const quarters = Array.from({ length: RUB_COUNT }, (_, i) =>
+      rubStart(i + 1),
+    );
+    expect(quarters).toEqual([...quarters].sort((a, b) => a - b));
+    expect(marked).toHaveLength(199);
+    expect(marked.every((a) => quarters.includes(a))).toBe(true);
+    // The other 41 open a surah, where the header stands instead of a ۞.
+    const opening = quarters.filter((a) => !marked.includes(a));
+    expect(opening).toHaveLength(41);
+    for (const a of opening) expect(verseOf(a).ayah, verseKey(a)).toBe(1);
+    expect(rubStart(RUB_COUNT + 1)).toBe(AYAH_COUNT + 1);
+    for (let n = 1; n <= RUB_COUNT; n++) {
+      expect(rubOfAyah(rubStart(n))).toBe(n);
+      expect(rubOfAyah(rubStart(n + 1) - 1)).toBe(n);
+      expect(rubRange(n)).toEqual({ from: rubStart(n), to: rubStart(n + 1) });
+    }
+  });
+
+  it('agrees with every page on its surah, juz and quarters', () => {
+    for (const p of pages) {
+      const ayat = keysOf(p).map(ayahOfKey);
+      expect(surahOfPage(p.page).n, `page ${p.page}`).toBe(p.surahs[0]);
+      expect(juzOfPage(p.page), `page ${p.page}`).toBe(p.juz);
+      expect(rubOfPage(p.page), `page ${p.page}`).toBe(p.rubs[0]);
+      expect([...new Set(ayat.map(rubOfAyah))]).toEqual(p.rubs);
+      expect([...new Set(ayat.map(surahOfAyah))]).toEqual(p.surahs);
+    }
+  });
+
+  it('starts every juz on a hizb, eight quarters apart', () => {
+    for (let j = 1; j <= 30; j++) {
+      expect(juzRange(j).from).toBe(rubStart(8 * (j - 1) + 1));
+      expect(juzOfAyah(juzRange(j).from)).toBe(j);
+    }
+    expect(juzRange(30).to).toBe(AYAH_COUNT + 1);
+    // `juzStarts` names the first page the margin gives each juz, so a juz
+    // that begins part-way down a page is found on the page after it.
+    expect(juzStarts).toEqual(
+      Array.from(
+        { length: 30 },
+        (_, j) => pages.findIndex((p) => p.juz === j + 1) + 1,
+      ),
+    );
+    expect(verseKey(juzRange(4).from)).toBe('3:93');
+    expect(juzStarts[3]).toBe(pageOfAyah(juzRange(4).from) + 1);
+  });
+
+  it('finds the pages a stretch of ayat is read on', () => {
+    expect(pagesOfRange(surahRange(1))).toEqual([1]);
+    expect(pagesOfRange({ from: 6, to: 10 })).toEqual([1, 2]);
+    expect(pagesOfRange(juzRange(30))).toHaveLength(23);
+    expect(pagesOfRange({ from: 9, to: 9 })).toEqual([]);
   });
 });
 

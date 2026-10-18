@@ -1,8 +1,9 @@
 /* The Mushaf: 604 pages of the King Fahd Complex Madani print (1421H).
 
    `mushaf.json` is the small index every screen needs without opening a page:
-   the 114 surahs and, per page, its first surah, juz and hizb quarter. The
-   pages themselves are one JSON file each in public/pages, fetched when they
+   the 114 surahs, and where every surah, juz, hizb quarter and page begins,
+   as the number of its first ayah through the whole Mushaf. The pages
+   themselves are one JSON file each in public/pages, fetched when they
    are about to be read. Both are built by scripts/build-mushaf.ts and
    committed. */
 
@@ -46,23 +47,118 @@ export type Page = {
 };
 
 export const surahs = index.surahs as Surah[];
-const pageMeta = index.pages as [surah: number, juz: number, rub: number][];
 
 export const surah = (n: number) => surahs[n - 1];
 
 export const clampPage = (p: number) =>
   Math.min(PAGE_COUNT, Math.max(1, Math.round(p) || 1));
 
-/** The surah a page is named by: the first one with text on it. */
-export const surahOfPage = (p: number) => surah(pageMeta[clampPage(p) - 1][0]);
-export const juzOfPage = (p: number) => pageMeta[clampPage(p) - 1][1];
-export const rubOfPage = (p: number) => pageMeta[clampPage(p) - 1][2];
+/* Every ayah has a number through the whole Mushaf, 1 (al-Fatihah 1) to
+   6236 (an-Nas 6), and the index gives the first ayah of every surah, juz,
+   hizb quarter and page in those numbers. Each is then a half-open stretch,
+   [its first ayah, the next one's first ayah), with nothing left between
+   them, because the Madani print ends every page on a whole ayah. */
 
-/** The page each juz begins on, 1 to 30. */
-export const juzStarts: number[] = Array.from(
-  { length: 30 },
-  (_, i) => pageMeta.findIndex(([, juz]) => juz === i + 1) + 1,
-);
+export const AYAH_COUNT = 6236;
+export const RUB_COUNT = 240;
+export const JUZ_COUNT = 30;
+export const SURAH_COUNT = 114;
+
+/** A half-open stretch of global ayah numbers, `from` read and `to` not:
+    {from: 8, to: 11} is al-Baqarah 1 to 3. Empty when `to <= from`. */
+export type AyahRange = { from: number; to: number };
+
+/** Where a surah's ayah is: al-Baqarah 255 is {surah: 2, ayah: 255}. */
+export type Verse = { surah: number; ayah: number };
+
+const starts = index.starts;
+
+/** The number of the stretch that holds `n`: the last start not after it.
+    `list` rises from 1, so a binary search finds it; numbers before or
+    after the Mushaf answer the first or last stretch. */
+function stretchOf(list: readonly number[], n: number) {
+  let lo = 0;
+  let hi = list.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (list[mid] <= n) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
+}
+
+/** The first ayah of stretch `n` of `list`, where the one after the last
+    begins just past the end of the Mushaf. */
+const startOf = (list: readonly number[], n: number) =>
+  n > list.length ? AYAH_COUNT + 1 : list[n - 1];
+
+const rangeOf = (list: readonly number[], n: number): AyahRange => ({
+  from: startOf(list, n),
+  to: startOf(list, n + 1),
+});
+
+/** An ayah's number through the whole Mushaf: ayahIndex(2, 255) is 262. */
+export const ayahIndex = (s: number, ayah: number) =>
+  starts.surahs[s - 1] + ayah - 1;
+
+/** The surah and ayah of a global ayah number: the reverse of ayahIndex. */
+export function verseOf(index: number): Verse {
+  const s = stretchOf(starts.surahs, index);
+  return { surah: s, ayah: index - starts.surahs[s - 1] + 1 };
+}
+
+/** «2:255», the verse key the page data and the timings use. */
+export function verseKey(index: number) {
+  const { surah: s, ayah } = verseOf(index);
+  return `${s}:${ayah}`;
+}
+
+/** The global number of a verse key such as «2:255». */
+export function ayahOfKey(key: string) {
+  const [s, ayah] = key.split(':').map(Number);
+  return ayahIndex(s, ayah);
+}
+
+export const surahOfAyah = (index: number) => stretchOf(starts.surahs, index);
+export const juzOfAyah = (index: number) => stretchOf(starts.juz, index);
+export const rubOfAyah = (index: number) => stretchOf(starts.rubs, index);
+export const pageOfAyah = (index: number) => stretchOf(starts.pages, index);
+
+/** The first ayah on a page; page 605 answers the end of the Mushaf. */
+export const firstAyahOfPage = (p: number) => startOf(starts.pages, p);
+/** The first ayah of a hizb quarter, 1 to 240; 241 is the end. */
+export const rubStart = (n: number) => startOf(starts.rubs, n);
+
+export const ayatOfPage = (p: number) => rangeOf(starts.pages, p);
+export const surahRange = (s: number) => rangeOf(starts.surahs, s);
+export const juzRange = (j: number) => rangeOf(starts.juz, j);
+export const rubRange = (n: number) => rangeOf(starts.rubs, n);
+
+/** The pages an ayah range is read on, in order: none for an empty one. */
+export function pagesOfRange({ from, to }: AyahRange) {
+  if (to <= from) return [];
+  const first = pageOfAyah(from);
+  const last = pageOfAyah(to - 1);
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+}
+
+/** The surah a page is named by: the first one with text on it, which is
+    the surah of its first ayah, since no page begins inside one. */
+export const surahOfPage = (p: number) =>
+  surah(surahOfAyah(firstAyahOfPage(clampPage(p))));
+/** The juz of a page's first ayah, as its margin names it. */
+export const juzOfPage = (p: number) =>
+  juzOfAyah(firstAyahOfPage(clampPage(p)));
+export const rubOfPage = (p: number) =>
+  rubOfAyah(firstAyahOfPage(clampPage(p)));
+
+/** The first page whose first ayah is in each juz, 1 to 30. Four juz begin
+    part-way down a page (4, 7, 11 and 26); this names the page after it,
+    the first one the margin gives to the juz. `juzRange` has the ayah. */
+export const juzStarts: number[] = Array.from({ length: JUZ_COUNT }, (_, i) => {
+  const first = pageOfAyah(starts.juz[i]);
+  return firstAyahOfPage(first) === starts.juz[i] ? first : first + 1;
+});
 
 /**
  * Where a hizb quarter sits, as the margin of the Mushaf names it: the hizb,

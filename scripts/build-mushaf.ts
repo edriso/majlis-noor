@@ -12,7 +12,12 @@
                                      app when a page is about to be read
      src/data/mushaf.json            the index every screen needs without
                                      loading a page: the 114 surahs, and the
-                                     juz, hizb quarter and surah of each page
+                                     first ayah of every surah, juz, hizb
+                                     quarter and page, numbered 1 to 6236
+                                     through the whole Mushaf
+
+   The index is written compact; run `npm run format` after a build, as for
+   any other committed file.
 
    The layout is the King Fahd Complex Madani Mushaf (1421H print), the one
    whose page fonts Quran.com serves as "v2". Each page has its own font, and
@@ -168,9 +173,19 @@ if (headers !== 114) throw new Error(`${headers} surah headers, expected 114`);
 const verseOf = new Map<string, ApiVerse>();
 for (const w of words.values()) verseOf.set(w.verse.verse_key, w.verse);
 
-type PageMeta = [surah: number, juz: number, rub: number];
-const pageMeta: PageMeta[] = [];
 const surahStart = new Map<number, number>();
+
+/* Every ayah in reading order. An ayah's place in this list, counted from
+   1, is its number in the whole Mushaf (1 to 6236), which is what the index
+   below is written in: a page, a hizb quarter, a juz or a surah is then a
+   half-open stretch of those numbers, and the page of an ayah is a search,
+   not a lookup in a table of 6,236 entries. */
+const order: string[] = [];
+const pageStarts: number[] = [];
+/* A rebuild is expected to write every page exactly as it was: the pages
+   are the Quran, and mushaf.test.ts pins their digest. Any page that comes
+   out different is named at the end, to be reviewed before anything else. */
+const changed: number[] = [];
 
 for (let p = 1; p <= PAGES; p++) {
   const lines = grid[p].slice(1, lineCount(p) + 1) as Line[];
@@ -179,6 +194,12 @@ for (let p = 1; p <= PAGES; p++) {
   );
   const unique = [...new Set(keys)];
   for (const l of lines) if (l.t === 'surah') surahStart.set(l.s, p);
+  // The Madani print ends every page on a whole ayah, so every page begins
+  // a new one; the index relies on that.
+  if (unique[0] === order.at(-1))
+    throw new Error(`page ${p} begins inside ${unique[0]}`);
+  pageStarts.push(order.length + 1);
+  order.push(...unique);
 
   // The page is named after the first ayah that *starts* on it, as the
   // printed Mushaf names it in its margin; a page whose top line finishes the
@@ -194,19 +215,58 @@ for (let p = 1; p <= PAGES; p++) {
     ...new Set(unique.map((k) => verseOf.get(k)!.rub_el_hizb_number)),
   ];
 
-  pageMeta.push([surahs[0], first.juz_number, first.rub_el_hizb_number]);
-  await writeFile(
-    `${PAGES_OUT}/${p}.json`,
-    JSON.stringify({
-      page: p,
-      surahs,
-      juz: first.juz_number,
-      rubs,
-      ...(sajdah.length ? { sajdah } : {}),
-      lines,
-    }),
-  );
+  const file = `${PAGES_OUT}/${p}.json`;
+  const json = JSON.stringify({
+    page: p,
+    surahs,
+    juz: first.juz_number,
+    rubs,
+    ...(sajdah.length ? { sajdah } : {}),
+    lines,
+  });
+  if (!existsSync(file) || (await readFile(file, 'utf8')) !== json)
+    changed.push(p);
+  await writeFile(file, json);
 }
+
+if (order.length !== 6236) throw new Error(`${order.length} ayat`);
+
+/** Where each value of `field` first appears in reading order, as global
+    ayah numbers; the values must run 1, 2, 3 … with none missing. */
+function startsOf(field: (v: ApiVerse) => number, count: number) {
+  const starts: number[] = [];
+  order.forEach((key, i) => {
+    const n = field(verseOf.get(key)!);
+    if (n === starts.length) return;
+    if (n !== starts.length + 1) throw new Error(`${key}: ${n} out of order`);
+    starts.push(i + 1);
+  });
+  if (starts.length !== count)
+    throw new Error(`${starts.length} starts, expected ${count}`);
+  return starts;
+}
+
+const surahStarts = startsOf((v) => Number(v.verse_key.split(':')[0]), 114);
+chapters.forEach((c, i) => {
+  const next = surahStarts[i + 1] ?? order.length + 1;
+  if (next - surahStarts[i] !== c.verses_count)
+    throw new Error(`surah ${c.id}: ${next - surahStarts[i]} ayat`);
+});
+const juzStarts = startsOf((v) => v.juz_number, 30);
+const rubStarts = startsOf((v) => v.rub_el_hizb_number, 240);
+
+/* The quarters are the API's, and they must be the print's: the 1421H text
+   sets a ۞ at the head of every quarter except those that open a surah,
+   where the surah's header stands instead. (Tanzil's quarters follow the
+   1405H print and disagree in places; they are not to be mixed in.) */
+const marked = order.flatMap((key, i) =>
+  verseOf.get(key)!.text_uthmani.includes('۞') ? [i + 1] : [],
+);
+const unmarked = rubStarts.filter((a) => !marked.includes(a));
+if (marked.some((a) => !rubStarts.includes(a)))
+  throw new Error('a ۞ stands where no quarter begins');
+if (unmarked.some((a) => !order[a - 1].endsWith(':1')))
+  throw new Error('a quarter begins with neither a ۞ nor a surah');
 
 const index = {
   source:
@@ -218,7 +278,18 @@ const index = {
     page: surahStart.get(c.id)!,
     place: c.revelation_place,
   })),
-  pages: pageMeta,
+  // The first ayah of each, as its number in the whole Mushaf.
+  starts: {
+    surahs: surahStarts,
+    juz: juzStarts,
+    rubs: rubStarts,
+    pages: pageStarts,
+  },
 };
 await writeFile(`${OUT}/mushaf.json`, JSON.stringify(index));
 console.log(`wrote ${PAGES} pages to ${PAGES_OUT} and ${OUT}/mushaf.json`);
+console.log(
+  changed.length
+    ? `CHANGED: ${changed.length} pages differ from before (${changed.join(', ')}). Review every one.`
+    : 'every page is byte for byte as it was',
+);
