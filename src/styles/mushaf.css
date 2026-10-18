@@ -132,6 +132,22 @@
   text-align-last: justify;
   white-space: nowrap;
 }
+/* Measured and never seen (see MushafPage): each line at its natural
+   width, which changes when a font for any of its letters comes in. */
+.mushaf-probes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: var(--font-quran);
+  font-size: 0.74em;
+}
+.mushaf-probes > span {
+  display: block;
+  width: max-content;
+  white-space: nowrap;
+}
 
 /* The opening two pages: eight lines, set narrower and centred in the
    middle of the page, as the print sets al-Fatihah and the start of

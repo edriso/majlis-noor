@@ -163,56 +163,79 @@ describe('a page drawn in its own font', () => {
     ).toEqual(LINES);
     expect(screen.queryByText(FONT_NOTE)).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
+    expect(article().querySelector('.mushaf-probes')).toBeNull();
+  });
+});
+
+describe('the fallback lines', () => {
+  it('are measured by an unseen copy of each, hidden from screen readers', async () => {
+    vi.mocked(loadPageFont).mockRejectedValue(new Error('blocked'));
+    render(<MushafPage page={77} />);
+    await screen.findByText(FONT_NOTE);
+    const probes = article().querySelector('.mushaf-probes');
+    expect(probes?.getAttribute('aria-hidden')).toBe('true');
+    expect([...(probes?.children ?? [])].map((p) => p.textContent)).toEqual(
+      LINES,
+    );
   });
 });
 
 describe('fitLines', () => {
-  /** A line of text `natural` pixels long at its normal size, in a row
-      `room` pixels wide, that grows and shrinks with its `--fit`. */
-  function line(natural: number, room: number) {
+  /** An element `width` pixels wide, as a browser would measure it. */
+  function sized(width: () => number) {
     const el = document.createElement('span');
-    const fit = () => Number(el.style.getPropertyValue('--fit') || 1);
-    Object.defineProperties(el, {
-      clientWidth: { get: () => room },
-      // A line that fits is justified to the full row; one that does not
-      // overflows it. Browsers round both to whole pixels.
-      scrollWidth: {
-        get: () => Math.max(room, Math.round(natural * fit())),
-      },
-    });
+    el.getBoundingClientRect = () => new DOMRect(0, 0, width(), 20);
     return el;
   }
 
+  /** A line whose text is `natural` pixels long at its normal size, in a
+      row `room` pixels wide, and its probe. `drawn()` is how wide the text
+      is drawn at the `--fit` it was given. */
+  function line(natural: number, room: number) {
+    const probe = sized(() => natural);
+    const el = sized(() => room);
+    const drawn = () =>
+      natural * Number(el.style.getPropertyValue('--fit') || 1);
+    return { el, probe, drawn, room };
+  }
+
+  const fit = (lines: ReturnType<typeof line>[]) =>
+    fitLines(
+      lines.map((l) => l.el),
+      lines.map((l) => l.probe),
+    );
+
   it('makes a line that is too wide just small enough to fit', () => {
     const wide = line(347, 330);
-    fitLines([wide]);
-    const scale = Number(wide.style.getPropertyValue('--fit'));
-    expect(scale).toBeLessThan(330 / 347);
-    expect(scale).toBeGreaterThan(0.94);
-    expect(wide.scrollWidth).toBeLessThanOrEqual(wide.clientWidth);
+    fit([wide]);
+    expect(wide.drawn()).toBeLessThanOrEqual(330);
+    expect(wide.drawn()).toBeGreaterThan(325);
   });
 
   it('never makes a line larger than its normal size', () => {
     const short = line(200, 330);
-    fitLines([short]);
-    expect(short.style.getPropertyValue('--fit')).toBe('');
+    fit([short]);
+    expect(short.el.style.getPropertyValue('--fit')).toBe('');
   });
 
   it('fits each line on its own', () => {
     const lines = [line(300, 330), line(400, 330), line(331, 330)];
-    fitLines(lines);
-    const scales = lines.map((l) => l.style.getPropertyValue('--fit'));
-    expect(scales[0]).toBe('');
-    expect(Number(scales[1])).toBeLessThan(Number(scales[2]));
-    for (const l of lines)
-      expect(l.scrollWidth).toBeLessThanOrEqual(l.clientWidth);
+    fit(lines);
+    expect(lines[0].el.style.getPropertyValue('--fit')).toBe('');
+    for (const l of lines) expect(l.drawn()).toBeLessThanOrEqual(l.room);
+    expect(lines[1].drawn()).toBeGreaterThan(325);
+    expect(lines[2].drawn()).toBeGreaterThan(325);
   });
 
-  it('measures afresh each time, as when the page is resized', () => {
-    const wide = line(347, 330);
-    fitLines([wide]);
-    const first = wide.style.getPropertyValue('--fit');
-    fitLines([wide]);
-    expect(wide.style.getPropertyValue('--fit')).toBe(first);
+  it('measures afresh, and lets a line that fits again be its own size', () => {
+    let natural = 347;
+    const probe = sized(() => natural);
+    const el = sized(() => 330);
+    fitLines([el], [probe]);
+    expect(el.style.getPropertyValue('--fit')).not.toBe('');
+    // The Quran font comes in, narrower than the one standing in for it.
+    natural = 320;
+    fitLines([el], [probe]);
+    expect(el.style.getPropertyValue('--fit')).toBe('');
   });
 });

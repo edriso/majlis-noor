@@ -104,6 +104,7 @@ export function MushafPage({
             {ready.page.lines.map((line, i) => (
               <MushafLine key={i} line={line} />
             ))}
+            {fallback ? <Probes lines={ready.page.lines} /> : null}
           </div>
         ) : missing ? (
           <div className="mushaf-missing">
@@ -181,30 +182,39 @@ function RetryButton({
  * fits keeps the normal size: nothing is ever made larger, and nothing is
  * spaced out letter by letter, which Arabic does not allow. The scale is
  * the line's `--fit`, read by mushaf.css.
+ *
+ * A line's natural width is read from its probe, the same text unfitted,
+ * never from the line itself just after its size was changed: that is laid
+ * out at once only when nothing animates, and with reduced motion every
+ * property is given a transition, if a short one.
  */
-export function fitLines(texts: readonly HTMLElement[]) {
-  for (const t of texts) t.style.removeProperty('--fit');
-  const scale = texts.map(() => 1);
-  // A second pass catches a line that rounding left a pixel too wide.
-  for (let pass = 0; pass < 3; pass++) {
-    // Every line is read before any is written, so the page is laid out
-    // once a pass rather than once a line.
-    const sizes = texts.map((t) => [t.scrollWidth, t.clientWidth] as const);
-    let changed = false;
-    sizes.forEach(([scroll, client], i) => {
-      if (client <= 0 || scroll <= client) return;
-      // A hair under the exact ratio, which the justified spacing takes up.
-      scale[i] *= (client / scroll) * 0.99;
-      texts[i].style.setProperty('--fit', scale[i].toFixed(4));
-      changed = true;
-    });
-    if (!changed) return;
-  }
+export function fitLines(
+  lines: readonly HTMLElement[],
+  probes: readonly HTMLElement[],
+) {
+  // Every width is read before any line is changed, so the page is laid
+  // out once rather than once a line.
+  const sizes = lines.map((line, i) => ({
+    natural: probes[i]?.getBoundingClientRect().width ?? 0,
+    room: line.getBoundingClientRect().width,
+  }));
+  sizes.forEach(({ natural, room }, i) => {
+    if (room > 0 && natural > room)
+      // A hair under the exact ratio, for rounding, which the justified
+      // spacing takes up.
+      lines[i].style.setProperty('--fit', ((room / natural) * 0.99).toFixed(4));
+    else lines[i].style.removeProperty('--fit');
+  });
 }
 
-/** Fits the fallback lines (`fitLines`) when they are drawn, again once
-    the Quran font has loaded (until then they are measured in another),
-    and whenever the page changes size. */
+/** Fits the fallback lines (`fitLines`) when they are drawn, whenever the
+    page changes size, and again whenever a font they use comes in: until
+    then they are drawn, and measured, in another.
+
+    A font's arrival is seen through the probes, whose width changes when
+    it does. The font set's own events come too early: when `loadingdone`
+    fires, and a frame after it, the text can still be laid out in the font
+    being replaced. */
 function useFittedLines(
   box: RefObject<HTMLDivElement | null>,
   content: unknown,
@@ -212,25 +222,34 @@ function useFittedLines(
   useLayoutEffect(() => {
     const lines = box.current;
     if (!content || !lines) return;
+    const probes = [...lines.querySelectorAll<HTMLElement>(PROBE)];
     const fit = () =>
-      fitLines([...lines.querySelectorAll<HTMLElement>('.mushaf-text')]);
+      fitLines(
+        [...lines.querySelectorAll<HTMLElement>('.mushaf-text')],
+        probes,
+      );
     fit();
-    let live = true;
-    // jsdom has neither; a browser without them still gets the first fit.
-    const fonts = document.fonts as FontFaceSet | undefined;
-    void fonts?.ready.then(() => {
-      if (live) fit();
-    });
-    fonts?.addEventListener('loadingdone', fit);
-    const resize =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
-    resize?.observe(lines);
-    return () => {
-      live = false;
-      resize?.disconnect();
-      fonts?.removeEventListener('loadingdone', fit);
-    };
+    // jsdom has none; a browser without one still gets the first fit.
+    if (typeof ResizeObserver === 'undefined') return;
+    const resize = new ResizeObserver(fit);
+    resize.observe(lines);
+    for (const probe of probes) resize.observe(probe);
+    return () => resize.disconnect();
   }, [box, content]);
+}
+
+const PROBE = '.mushaf-probes > span';
+
+/** Each line's text again, unseen and unfitted, at its natural width,
+    which changes when a font for any of its letters comes in. */
+function Probes({ lines }: { lines: readonly Line[] }) {
+  return (
+    <div className="mushaf-probes" aria-hidden="true">
+      {lines.map((line, i) =>
+        line.t === 'text' ? <span key={i}>{line.x}</span> : null,
+      )}
+    </div>
+  );
 }
 
 function MushafLine({ line }: { line: Line }) {
