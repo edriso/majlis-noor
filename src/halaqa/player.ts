@@ -75,8 +75,10 @@ const IDLE: PlayerState = {
     begin before the last one ends, as one recording's data has it), seeking
     back would say the overlap twice. */
 const SEAMLESS_MS = 3000;
-/** How far back an overlap can reach and still be one. Further back is the
-    same page again, as «استمع» repeating it is, which must seek. */
+/** How far back an overlap can reach and still be one. An overlap also
+    starts after the stretch before it starts: one that starts no later is
+    that stretch, or an earlier one, again (a page or an ayah repeated),
+    however short, and must seek. */
 const OVERLAP_MS = 10_000;
 /** How long a recording may load with nothing arriving before it counts
     as failed. A browser announces data as it comes, several times a
@@ -418,7 +420,10 @@ export class Player {
     if (!next) return this.finish();
     const gap = next.from - current.to;
     const seamless =
-      sameFile(next.url, current.url) && gap < SEAMLESS_MS && gap > -OVERLAP_MS;
+      sameFile(next.url, current.url) &&
+      next.from > current.from &&
+      gap < SEAMLESS_MS &&
+      gap > -OVERLAP_MS;
     if (next.page !== current.page) {
       this.set({ page: next.page });
       this.onPage?.(next.page);

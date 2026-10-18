@@ -178,6 +178,39 @@ describe('the player', () => {
     expect(player.getState().played).toBe(60_000);
   });
 
+  it('plays a short stretch again from its start, as a repeated ayah is', async () => {
+    // One ayah of five seconds, three times: each time it ends, the next
+    // begins five seconds back, which is not an overlap to play through.
+    const ayah: Segment = { url: fileA, from: 20_000, to: 25_000, page: 49 };
+    const done = vi.fn();
+    player.play('ayah', [ayah, ayah, ayah], { onDone: done });
+    media.load();
+    await flush();
+    media.at(25);
+    expect(media.currentTime).toBe(20);
+    await flush();
+    media.at(25);
+    expect(media.currentTime).toBe(20);
+    await flush();
+    expect(done).not.toHaveBeenCalled();
+    media.at(25);
+    expect(done).toHaveBeenCalledOnce();
+  });
+
+  it('plays a few short ayat again from the first', async () => {
+    const first: Segment = { url: fileA, from: 20_000, to: 24_000, page: 49 };
+    const second: Segment = { url: fileA, from: 24_000, to: 27_000, page: 49 };
+    player.play('ayah', [first, second, first, second]);
+    media.load();
+    await flush();
+    // From the first into the second, played through.
+    media.at(24);
+    expect(media.currentTime).toBe(24);
+    // From the second back to the first, sought.
+    media.at(27);
+    expect(media.currentTime).toBe(20);
+  });
+
   it('plays at the speed it is set to, and stops on time at it', async () => {
     const done = vi.fn();
     player.setRate(2);
