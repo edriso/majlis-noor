@@ -3,7 +3,14 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PAGE_COUNT, surahs, type Page } from './mushaf';
 import { paceLabel, reciters } from './reciters';
-import { decodeSpans, encodeSpans, surahFile, type Span } from './audio';
+import {
+  decodeSpans,
+  encodeSpans,
+  fileChange,
+  stampOf,
+  surahFile,
+  type Span,
+} from './audio';
 import {
   ayahAt,
   ayahOf,
@@ -106,6 +113,14 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
       );
     }
   });
+
+  it('records the length and date of every surah file it was timed from', () => {
+    expect(t.files).toHaveLength(114);
+    for (const [bytes, modified] of t.files) {
+      expect(Number.isInteger(bytes) && bytes > 10_000).toBe(true);
+      expect(modified).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+    }
+  });
 });
 
 it('starts no page before the last one ends, but where the source does', () => {
@@ -177,6 +192,7 @@ describe('ayah times', () => {
      three ayat of which the third starts 10ms early. */
   const fake = {
     audio: 'https://host/r/{n}.mp3',
+    files: [],
     pages: [],
     ayat: [
       encodeSpans([
@@ -285,5 +301,52 @@ describe('ayah times', () => {
       });
     }
     expect(ayahAt(t, 1, 0)).toBe(1);
+  });
+});
+
+describe('the files the timings were made from', () => {
+  const headers = (h: Record<string, string>) => ({
+    get: (name: string) => h[name] ?? null,
+  });
+
+  it('reads a length and a date from a HEAD or a first-byte request', () => {
+    const modified = 'Fri, 06 Jan 2023 01:08:47 GMT';
+    expect(
+      stampOf(
+        200,
+        headers({ 'content-length': '386026', 'last-modified': modified }),
+      ),
+    ).toEqual([386026, '2023-01-06T01:08:47Z']);
+    expect(
+      stampOf(
+        206,
+        headers({
+          'content-length': '1',
+          'content-range': 'bytes 0-0/386026',
+          'last-modified': modified,
+        }),
+      ),
+    ).toEqual([386026, '2023-01-06T01:08:47Z']);
+    expect(stampOf(200, headers({ 'content-length': '386026' }))).toBeNull();
+    expect(stampOf(200, headers({ 'last-modified': modified }))).toBeNull();
+    expect(
+      stampOf(
+        206,
+        headers({ 'content-length': '1', 'last-modified': modified }),
+      ),
+    ).toBeNull();
+  });
+
+  it('says how a file changed, and nothing if it did not', () => {
+    const timed: [number, string] = [386026, '2023-01-06T01:08:47Z'];
+    expect(fileChange(timed, [386026, '2023-01-06T01:08:47Z'])).toBeNull();
+    expect(fileChange(timed, [390000, '2023-01-06T01:08:47Z'])).toBe(
+      'length 386026 is now 390000',
+    );
+    expect(fileChange(timed, [386026, '2026-09-08T01:47:18Z'])).toBe(
+      'last modified 2023-01-06T01:08:47Z is now 2026-09-08T01:47:18Z',
+    );
+    expect(fileChange(timed, [1, '2026-09-08T01:47:18Z'])).toContain(', ');
+    expect(fileChange(timed, null)).toBe('served without a length or a date');
   });
 });

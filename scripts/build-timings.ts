@@ -8,14 +8,21 @@
 
    The source is Quran.com's per-surah recordings with per-ayah
    timestamps, asked for as its own site asks (`segments=true`; without it
-   the API leaves the timestamps out), cached under .cache/; delete a file
-   there to fetch it again.
+   the API leaves the timestamps out), and the audio host's own answer to
+   a HEAD request for each surah file. Both are cached under .cache/;
+   delete a file there to fetch it again.
 
    Writes src/data/timings/<reciter>.json:
 
      audio    the address of every surah file, as a template (see
               src/data/audio.ts), written only if it gives back the API's
               own address for every one of the 114 surahs
+     files    files[s - 1] = [bytes, lastModified]: surah s's file as the
+              host served it when the timings were built, its length and
+              its `last-modified` as an ISO date. A timing is only right for
+              the file it was made from, and the host replaces files in
+              place, so `npm run check:audio` compares these with what it
+              serves now.
      ayat     ayat[s - 1] = [gap, length, gap, length, …], one pair per ayah
               of surah s in order: where the ayah starts in the surah file,
               counted from where the ayah before it ended (the first from
@@ -41,15 +48,24 @@
 
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { encodeSpans, surahFile, type Span } from '../src/data/audio.ts';
+import {
+  encodeSpans,
+  stampOf,
+  surahFile,
+  type FileStamp,
+  type Span,
+} from '../src/data/audio.ts';
 import { reciters } from '../src/data/reciters.ts';
 
 const API = 'https://api.qurancdn.com/api/qdc/audio/reciters';
 const CACHE = '.cache/quran-com/audio';
+const HEADS = '.cache/quranicaudio';
 const OUT = 'src/data/timings';
 // The pages are moving from src/data to public; read whichever is there.
 const PAGES = existsSync('src/data/pages') ? 'src/data/pages' : 'public/pages';
 const offline = process.argv.includes('--offline');
+// A few at a time: quick, without hammering a free host.
+const AT_ONCE = 8;
 
 type VerseTiming = {
   verse_key: string;
@@ -58,6 +74,7 @@ type VerseTiming = {
 };
 type AudioFile = { audio_url: string; verse_timings: VerseTiming[] };
 type PageLine = { t: string; w?: [string, string][] };
+type Head = { url: string; status: number; headers: Record<string, string> };
 
 async function chapter(qdc: number, n: number): Promise<AudioFile> {
   const path = `${CACHE}/${qdc}/${n}.json`;
@@ -77,6 +94,42 @@ async function chapter(qdc: number, n: number): Promise<AudioFile> {
   if (!file?.verse_timings)
     throw new Error(`${path} has no verse timings; delete it to fetch again`);
   return file;
+}
+
+/** The host's answer to a HEAD request for a surah file, at the address
+    the API gives, cached like the API's answers. */
+async function stamp(qdc: number, n: number, url: string): Promise<FileStamp> {
+  const path = `${HEADS}/${qdc}/${n}.json`;
+  let head: Head | undefined = existsSync(path)
+    ? (JSON.parse(await readFile(path, 'utf8')) as Head)
+    : undefined;
+  // A cached answer for another address is no answer for this one.
+  if (head?.url !== url) {
+    if (offline)
+      throw new Error(
+        `${path} is not cached for ${url} and --offline was given`,
+      );
+    const res = await fetch(url, { method: 'HEAD' });
+    const headers: Record<string, string> = {};
+    for (const name of ['content-length', 'content-type', 'last-modified']) {
+      const value = res.headers.get(name);
+      if (value !== null) headers[name] = value;
+    }
+    head = { url, status: res.status, headers };
+    await mkdir(`${HEADS}/${qdc}`, { recursive: true });
+    await writeFile(path, JSON.stringify(head));
+  }
+  const { status, headers } = head;
+  const type = headers['content-type'] ?? '';
+  const found =
+    status === 200 && type.startsWith('audio/')
+      ? stampOf(status, { get: (name) => headers[name] ?? null })
+      : null;
+  if (!found)
+    throw new Error(
+      `${url} answered ${status} ${type}; delete ${path} to ask again`,
+    );
+  return found;
 }
 
 /** Surah 1's address with its number made a placeholder: the one surah
@@ -125,6 +178,7 @@ for (const reciter of reciters) {
     () => [],
   );
   const ayat: number[][] = [];
+  const files: (FileStamp | undefined)[] = [];
   let urlTemplate = '';
 
   const add = (page: number, surah: number, from: number, to: number) => {
@@ -135,6 +189,7 @@ for (const reciter of reciters) {
     else list.push([surah, from, to]);
   };
 
+  const audioFiles: AudioFile[] = [];
   for (let n = 1; n <= 114; n++) {
     const file = await chapter(reciter.qdc, n);
     urlTemplate ||= templateOf(file.audio_url);
@@ -142,8 +197,17 @@ for (const reciter of reciters) {
       throw new Error(
         `${reciter.id}: surah ${n} is at ${file.audio_url}, not ${surahFile(urlTemplate, n)}`,
       );
+    audioFiles.push(file);
+  }
+  for (let i = 0; i < 114; i += AT_ONCE)
+    await Promise.all(
+      audioFiles.slice(i, i + AT_ONCE).map(async (file, j) => {
+        files[i + j] = await stamp(reciter.qdc, i + j + 1, file.audio_url);
+      }),
+    );
 
-    const timings = file.verse_timings;
+  for (let n = 1; n <= 114; n++) {
+    const timings = audioFiles[n - 1].verse_timings;
     const where = `${reciter.id}: surah ${n}`;
     if (timings.length !== ayatOf(n))
       throw new Error(`${where} has ${timings.length} ayat, not ${ayatOf(n)}`);
@@ -180,6 +244,7 @@ for (const reciter of reciters) {
     JSON.stringify({
       source: `Quran.com recitation ${reciter.qdc}, ${API}/${reciter.qdc}/audio_files. Built by scripts/build-timings.ts.`,
       audio: urlTemplate,
+      files,
       ayat,
       pages,
     }),

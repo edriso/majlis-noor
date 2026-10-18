@@ -8,7 +8,7 @@
 
    Every time is in milliseconds from the start of the surah's file. */
 
-import { decodeSpans, surahFile, type Span } from './audio';
+import { decodeSpans, surahFile, type FileStamp, type Span } from './audio';
 import { PAGE_COUNT } from './mushaf';
 
 /** [surah, fromMs, toMs]: a stretch of the reciter's recording of that surah. */
@@ -27,6 +27,10 @@ export type Timings = {
   /** The surah file's address, with `{n}` or `{nnn}` for the surah
       number (see audio.ts). */
   audio: string;
+  /** Each surah file as the host served it when these timings were made,
+      index surah - 1, which scripts/check-audio.ts compares with what it
+      serves now. */
+  files: FileStamp[];
   /** Each surah's ayat in a compact form, index surah - 1; read them
       through `ayahTimes()`. */
   ayat: number[][];
