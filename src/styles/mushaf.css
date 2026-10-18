@@ -36,7 +36,7 @@
     var(--paper);
   border-radius: 6px;
   box-shadow: var(--page-shadow);
-  transition: width 420ms var(--ease);
+  transition: width var(--duration-long) var(--ease);
 }
 /* The inner sheet carries the padding, in cqi, because the page itself is
    the container its own padding cannot be measured against. */
@@ -297,7 +297,7 @@
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
-  transition: background-color 160ms var(--ease);
+  transition: background-color var(--duration-short) var(--ease);
 }
 .mushaf-retry:hover {
   background: var(--paper-shade);
@@ -337,7 +337,7 @@
 
 /* A new page settles in rather than snapping, the way a page is turned. */
 .mushaf-lines[data-font] {
-  animation: page-in 360ms var(--ease) both;
+  animation: page-in var(--duration-long) var(--ease) both;
 }
 @keyframes page-in {
   from {

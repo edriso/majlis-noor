@@ -1,20 +1,24 @@
 /* Colour, type and rhythm. Four themes. Three are a mosque carpet at night:
    green (the default), burgundy and blue grounds under the same warm gold.
    The fourth, sand, is the courtyard by day, for a bright room or a sunny
-   window: a pale ground, dark ink, and the gold deepened to bronze so it
-   still reads as text. The Mushaf page is the same ivory in all four.
+   window: a stone ground, dark ink, and the gold deepened to bronze so it
+   still reads as text. The Mushaf page is the same ivory in all four, and
+   the only bright thing on the reading screen.
 
    Contrast, measured as WCAG ratios, worst case across the four themes
    (src/styles/contrast.test.ts recomputes them and fails under the minimum):
 
-     --fg on --bg, --surface                    12.0     needs 4.5
-     --muted on --bg, --surface, --raised        6.0     needs 4.5
-     --gold on --bg, --surface, --raised         5.1     needs 4.5
+     --fg on --bg, --surface                    11.8     needs 4.5
+     --muted on --bg, --surface, --raised        5.5     needs 4.5
+     --gold on --bg, --surface, --raised         4.8     needs 4.5
      --on-gold on --gold, --gold-strong          6.2     needs 4.5
-     --danger on --surface                       6.1     needs 4.5
-     --control-border on --bg, --surface         3.4     needs 3 (1.4.11)
+     --on-gold-muted on --gold, --gold-strong    4.7     needs 4.5
+     --danger on --bg, --surface                 4.8     needs 4.5
+     --control-border on --bg, --surface         3.3     needs 3 (1.4.11)
      --ink on --paper                           16.6     needs 4.5
      --ink-soft on --paper                       7.6     needs 4.5
+     --ink, --ink-soft on --mark-recite          5.8     needs 4.5
+     --mark-turn on --paper                      3.8     needs 3 (1.4.11)
 
    Secondary text is a colour of its own, never `opacity`: opacity multiplies
    against whatever is behind it and quietly drops below AA. */
@@ -26,9 +30,54 @@
   --font-naskh: 'Amiri', 'Times New Roman', serif;
   --font-quran: 'Amiri Quran', 'Amiri', serif;
 
+  /* Type, in rem, so the reader's own text size and the browser's zoom
+     carry through (1rem is 16px only by default). Nothing in the interface
+     is set smaller than --text-xs, and a sentence no smaller than
+     --text-sm. Arabic is never letter-spaced: its letters join. The
+     Mushaf page is not on this scale; it is sized by its own width. */
+  --text-xs: 0.875rem; /* 14: metadata only */
+  --text-sm: 0.9375rem; /* 15: secondary text, notes, hints */
+  --text-md: 1.0625rem; /* 17: body */
+  --text-lg: 1.25rem; /* 20: titles */
+  --text-xl: 1.5rem; /* 24: the current reader */
+  --text-2xl: 1.875rem; /* 30 */
+  /* Running text breathes; text inside a control or a card sits close, so
+     a two-line hint reads as one thing. */
+  --leading-prose: 1.7;
+  --leading-tight: 1.35;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Fields and small buttons; cards and the blocks inside sheets; the
+     sheets themselves; anything round-ended. */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  /* The least a finger needs (WCAG 2.5.8 asks 24, the app keeps 44), and
+     the height of the one main action of a view. */
+  --target: 44px;
+  --target-primary: 56px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-short: 160ms; /* a hover, a press, a chosen state */
+  --duration-medium: 240ms; /* a sheet, a fade */
+  --duration-long: 400ms; /* the turn passing, a page settling */
+
   --gold: #d9b469;
   --gold-strong: #ecca84;
   --on-gold: #2b1d07;
+  /* The second line on a gold button, quieter than the first. A mix, so
+     the contrast test resolves it per theme. */
+  --on-gold-muted: color-mix(in srgb, var(--on-gold) 80%, var(--gold));
   --gold-soft: rgb(217 180 105 / 0.14);
   --gold-line: rgb(217 180 105 / 0.32);
 
@@ -38,6 +87,12 @@
   --ink-soft: #5e4c33;
   --frame: #b48c45;
   --frame-soft: rgb(180 140 69 / 0.35);
+  /* Marks drawn on the page, which is ivory in every theme. The turn's ayat
+     are underlined in --mark-turn, a line that must show against the paper
+     (1.4.11); the ayah or word being recited lies on --mark-recite, under
+     the black glyphs, which must still read as text over it. */
+  --mark-turn: #a0762a;
+  --mark-recite: #f1d78f;
 
   --fg: #f4ecdc;
   --danger: #f1a08f;
@@ -52,22 +107,19 @@
     0 1px 0 rgb(255 255 255 / 0.6) inset, 0 2px 6px rgb(0 0 0 / 0.18),
     0 22px 60px rgb(0 0 0 / 0.38);
 
-  --radius: 14px;
-  --radius-small: 10px;
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --topbar-h: 64px;
   /* A Mushaf page's height over its width; see mushaf.css. */
   --page-height: 1.697;
 }
 
-/* The grounds. Translucent tints are written as channels (`--shadow-rgb`)
-   so one rule can draw a shadow, a glow or a well in any theme. The carpet
-   pattern over the ground is in base.css. */
+/* The grounds, each one flat colour under a soft light from above.
+   Translucent tints are written as channels (`--shadow-rgb`) so one rule
+   can draw a shadow, a glow or a well in any theme. `color-scheme` tells
+   the browser which way its own controls and scrollbars should go. */
 :root,
 :root[data-theme='green'] {
   color-scheme: dark;
   --bg: #0c2019;
-  --bg-deep: #08170f;
   --surface: #133026;
   --surface-raised: #1a3b2f;
   --line: rgb(244 236 220 / 0.12);
@@ -75,8 +127,8 @@
   --muted: #b9c8b8;
 }
 :root[data-theme='burgundy'] {
+  color-scheme: dark;
   --bg: #2a0f14;
-  --bg-deep: #1f0a0e;
   --surface: #381820;
   --surface-raised: #452029;
   --line: rgb(244 236 220 / 0.12);
@@ -84,22 +136,23 @@
   --muted: #cdb8a4;
 }
 :root[data-theme='blue'] {
+  color-scheme: dark;
   --bg: #0d1729;
-  --bg-deep: #08101e;
   --surface: #152440;
   --surface-raised: #1c2e50;
   --line: rgb(244 236 220 / 0.12);
   --control-border: #6c7f9c;
   --muted: #b8c1d2;
 }
+/* A stone ground a step deeper than the ivory page, so the page keeps its
+   edge by day as it does at night, with a firmer rule and shadow round it. */
 :root[data-theme='sand'] {
   color-scheme: light;
-  --bg: #f3eadb;
-  --bg-deep: #e8dcc4;
+  --bg: #e3dccd;
   --surface: #fbf6ec;
   --surface-raised: #efe4cf;
   --line: rgb(90 62 24 / 0.16);
-  --control-border: #917a5c;
+  --control-border: #887358;
   --muted: #63513d;
   --fg: #2a1f14;
   --danger: #a3392a;
@@ -109,11 +162,22 @@
   --gold-soft: rgb(124 87 20 / 0.1);
   --gold-line: rgb(124 87 20 / 0.32);
   --glow-rgb: 124 87 20;
-  --shadow-rgb: 90 62 24;
+  --shadow-rgb: 70 50 20;
   --well: rgb(124 87 20 / 0.06);
   --hover: rgb(90 62 24 / 0.07);
-  --lamp: rgb(255 255 250 / 0.75);
+  --lamp: rgb(255 252 244 / 0.4);
   --page-shadow:
-    0 0 0 1px rgb(124 87 20 / 0.22), 0 2px 6px rgb(90 62 24 / 0.12),
-    0 18px 44px rgb(90 62 24 / 0.16);
+    0 0 0 1px rgb(124 87 20 / 0.3), 0 2px 6px rgb(70 50 20 / 0.16),
+    0 18px 44px rgb(70 50 20 / 0.24);
+}
+
+/* With forced colours the system draws everything in its own few colours,
+   and a tint is dropped. The page's marks take the system's own colours
+   for marked and selected text, which it keeps; whoever draws them adds
+   an outline or underline as well, never a background alone. */
+@media (forced-colors: active) {
+  :root {
+    --mark-turn: Highlight;
+    --mark-recite: Mark;
+  }
 }

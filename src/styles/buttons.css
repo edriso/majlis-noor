@@ -9,15 +9,16 @@
   min-height: 48px;
   padding: 10px 22px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
   text-decoration: none;
   transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease),
-    color 160ms var(--ease),
-    transform 160ms var(--ease);
+    background-color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease),
+    color var(--duration-short) var(--ease),
+    transform var(--duration-short) var(--ease);
 }
 .button:active {
   transform: scale(0.985);
@@ -26,8 +27,8 @@
   width: 100%;
 }
 .button-large {
-  min-height: 56px;
-  font-size: 18px;
+  min-height: var(--target-primary);
+  font-size: var(--text-lg);
 }
 .button-primary {
   background: var(--gold);
@@ -56,17 +57,17 @@
 .icon-button {
   display: inline-grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--target);
+  height: var(--target);
   flex: none;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--fg);
   transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease);
+    background-color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease);
 }
 .icon-button:hover {
   background: var(--surface);

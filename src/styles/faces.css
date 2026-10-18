@@ -5,13 +5,13 @@
   display: inline-grid;
   place-items: center;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   box-shadow: 0 0 0 1px var(--control-border);
   color: var(--gold);
   font-family: var(--font-naskh);
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--text-lg);
   line-height: 1;
 }
 
@@ -20,7 +20,7 @@
   place-items: center;
   flex: none;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   box-shadow: 0 0 0 1px var(--gold-line);
 }
@@ -40,6 +40,6 @@
   color: var(--gold);
   font-family: var(--font-naskh);
   font-weight: 700;
-  font-size: 20px;
+  font-size: var(--text-lg);
   line-height: 1;
 }

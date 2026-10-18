@@ -14,7 +14,7 @@ const box: CSSProperties = {
   paddingBlock: 8,
   paddingInline: '16px 8px',
   border: '1px solid var(--line)',
-  borderRadius: 'var(--radius)',
+  borderRadius: 'var(--radius-md)',
   background: 'var(--surface)',
   color: 'var(--muted)',
   fontSize: 15,

@@ -5,40 +5,26 @@ html {
   background-color: var(--bg);
 }
 
-/* The carpet. Rows of prayer arches, each crowned with a small eight-pointed
-   star, drawn in gold at a few per cent: at reading distance it is a texture,
-   up close it is a mosque floor. A soft lamp-light from above keeps the
-   ground from looking flat. Both are fixed, so the page scrolls over them.
-   By day (sand) the arches are drawn in the deeper bronze, since pale gold
-   on a pale ground would vanish. */
+/* One flat ground per theme under a soft light from above, fixed so the
+   page scrolls over it. Nothing is drawn on the ground: on the reading
+   screen the ivory page is the only bright thing, and a pattern behind it
+   read as stripes. */
 body {
-  --carpet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='132' viewBox='0 0 96 132'%3E%3Cg fill='none' stroke='%23e2c07c' stroke-opacity='0.065' stroke-width='1'%3E%3Cpath d='M10 132V58C10 34 28 18 48 12c20 6 38 22 38 46v74'/%3E%3Cpath d='M18 132V60c0-19 13-32 30-38 17 6 30 19 30 38v72'/%3E%3Cpath d='M48 30l4 6 7 1-5 5 1 7-7-3-7 3 1-7-5-5 7-1z'/%3E%3Cpath d='M0 131.5h96'/%3E%3C/g%3E%3C/svg%3E");
   min-height: 100vh;
   min-height: 100dvh;
   font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: var(--text-md);
+  line-height: var(--leading-prose);
   color: var(--fg);
   background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse 80% 55% at 50% -10%, var(--lamp), transparent 70%),
-    radial-gradient(
-      ellipse 120% 80% at 50% 120%,
-      var(--bg-deep),
-      transparent 70%
-    ),
-    var(--carpet);
-  background-attachment: fixed, fixed, fixed;
-  background-size:
-    auto,
-    auto,
-    96px 132px;
+  background-image: radial-gradient(
+    ellipse 80% 55% at 50% -10%,
+    var(--lamp),
+    transparent 70%
+  );
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-:root[data-theme='sand'] body {
-  --carpet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='132' viewBox='0 0 96 132'%3E%3Cg fill='none' stroke='%237c5714' stroke-opacity='0.085' stroke-width='1'%3E%3Cpath d='M10 132V58C10 34 28 18 48 12c20 6 38 22 38 46v74'/%3E%3Cpath d='M18 132V60c0-19 13-32 30-38 17 6 30 19 30 38v72'/%3E%3Cpath d='M48 30l4 6 7 1-5 5 1 7-7-3-7 3 1-7-5-5 7-1z'/%3E%3Cpath d='M0 131.5h96'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 a {
@@ -70,12 +56,11 @@ a:hover {
 .brand-name {
   font-family: var(--font-brand);
   font-weight: 600;
-  font-size: 22px;
+  font-size: var(--text-xl);
   line-height: 1;
-  letter-spacing: 0;
 }
 .brand-compact .brand-name {
-  font-size: 19px;
+  font-size: var(--text-lg);
 }
 
 kbd {
@@ -89,5 +74,5 @@ kbd {
   border-radius: 7px;
   background: var(--surface-raised);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }

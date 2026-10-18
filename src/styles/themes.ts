@@ -22,7 +22,7 @@ export const THEMES: Record<Theme, ThemeColours> = {
   green: { ground: '#0c2019', gold: '#d9b469', swatch: '#1d5a43' },
   burgundy: { ground: '#2a0f14', gold: '#d9b469', swatch: '#6b1f2c' },
   blue: { ground: '#0d1729', gold: '#d9b469', swatch: '#233f73' },
-  sand: { ground: '#f3eadb', gold: '#7c5714', swatch: '#eadcc0' },
+  sand: { ground: '#e3dccd', gold: '#7c5714', swatch: '#eadcc0' },
 };
 
 /** The theme of a first visit, and of `:root` with no `data-theme`. */

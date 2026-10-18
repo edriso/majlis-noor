@@ -23,8 +23,8 @@
   background: rgb(var(--shadow-rgb) / 0.5);
   backdrop-filter: blur(2px);
   transition:
-    background-color 260ms var(--ease),
-    backdrop-filter 260ms var(--ease);
+    background-color var(--duration-medium) var(--ease),
+    backdrop-filter var(--duration-medium) var(--ease);
 }
 .sheet-dialog::backdrop {
   background: none;
@@ -56,7 +56,7 @@ html:has(dialog[open]) {
   color: var(--fg);
   border-inline-start: 1px solid var(--line);
   box-shadow: 24px 0 60px rgb(var(--shadow-rgb) / 0.35);
-  transition: transform 300ms var(--ease);
+  transition: transform var(--duration-medium) var(--ease);
 }
 .sheet-dialog[data-closing] .sheet {
   transform: translateX(-100%);
@@ -78,8 +78,9 @@ html:has(dialog[open]) {
 .sheet-title {
   flex: 1;
   margin: 0;
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 600;
+  line-height: var(--leading-tight);
   outline: none;
 }
 .sheet-body {
@@ -100,7 +101,7 @@ html:has(dialog[open]) {
     max-height: 90dvh;
     border-inline-start: 0;
     border-top: 1px solid var(--line);
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: 0 -20px 60px rgb(var(--shadow-rgb) / 0.4);
   }
   .sheet::before {

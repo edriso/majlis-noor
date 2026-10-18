@@ -6,7 +6,7 @@
   min-width: 0;
   flex: 1;
   text-align: start;
-  line-height: 1.45;
+  line-height: var(--leading-tight);
 }
 .reciter-name {
   font-weight: 600;
@@ -14,7 +14,7 @@
 .reciter-caption,
 .reciter-meta {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .reciter-button {
@@ -25,11 +25,11 @@
   min-height: 64px;
   padding: 10px 14px;
   border: 1px solid var(--control-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--well);
   color: var(--fg);
   text-align: start;
-  transition: border-color 160ms var(--ease);
+  transition: border-color var(--duration-short) var(--ease);
 }
 .reciter-button:hover {
   border-color: var(--gold);
@@ -43,9 +43,9 @@
   gap: 20px;
 }
 .reciter-band-label {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .reciter-list {
@@ -61,10 +61,10 @@
   gap: 4px;
   padding-inline-end: 6px;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease);
+    background-color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease);
 }
 .reciter-row:hover {
   background: var(--surface-raised);
@@ -85,7 +85,7 @@
   min-height: 68px;
   padding: 10px 12px;
   border: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg);
   text-align: start;

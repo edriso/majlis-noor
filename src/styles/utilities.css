@@ -20,7 +20,7 @@
   top: -100px;
   z-index: 100;
   padding: 10px 16px;
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   background: var(--gold);
   color: var(--on-gold);
   font-weight: 600;

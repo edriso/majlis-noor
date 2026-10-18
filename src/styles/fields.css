@@ -10,17 +10,15 @@
   margin: 0 0 10px;
   padding: 0;
   color: var(--fg);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
-}
-.field-label-small {
-  color: var(--muted);
-  font-size: 13px;
+  line-height: var(--leading-tight);
 }
 .field-note {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
+  text-wrap: pretty;
 }
 
 .input,
@@ -29,11 +27,12 @@
   min-height: 48px;
   padding: 10px 14px;
   border: 1px solid var(--control-border);
-  border-radius: var(--radius-small);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--fg);
-  font-size: 16px;
-  transition: border-color 160ms var(--ease);
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+  transition: border-color var(--duration-short) var(--ease);
 }
 .input::placeholder {
   color: var(--muted);
