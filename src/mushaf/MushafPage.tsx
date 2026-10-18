@@ -8,7 +8,13 @@ import {
 } from '@/data/mushaf';
 import { loadPageFont, pageFontFamily } from './fonts';
 import { usePage } from './usePage';
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 
 /** The basmala as al-Fatihah's first four words are drawn on page 1, so it
     is the Mushaf's own basmala wherever a surah opens. `mushaf.test.ts`
@@ -25,6 +31,9 @@ const BASMALA_TEXT = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱ�
  * the same height, so a surah header or a basmala takes one line's room and
  * the page never reflows. The size of everything comes from the page's own
  * width (`cqi`), which is what lets one component fill a phone and a desktop.
+ *
+ * When the page's font cannot load, its text is drawn in a Quran font on the
+ * same lines, each line made smaller if it would not fit.
  */
 export function MushafPage({
   page,
@@ -39,6 +48,8 @@ export function MushafPage({
   const juz = juzOfPage(page);
   const ready = state.status === 'ready' ? state : null;
   const sajdah = ready?.page.sajdah?.length;
+  const linesRef = useRef<HTMLDivElement>(null);
+  useFittedLines(linesRef, ready?.font === 'text' ? ready.page : null);
 
   return (
     <article
@@ -65,6 +76,7 @@ export function MushafPage({
       <div className="mushaf-frame">
         {ready ? (
           <div
+            ref={linesRef}
             className="mushaf-lines"
             data-font={ready.font}
             style={
@@ -97,6 +109,64 @@ export function MushafPage({
       ) : null}
     </article>
   );
+}
+
+/**
+ * Makes each line of fallback text that is wider than the page smaller,
+ * just enough to fit, so the whole line shows on its own row. A line that
+ * fits keeps the normal size: nothing is ever made larger, and nothing is
+ * spaced out letter by letter, which Arabic does not allow. The scale is
+ * the line's `--fit`, read by mushaf.css.
+ */
+export function fitLines(texts: readonly HTMLElement[]) {
+  for (const t of texts) t.style.removeProperty('--fit');
+  const scale = texts.map(() => 1);
+  // A second pass catches a line that rounding left a pixel too wide.
+  for (let pass = 0; pass < 3; pass++) {
+    // Every line is read before any is written, so the page is laid out
+    // once a pass rather than once a line.
+    const sizes = texts.map((t) => [t.scrollWidth, t.clientWidth] as const);
+    let changed = false;
+    sizes.forEach(([scroll, client], i) => {
+      if (client <= 0 || scroll <= client) return;
+      // A hair under the exact ratio, which the justified spacing takes up.
+      scale[i] *= (client / scroll) * 0.99;
+      texts[i].style.setProperty('--fit', scale[i].toFixed(4));
+      changed = true;
+    });
+    if (!changed) return;
+  }
+}
+
+/** Fits the fallback lines (`fitLines`) when they are drawn, again once
+    the Quran font has loaded (until then they are measured in another),
+    and whenever the page changes size. */
+function useFittedLines(
+  box: RefObject<HTMLDivElement | null>,
+  content: unknown,
+) {
+  useLayoutEffect(() => {
+    const lines = box.current;
+    if (!content || !lines) return;
+    const fit = () =>
+      fitLines([...lines.querySelectorAll<HTMLElement>('.mushaf-text')]);
+    fit();
+    let live = true;
+    // jsdom has neither; a browser without them still gets the first fit.
+    const fonts = document.fonts as FontFaceSet | undefined;
+    void fonts?.ready.then(() => {
+      if (live) fit();
+    });
+    fonts?.addEventListener('loadingdone', fit);
+    const resize =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    resize?.observe(lines);
+    return () => {
+      live = false;
+      resize?.disconnect();
+      fonts?.removeEventListener('loadingdone', fit);
+    };
+  }, [box, content]);
 }
 
 function MushafLine({ line }: { line: Line }) {

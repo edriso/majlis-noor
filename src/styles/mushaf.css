@@ -109,15 +109,24 @@
 [data-font='text'] .mushaf-words {
   display: none;
 }
+/* Nothing here may clip: the line box is shorter than the font's marks,
+   and clipping to it cut off whatever hangs under the baseline (the tail of
+   a ر, the dots under a ب, every kasra) and the end of a line too long for
+   the page. A line too long is drawn smaller instead, by the `--fit` that
+   MushafPage measures for it, and never wraps. The row has room for the
+   tallest stack of marks above and the deepest below. */
 [data-font='text'] .mushaf-text {
   width: 100%;
+  /* Amiri Quran rises 1.82em above its baseline and falls only 0.63em
+     below, for its stacked marks, so a line centred by its box sits low
+     in its row; this much under it lifts the letters to the middle. */
+  padding-block-end: 0.63em;
   font-family: var(--font-quran);
-  font-size: 0.74em;
+  font-size: calc(0.74em * var(--fit, 1));
   line-height: 1.2;
   text-align: justify;
   text-align-last: justify;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 /* The opening two pages: eight lines, set narrower and centred in the
@@ -135,6 +144,10 @@
   justify-content: center;
   gap: 0.28em;
   width: auto;
+}
+.mushaf-page[data-opening] [data-font='text'] .mushaf-text {
+  text-align: center;
+  text-align-last: center;
 }
 
 /* ---------- Surah header and basmala ---------- */
