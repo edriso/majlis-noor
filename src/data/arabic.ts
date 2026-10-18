@@ -47,6 +47,19 @@ export const pagesCount = (n: number) =>
 export const ayatCount = (n: number) =>
   counted(n, { one: 'آية واحدة', two: 'آيتان', few: 'آيات', many: 'آية' });
 
+/** Minutes, as a label: «دقيقة واحدة», «دقيقتان», «٣ دقائق», «١١ دقيقة». */
+export const minutesCount = (n: number) =>
+  counted(n, {
+    one: 'دقيقة واحدة',
+    two: 'دقيقتان',
+    few: 'دقائق',
+    many: 'دقيقة',
+  });
+
+/** Hours, as a label: «ساعة واحدة», «ساعتان», «٣ ساعات», «١١ ساعة». */
+export const hoursCount = (n: number) =>
+  counted(n, { one: 'ساعة واحدة', two: 'ساعتان', few: 'ساعات', many: 'ساعة' });
+
 /** Seats in the circle, as a label. */
 export const seatsCount = (n: number) =>
   counted(n, { one: 'مقعد واحد', two: 'مقعدان', few: 'مقاعد', many: 'مقعدًا' });

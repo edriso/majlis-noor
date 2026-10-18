@@ -5,6 +5,8 @@ import {
   clock,
   digits,
   durationWords,
+  hoursCount,
+  minutesCount,
   pagesCount,
   readersCount,
 } from './arabic';
@@ -40,6 +42,24 @@ describe('counted nouns', () => {
     expect(ayatCount(11)).toBe('١١ آية');
     expect(ayatCount(103)).toBe('١٠٣ آيات');
     expect(ayatCount(286)).toBe('٢٨٦ آية');
+  });
+});
+
+describe('counted time', () => {
+  it('counts minutes', () => {
+    expect(minutesCount(1)).toBe('دقيقة واحدة');
+    expect(minutesCount(2)).toBe('دقيقتان');
+    expect(minutesCount(3)).toBe('٣ دقائق');
+    expect(minutesCount(10)).toBe('١٠ دقائق');
+    expect(minutesCount(11)).toBe('١١ دقيقة');
+    expect(minutesCount(25)).toBe('٢٥ دقيقة');
+    expect(minutesCount(103)).toBe('١٠٣ دقائق');
+  });
+  it('counts hours', () => {
+    expect(hoursCount(1)).toBe('ساعة واحدة');
+    expect(hoursCount(2)).toBe('ساعتان');
+    expect(hoursCount(3)).toBe('٣ ساعات');
+    expect(hoursCount(11)).toBe('١١ ساعة');
   });
 });
 
