@@ -11,8 +11,11 @@ import { ArrowRight, X } from './icons';
 
 /**
  * The one panel the app slides in: settings, the reciter list, and the jump.
- * A side drawer on a wide screen and a sheet from the bottom on a narrow one,
- * decided in CSS.
+ * A sheet from the bottom on a narrow screen, sized to what it holds. On a
+ * wide one, a side drawer the height of the screen for a long panel, or,
+ * for a short one (`variant="dialog"`), a box in the middle sized to what
+ * it holds, so a few controls are not left at the top of an empty column.
+ * Decided in CSS.
  *
  * It is a native <dialog> opened with showModal(), which puts it above
  * everything, makes the page behind it inert and turns Escape into a
@@ -32,6 +35,7 @@ export function Sheet({
   title,
   description,
   onBack,
+  variant = 'drawer',
   children,
 }: {
   open: boolean;
@@ -40,6 +44,9 @@ export function Sheet({
   description?: string;
   /** A panel opened from another one goes back to it instead of closing. */
   onBack?: () => void;
+  /** On a wide screen: `drawer` for a long panel (settings, the reciter
+      list), `dialog` for a short one (the jump, a confirmation). */
+  variant?: 'drawer' | 'dialog';
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -166,7 +173,7 @@ export function Sheet({
       }}
       onClose={onClose}
     >
-      <div className="sheet" ref={panel}>
+      <div className="sheet" data-variant={variant} ref={panel}>
         <header className="sheet-header">
           {onBack ? (
             <button

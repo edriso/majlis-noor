@@ -1,0 +1,103 @@
+/* A switch (Switch.tsx): its words, then the track at the far end of the
+   row. The checkbox lies unseen over the whole row, as a choice's radio
+   does, so the row is the target and the browser does the rest.
+
+   On, the thumb crosses to the end of the track and turns gold, inside a
+   gold rim over a tint: a chosen state, like a chosen option, not a fill.
+   The thumb moves along the line of the text, so in Arabic it starts on
+   the right and goes left, as a right-to-left system's switches do. */
+
+.switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--target);
+  padding-block: var(--space-1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.switch-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.switch:has(.switch-input:focus-visible) {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+.switch:has(.switch-input:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.switch-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: var(--leading-tight);
+}
+.switch-label {
+  font-weight: 600;
+}
+.switch-hint {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-wrap: pretty;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: var(--well);
+  transition:
+    border-color var(--duration-short) var(--ease),
+    background-color var(--duration-short) var(--ease);
+}
+.switch-thumb {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 4px;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  transition:
+    inset-inline-start var(--duration-short) var(--ease),
+    background-color var(--duration-short) var(--ease);
+}
+.switch:hover .switch-track {
+  border-color: var(--muted);
+}
+.switch[data-checked] .switch-track {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.switch[data-checked] .switch-thumb {
+  inset-inline-start: 24px;
+  background: var(--gold);
+}
+
+/* Forced colours drop backgrounds, so the thumb keeps the system's own
+   colours, which it is allowed: the text colour off, the highlight on. */
+@media (forced-colors: active) {
+  .switch-track {
+    border-color: CanvasText;
+  }
+  .switch-thumb {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .switch[data-checked] .switch-thumb {
+    background: Highlight;
+  }
+}

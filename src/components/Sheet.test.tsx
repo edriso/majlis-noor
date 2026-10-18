@@ -128,4 +128,22 @@ describe('a sheet', () => {
       screen.getByRole('heading', { name: 'الأولى' }),
     );
   });
+
+  it('is a drawer unless asked to be a dialog, which CSS sizes to what it holds', async () => {
+    await opened();
+    expect(dialog().querySelector('.sheet')?.getAttribute('data-variant')).toBe(
+      'drawer',
+    );
+    render(
+      <Sheet open onOpenChange={() => {}} title="قصيرة" variant="dialog">
+        <p>سطر</p>
+      </Sheet>,
+    );
+    expect(
+      screen
+        .getByRole('dialog', { name: 'قصيرة' })
+        .querySelector('.sheet')
+        ?.getAttribute('data-variant'),
+    ).toBe('dialog');
+  });
 });

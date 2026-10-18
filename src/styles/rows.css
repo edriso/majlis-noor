@@ -1,0 +1,71 @@
+/* Rows and the headings over them: a choice already made, shown as one
+   full-width row that opens where it is changed (SummaryRow.tsx), under a
+   heading that names the group. */
+
+/* The heading of a group on a screen or in a sheet: «من أين نبدأ؟»,
+   «أهل الحلقة», «المظهر». Body size and weight, so it reads as the
+   question the rows below answer, with a muted note under it if needed. */
+.section-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--fg);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+.section-note {
+  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  text-wrap: pretty;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-4);
+  padding-inline-end: var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  background: var(--well);
+  color: var(--fg);
+  text-align: start;
+  transition:
+    border-color var(--duration-short) var(--ease),
+    background-color var(--duration-short) var(--ease);
+}
+.summary-row:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}
+.summary-row:active {
+  background: var(--well);
+}
+.summary-row-leading {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 40px;
+  color: var(--gold);
+}
+.summary-row-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: var(--leading-tight);
+}
+.summary-row-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.summary-row-detail {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.summary-row > svg {
+  flex: none;
+  color: var(--muted);
+}

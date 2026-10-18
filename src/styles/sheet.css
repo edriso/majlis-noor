@@ -93,6 +93,47 @@ html:has(dialog[open]) {
   padding: 20px 20px max(28px, env(safe-area-inset-bottom));
 }
 
+/* A short panel on a wide screen (`variant="dialog"`): a box in the middle,
+   as tall as what it holds, that settles in rather than sliding from the
+   side, where a drawer the height of the screen would hold a few controls
+   at its top and nothing under them. Centred with `translate`, which
+   leaves `transform` to the motion. */
+@media (min-width: 760px) {
+  .sheet[data-variant='dialog'] {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: min(520px, 100vw - 48px);
+    max-height: min(85dvh, 760px);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 30px 80px rgb(var(--shadow-rgb) / 0.45);
+    translate: -50% -50%;
+    transition:
+      transform var(--duration-medium) var(--ease),
+      opacity var(--duration-medium) var(--ease);
+  }
+  .sheet-dialog[data-closing] .sheet[data-variant='dialog'] {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  @starting-style {
+    .sheet-dialog[open] .sheet[data-variant='dialog'] {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+  }
+  /* Away from the screen's edges, it needs no room for a notch or a home
+     bar. */
+  .sheet[data-variant='dialog'] .sheet-header {
+    padding-top: 14px;
+  }
+  .sheet[data-variant='dialog'] .sheet-body {
+    padding-bottom: var(--space-5);
+  }
+}
+
 @media (max-width: 759px) {
   .sheet {
     inset-block: auto 0;
