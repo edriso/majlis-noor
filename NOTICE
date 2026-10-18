@@ -21,8 +21,13 @@ by scripts/build-mushaf.ts.
 What is stored is the position of every word on its page and line, the code
 of its glyph in that page's font, and its readable text. The text is the
 Quran and must not be altered: src/data/mushaf.test.ts checks that all 6,236
-ayat are present once each and in order. Credit: Quran.com and the King Fahd
-Complex, named in the app under «عن مجلس نور».
+ayat are present once each and in order. Credit: Quran Foundation, which
+runs Quran.com, and the King Fahd Complex, named in the app under «عن مجلس
+نور».
+
+Quran Foundation's developer terms,
+https://api-docs.quran.foundation/legal/developer-terms/, govern what is
+built from its APIs, this data and the timings below among it.
 
 
 The page fonts, which are not redistributed
@@ -42,8 +47,10 @@ stored is the stretch of each recording that covers each page, in
 milliseconds; each file names its recitation and endpoint in its `source`.
 
 The recordings themselves are streamed from https://download.quranicaudio.com
-when a reader listens to a page, a reciter seated in the circle recites his
-turn, or a reciter is sampled in the list, and none is stored here.
+(QuranicAudio, a Quran Foundation project, which offers them free for
+non-commercial use) when a reader listens to a page, a reciter seated in
+the circle recites his turn, or a reciter is sampled in the list, and none
+is stored here.
 
 
 The reciters' photographs

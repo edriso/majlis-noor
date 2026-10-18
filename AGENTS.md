@@ -39,6 +39,10 @@ or statistics: the only number about the sitting is how many pages were read.
 The interface is Arabic only and right to left. Code, comments and these
 documents are in English.
 
+Where the app is going, and in what order, is in
+[docs/ROADMAP.md](docs/ROADMAP.md). Read it before starting anything large,
+and tick its item in the same pull request that finishes it.
+
 ## Commands
 
 ```sh
@@ -85,11 +89,12 @@ src/
   data/               the Mushaf index and pages, reciters, timings, Arabic
   halaqa/             the halaqa itself: who reads what (see its AGENTS.md)
   mushaf/             drawing a Mushaf page (see its AGENTS.md)
-  hooks/              small browser hooks: wake lock, media queries
+  hooks/              small browser hooks: the screen wake lock
   styles/             tokens, base, and one stylesheet per area
 scripts/              offline tools that build the committed data
 public/               icons, share card, manifest, service worker, photos
 docs/CONTRIBUTING.md  the walk-through for a first change
+docs/ROADMAP.md       the revamp: what comes next, in order, and why
 LICENSE               0BSD: everything written here, no conditions
 NOTICE                what is only redistributed, and on whose terms
 ```
@@ -207,10 +212,8 @@ Built once by scripts, committed, never fetched from an API at run time.
 
 ## Accessibility
 
-- Every touch target is at least 44 by 44 pixels, with two exceptions WCAG
-  2.5.8 allows: links inside a sentence (the about text), and the view
-  switch in the desktop top bar, 36 tall so the bar stays one line, which
-  appears only on a screen too wide for a phone. Every control has an
+- Every touch target is at least 44 by 44 pixels, with one exception WCAG
+  2.5.8 allows: links inside a sentence (the about text). Every control has an
   accessible name; `app.test.tsx` fails on any button, input, select or link
   without one, on both screens.
 - The member list says every change aloud (added, moved to seat 2 of 4,

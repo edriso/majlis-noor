@@ -32,6 +32,14 @@ npx oxfmt --check     # npm run format fixes it
 npm run build
 ```
 
+## Picking something to work on
+
+[ROADMAP.md](ROADMAP.md) lists what comes next, phase by phase, each item
+with the files it touches and what "done" means. Phase 0 is made of small,
+separate fixes and is the best place for a first pull request. Say in an
+issue which item you are taking, and tick it in the pull request that
+finishes it.
+
 ## Where to go for what
 
 | You want to change…                        | Open                                          |
