@@ -41,6 +41,9 @@ export type Timings = {
       index surah - 1, which scripts/check-audio.ts compares with what it
       serves now. */
   files: FileRecord[];
+  /** The surahs whose timings do not fit the file served, in order; none
+      if absent. */
+  untimed?: number[];
   /** Each surah's ayat in a compact form, index surah - 1; read them
       through `ayahTimes()`. */
   ayat: number[][];

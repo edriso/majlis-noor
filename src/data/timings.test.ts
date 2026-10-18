@@ -10,9 +10,13 @@ import {
   decodeSpans,
   encodeAyahWords,
   encodeSpans,
+  endMisfit,
   fileChange,
+  LEEWAY_MS,
+  misplacedAyat,
   stampOf,
   surahFile,
+  type AyahPace,
   type FileRecord,
   type Span,
   type WordsFile,
@@ -61,6 +65,21 @@ for (const p of pages)
   for (const key of keysOf(p))
     wordCount.set(key, (wordCount.get(key) ?? 0) + 1);
 for (const [key, n] of wordCount) wordCount.set(key, n - 1);
+
+/** A reciter's median milliseconds per word, over his ayat of six words
+    or more, as misplacedAyat() measures it. */
+const medianPace = (t: Timings) => {
+  const paces = surahs
+    .flatMap((s) =>
+      ayahTimes(t, s.n).map(([from, to], i) => {
+        const words = wordCount.get(`${s.n}:${i + 1}`)!;
+        return words >= 6 ? (to - from) / words : null;
+      }),
+    )
+    .filter((x) => x !== null)
+    .sort((a, b) => a - b);
+  return paces[paces.length >> 1];
+};
 
 const wordsFile = (id: string, surah: number) =>
   read<WordsFile>('public/words', id, `${surah}.json`);
@@ -156,6 +175,26 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
     }
   });
 
+  it('marks untimed every surah whose file does not fit its timings', () => {
+    expect(t.untimed).toEqual([...(t.untimed ?? [])].sort((a, b) => a - b));
+    for (const s of surahs) {
+      const misfit = endMisfit(t.files[s.n - 1], ayahTimes(t, s.n).at(-1)![1]);
+      if (misfit) expect(t.untimed, `surah ${s.n}: ${misfit}`).toContain(s.n);
+    }
+    // The rest were marked for an ayah timed at under half his pace, which
+    // the pages bear out (that its own words stray too, only the API's
+    // segments can tell).
+    const median = medianPace(t);
+    for (const n of t.untimed ?? []) {
+      if (endMisfit(t.files[n - 1], ayahTimes(t, n).at(-1)![1])) continue;
+      const hurried = ayahTimes(t, n).some(([from, to], i) => {
+        const words = wordCount.get(`${n}:${i + 1}`)!;
+        return words >= 6 && (to - from) / words < median / 2;
+      });
+      expect(hurried, `surah ${n}`).toBe(true);
+    }
+  });
+
   it('times words in order, inside their ayah, and says where it cannot', () => {
     let full = 0;
     for (const s of surahs) {
@@ -236,6 +275,26 @@ it('bands the paces the way a halaqa speaks of them', () => {
   expect(paceLabel(183)).toBe('متأنٍّ');
   expect(paceLabel(151)).toBe('معتدل');
   expect(paceLabel(108)).toBe('سريع');
+});
+
+describe('surah files that do not fit their timings', () => {
+  it('are the ones measured on 2026-10-18', () => {
+    expect(
+      Object.fromEntries(reciters.map((r) => [r.id, load(r.id).untimed])),
+    ).toEqual({
+      // An ayah misplaced in each: 3:127, 4:10, 5:64, 43:32.
+      'husary-muallim': [3, 4, 5, 43],
+      husary: [52],
+      abdulbasit: [2],
+      alafasy: [14, 82],
+      minshawi: [],
+      dosari: [20, 50, 92],
+      shatri: [10, 17, 59],
+      rifai: [8],
+      sudais: [3, 4, 5, 28, 29],
+      shuraim: [],
+    });
+  });
 });
 
 describe('ayah times', () => {
@@ -578,6 +637,53 @@ describe('the files the timings were made from', () => {
     );
     expect(fileChange(timed, [1, '2026-09-08T01:47:18Z', 1])).toContain(', ');
     expect(fileChange(timed, null)).toBe('served without a length or a date');
+  });
+
+  it('takes a file that ends with its last ayah, give or take, to fit', () => {
+    // As built: al-Husary's al-Fatiha ends 0.6 s after its last ayah.
+    expect(endMisfit([1, '', 48_600, 48_000], 48_000)).toBeNull();
+    // Abdul Basit's al-Ankabut ends 1.2 s before its last ayah does.
+    expect(endMisfit([1, '', 1_000_000, 1_000_000], 1_001_180)).toBeNull();
+    // A closing after the last ayah, in the very file the API timed.
+    expect(endMisfit([1, '', 2_254_200, 2_254_000], 2_243_800)).toBeNull();
+    // Another file than the API's, but one that ends with the timings.
+    expect(endMisfit([1, '', 980_800, 974_000], 981_200)).toBeNull();
+    expect(LEEWAY_MS).toBe(2000);
+  });
+
+  it('takes a file to be another recording when it does not end with them', () => {
+    // al-Dosari's al-Layl, replaced on 2026-09-08 by a shorter recording.
+    expect(endMisfit([1, '', 78_600, 88_000], 87_470)).toBe(
+      'its last ayah ends 8.9 s after the file does',
+    );
+    // Abdul Basit's al-Baqarah, 17 minutes longer than the one timed.
+    expect(endMisfit([1, '', 9_684_900, 8_655_000], 8_655_990)).toBe(
+      'it plays 9684.9 s, not the 8655.0 s of the file the API timed, and runs 1028.9 s past its last ayah',
+    );
+    // Just past the leeway either way.
+    expect(endMisfit([1, '', 100_000, 100_000], 102_001)).not.toBeNull();
+    expect(endMisfit([1, '', 100_000, 97_999], 97_999)).not.toBeNull();
+  });
+
+  it('finds an ayah timed at under half the pace whose words stray', () => {
+    const ayah = (key: string, words: number, ms: number, stray = 0) =>
+      ({ key, words, ms, stray }) satisfies AyahPace;
+    const usual = Array.from({ length: 9 }, (_, i) =>
+      ayah(`2:${i + 1}`, 10, 10_000),
+    );
+    expect(
+      misplacedAyat([
+        ...usual,
+        // Abdul Basit's 2:61: 59 words in 10.8 s, its words 91 s outside.
+        ayah('2:61', 59, 10_800, 90_900),
+        // Quick, but its words are where it says: short words, quickly.
+        ayah('3:25', 15, 7_000),
+        // Words outside, but at a believable pace: a word timed early.
+        ayah('2:177', 30, 25_000, 8_000),
+        // Too short an ayah to judge by its pace.
+        ayah('74:27', 4, 1_000, 2_000),
+      ]),
+    ).toEqual(['2:61']);
   });
 });
 

@@ -26,6 +26,8 @@
               only right for the file it was made from, and the host
               replaces files in place, so `npm run check:audio` compares
               these with what it serves now.
+     untimed  the surahs, in order, whose timings cannot be trusted for the
+              file served: the app plays nothing of them (see below)
      ayat     ayat[s - 1] = [gap, length, gap, length, …], one pair per ayah
               of surah s in order: where the ayah starts in the surah file,
               counted from where the ayah before it ended (the first from
@@ -65,6 +67,13 @@
    verse key and the end-of-ayah marker is one of them: an ayah of n words
    has n + 1 entries.
 
+   A surah is untimed when its file does not fit its timings (`endMisfit`:
+   the last ayah ends after the file does, or the file is not the one the
+   API timed and runs on well past it), or when an ayah inside it is
+   misplaced (`misplacedAyat`: timed at under half the reciter's pace,
+   with its own words seconds outside it). The script prints each, and
+   why; src/data/audio.ts says how the bounds were chosen.
+
    The Madani Mushaf ends every page on the end of an ayah, so a page is
    always a run of whole ayat and its length is theirs, with no ayah to cut
    in two. The script checks that rather than assuming it, and that every
@@ -79,8 +88,11 @@ import {
   coversAll,
   encodeAyahWords,
   encodeSpans,
+  endMisfit,
+  misplacedAyat,
   stampOf,
   surahFile,
+  type AyahPace,
   type FileRecord,
   type FileStamp,
   type Span,
@@ -250,6 +262,8 @@ for (const reciter of reciters) {
   );
   const ayat: number[][] = [];
   const files: FileRecord[] = [];
+  const paces: AyahPace[] = [];
+  const untimed = new Map<number, string>();
   const tally = {
     full: 0,
     malformed: 0,
@@ -341,8 +355,8 @@ for (const reciter of reciters) {
         if (start - before[2] > 300) tally.gaps++;
       });
       // How far the API's own words for the ayah reach outside it. Over a
-      // second, either they or the ayah's times are wrong there, and
-      // nothing here can tell which.
+      // second, either they or the ayah's times are wrong there; which, the
+      // pace check below tells where it can.
       let stray = 0;
       for (const s of Array.isArray(v.segments) ? v.segments : [])
         if (
@@ -353,10 +367,13 @@ for (const reciter of reciters) {
         )
           stray = Math.max(stray, from - s[1], s[2] - to);
       if (stray > 1000) tally.stray++;
+      paces.push({ key, words: count, ms: to - from, stray });
       words.push(encodeAyahWords([from, to], clean.words));
     });
 
     ayat.push(encodeSpans(spans));
+    const misfit = endMisfit(files[n - 1], spans[spans.length - 1][1]);
+    if (misfit) untimed.set(n, misfit);
     await writeFile(
       `${WORDS}/${reciter.id}/${n}.json`,
       JSON.stringify({
@@ -366,6 +383,18 @@ for (const reciter of reciters) {
         ayat: words,
       }),
     );
+  }
+
+  const misplaced = Map.groupBy(misplacedAyat(paces), (key) =>
+    Number(key.split(':')[0]),
+  );
+  for (const [n, keys] of misplaced) {
+    const why = untimed.get(n);
+    const which =
+      keys.length === 1
+        ? `${keys[0]} is misplaced`
+        : `${keys.length} ayat are misplaced, ${keys[0]} to ${keys[keys.length - 1]}`;
+    untimed.set(n, why ? `${why}; ${which}` : which);
   }
 
   const empty = pages.findIndex((list) => list.length === 0);
@@ -378,6 +407,7 @@ for (const reciter of reciters) {
       source: `Quran.com recitation ${reciter.qdc}, ${API}/${reciter.qdc}/audio_files. Built by scripts/build-timings.ts.`,
       audio: urlTemplate,
       files,
+      untimed: [...untimed.keys()].sort((a, b) => a - b),
       ayat,
       pages,
     }),
@@ -392,4 +422,6 @@ for (const reciter of reciters) {
       `${tally.repeats} repeats, ${tally.gaps} gaps over 300ms, ` +
       `${tally.stray} ayat with words over a second outside them`,
   );
+  for (const [n, why] of [...untimed].sort(([a], [b]) => a - b))
+    console.log(`  surah ${n} untimed: ${why}`);
 }

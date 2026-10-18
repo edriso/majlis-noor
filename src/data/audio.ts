@@ -12,7 +12,9 @@
    - A surah's word times: how the API's segments are cleaned
      (`cleanSegments`), and their compact form (`encodeAyahWords`).
    - How a file the host serves today differs from the one the timings
-     were made from (`fileChange`), for scripts/check-audio.ts. */
+     were made from (`fileChange`), and whether a file fits its timings at
+     all (`endMisfit`, `misplacedAyat`), for scripts/build-timings.ts and
+     scripts/check-audio.ts. */
 
 /** The address of a surah's file, from a reciter's address template. */
 export const surahFile = (template: string, surah: number) =>
@@ -267,4 +269,78 @@ export function fileChange(
       `it played ${seconds(recorded[2])} and now plays ${seconds(served[2])}`,
     );
   return changes.length ? changes.join(', ') : null;
+}
+
+/**
+ * How far a surah file's end and its timings' end may disagree, either
+ * way, before the timings are taken to belong to another file.
+ *
+ * Measured over all 1,140 files on 2026-10-18 (the distribution is in the
+ * commit that brought this in). In a file that fits, the last ayah ends
+ * at most 1.2 s after the file does (the encoder's padding and the API's
+ * rounding) and the file runs on after it by under 4.6 s of silence, or
+ * by up to 10.4 s of the recording's own closing where the file is the
+ * very one the API timed: its duration, which the API cuts to whole
+ * seconds, is within 1.3 s of the file's. The files that do not fit are
+ * 2.9 s past their end or more, or are 2.8 s or more off the duration of
+ * the file the API timed and end 4.6 s or more before their last ayah.
+ * Two seconds sits in both gaps.
+ */
+export const LEEWAY_MS = 2000;
+
+/**
+ * Why a surah file does not fit its timings, or null if it does, from how
+ * long it plays and where its last ayah ends:
+ *
+ * - its last ayah ends after the file does, beyond the leeway: the timings
+ *   were made from a longer recording, or are stretched;
+ * - it is not the file the API timed (its duration is off the API's) and
+ *   it runs on after its last ayah beyond the leeway: what is in the
+ *   extra time, and where, cannot be told, so neither can whether the
+ *   ayat moved. A file that is not the API's but ends with its last ayah
+ *   fits all the same.
+ */
+export function endMisfit(file: FileRecord, lastEnd: number): string | null {
+  const [, , ms, apiMs] = file;
+  const over = lastEnd - ms;
+  if (over > LEEWAY_MS)
+    return `its last ayah ends ${seconds(over)} after the file does`;
+  if (Math.abs(ms - apiMs) > LEEWAY_MS && -over > LEEWAY_MS)
+    return `it plays ${seconds(ms)}, not the ${seconds(apiMs)} of the file the API timed, and runs ${seconds(-over)} past its last ayah`;
+  return null;
+}
+
+/** An ayah as the pace check sees it: its verse key, how many words the
+    print gives it, how long its timings make it, and how far the API's
+    own word segments for it reach outside it, before or after. */
+export type AyahPace = {
+  key: string;
+  words: number;
+  ms: number;
+  stray: number;
+};
+
+/**
+ * The ayat whose own start or end is misplaced, in a file that may fit
+ * its timings otherwise: an ayah of six words or more, timed at under half
+ * its reciter's median pace (milliseconds per word over all his ayat of
+ * six words or more), whose own word segments reach more than a second
+ * outside it.
+ *
+ * Either sign alone is found in good timings: short words recited quickly
+ * (al-Husary's 3:25 and al-Dosari's 18:68 at 0.49 of their median, with
+ * no word outside), a first word timed from before the ayah (al-Afasy's
+ * and al-Rifai's often are). Together they mark the boundaries that are
+ * seconds off, and only those, over all ten reciters: Abdul Basit's
+ * al-Baqarah 49 to 189, al-Husary's teaching 3:127, 4:10, 5:64 and 43:32,
+ * al-Afasy's 14:17, al-Rifai's 8:61 (timed at 21 ms) and al-Sudais's 5:5,
+ * each at 0.45 of the median or under, with words 4.7 s to 102 s outside.
+ */
+export function misplacedAyat(ayat: readonly AyahPace[]): string[] {
+  const long = ayat.filter((a) => a.words >= 6);
+  const paces = long.map((a) => a.ms / a.words).sort((a, b) => a - b);
+  const median = paces[paces.length >> 1];
+  return long
+    .filter((a) => a.ms / a.words < median / 2 && a.stray > 1000)
+    .map((a) => a.key);
 }
