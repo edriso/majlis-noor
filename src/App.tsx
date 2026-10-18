@@ -63,7 +63,7 @@ export function App() {
             onPrefs={setPrefs}
             onConfig={(config) => dispatch({ type: 'draft', config })}
             onStart={(config) =>
-              open(() => dispatch({ type: 'start', config }))
+              open(() => dispatch({ type: 'start', config, at: Date.now() }))
             }
             onResume={() => open(() => {})}
           />

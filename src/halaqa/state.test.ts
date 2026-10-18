@@ -3,11 +3,13 @@ import {
   AYAH_COUNT,
   ayahIndex,
   firstAyahOfPage,
+  juzRange,
   rubStart,
   surahRange,
 } from '@/data/mushaf';
 import {
   canStepBack,
+  completion,
   currentPage,
   currentPages,
   currentRange,
@@ -18,6 +20,7 @@ import {
   newMember,
   nextStart,
   nextTurnOf,
+  placeOf,
   reduce,
   sanitizeConfig,
   sanitizeState,
@@ -43,6 +46,9 @@ const person = (id: string, name = ''): Member => ({
 /** The first ayah of a page, which is where a halaqa chosen by page starts. */
 const page = firstAyahOfPage;
 
+/** When the example sittings begin. */
+const T0 = Date.UTC(2026, 9, 18, 18, 0);
+
 /** The brief's example circle: three readers, unless a case says otherwise. */
 const threeReaders = [person('p1'), person('p2'), person('p3')];
 
@@ -52,6 +58,7 @@ const run = (config: Partial<Config>, ...actions: Action[]) =>
     reduce(initialState, {
       type: 'start',
       config: { ...defaultConfig, members: threeReaders, ...config },
+      at: T0,
     }),
   );
 
@@ -179,16 +186,24 @@ describe('a halaqa', () => {
       { type: 'finishTurn' },
     );
     expect(isComplete(s.session!)).toBe(true);
+    expect(completion(s.session!)).toBe('khatm');
     expect(currentPage(s.session!)).toBe(604);
     expect(reduce(s, { type: 'finishTurn' })).toBe(s);
     expect(reduce(s, { type: 'nextPage' })).toBe(s);
     s = reduce(s, { type: 'restartMushaf' });
     expect(where(s)).toEqual({ page: 1, reader: 0 });
-    expect(isComplete(s.session!)).toBe(false);
+    expect(completion(s.session!)).toBeNull();
   });
 
   it('ends', () => {
     expect(run({}, { type: 'end' }).session).toBeNull();
+  });
+
+  it('records when and where the sitting began', () => {
+    const s = run({ start: page(77) }).session!;
+    expect(s.startedAt).toBe(T0);
+    expect(s.from).toBe(page(77));
+    expect(s.until).toBeNull();
   });
 });
 
@@ -198,7 +213,7 @@ describe('ending keeps the place', () => {
     s = finish(s);
     s = reduce(s, { type: 'end' });
     expect(s.config.start).toBe(page(12));
-    s = reduce(s, { type: 'start', config: s.config });
+    s = reduce(s, { type: 'start', config: s.config, at: T0 });
     expect(where(s)).toEqual({ page: 12, reader: 0 });
   });
 
@@ -527,7 +542,7 @@ describe('turns of ayat', () => {
     s = finish(s);
     expect(ayat(s)).toEqual([AYAH_COUNT - 1, AYAH_COUNT]);
     s = finish(s);
-    expect(isComplete(s.session!)).toBe(true);
+    expect(completion(s.session!)).toBe('khatm');
     expect(s.session!.ayatRead).toBe(5);
     s = reduce(s, { type: 'restartMushaf' });
     expect(ayat(s)).toEqual([1, 3]);
@@ -649,6 +664,7 @@ describe('turns of a hizb quarter', () => {
   it('starts at the quarter that holds the chosen ayah', () => {
     const s = run({ ...quarter, start: rubStart(2) + 4 });
     expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
+    expect(s.session!.from).toBe(rubStart(2));
   });
 
   it('starts the quarter over in repeat mode when someone moves ahead', () => {
@@ -682,7 +698,152 @@ describe('turns of a surah', () => {
       members: [person('p1')],
     });
     s = finish(s);
+    expect(completion(s.session!)).toBe('khatm');
+  });
+});
+
+describe('a sitting with a goal', () => {
+  it('stops at the end of the surah it starts in', () => {
+    // Al-Kahf 101 to 110, five ayat a turn: two turns, then the goal.
+    let s = run({
+      start: ayahIndex(18, 101),
+      unit: 'ayah',
+      size: 5,
+      goal: { to: 'surah' },
+    });
+    expect(s.session!.until).toBe(surahRange(18).to);
+    s = finish(s);
+    expect(ayat(s)).toEqual([ayahIndex(18, 106), ayahIndex(18, 110)]);
+    expect(completion(s.session!)).toBeNull();
+    s = finish(s);
+    expect(completion(s.session!)).toBe('goal');
     expect(isComplete(s.session!)).toBe(true);
+    expect(reduce(s, { type: 'finishTurn' })).toBe(s);
+    expect(placeOf(s.session!)).toBe(ayahIndex(19, 1));
+    expect(currentPage(s.session!)).toBe(304);
+    // And the next sitting starts at Maryam.
+    expect(reduce(s, { type: 'end' }).config.start).toBe(ayahIndex(19, 1));
+  });
+
+  it('cuts a turn of pages at the goal, part-way down a page', () => {
+    // Al-Isra ends part-way down page 293, where al-Kahf begins.
+    let s = run({
+      start: page(292),
+      size: 2,
+      members: [person('p1')],
+      goal: { to: 'surah' },
+    });
+    expect(currentPages(s.session!)).toEqual([292, 293]);
+    expect(currentRange(s.session!).to).toBe(ayahIndex(18, 1));
+    s = finish(s);
+    expect(completion(s.session!)).toBe('goal');
+    expect(s.session!.pagesRead).toBe(1);
+  });
+
+  it('stops at the end of the juz it starts in', () => {
+    const s = run({
+      start: page(582),
+      members: [person('p1')],
+      goal: { to: 'juz' },
+    });
+    expect(s.session!.until).toBe(juzRange(30).to);
+    // The end of the juz is the end of the Mushaf: that is a khatm.
+    expect(completion(finish(s, 23).session!)).toBe('khatm');
+  });
+
+  it('stops after a given page', () => {
+    let s = run({ start: page(10), goal: { to: 'page', page: 11 } });
+    s = finish(s);
+    expect(where(s)).toEqual({ page: 11, reader: 1 });
+    // The page after the goal is not a page further.
+    expect(reduce(s, { type: 'nextPage' })).toBe(s);
+    s = finish(s);
+    expect(completion(s.session!)).toBe('goal');
+  });
+
+  it('has no goal when the page chosen is behind the start', () => {
+    const s = run({ start: page(50), goal: { to: 'page', page: 10 } });
+    expect(s.session!.until).toBeNull();
+  });
+
+  it('carries on past the goal when it is let go', () => {
+    let s = run({
+      start: page(292),
+      size: 2,
+      members: [person('p1')],
+      goal: { to: 'surah' },
+    });
+    s = finish(s);
+    expect(completion(s.session!)).toBe('goal');
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, goal: { to: 'none' } },
+    });
+    expect(completion(s.session!)).toBeNull();
+    expect(s.session!.until).toBeNull();
+    // Page 293 again: it holds the first ayat of al-Kahf, not yet read.
+    expect(currentPages(s.session!)).toEqual([293, 294]);
+  });
+
+  it('carries on from the very ayah in a sitting of ayat', () => {
+    let s = run({
+      start: ayahIndex(18, 101),
+      unit: 'ayah',
+      size: 5,
+      goal: { to: 'surah' },
+    });
+    s = finish(s, 2);
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, goal: { to: 'none' } },
+    });
+    expect(ayat(s)).toEqual([ayahIndex(19, 1), ayahIndex(19, 5)]);
+  });
+
+  it('stays reached when the circle changes', () => {
+    let s = run({
+      start: page(292),
+      size: 2,
+      goal: { to: 'surah' },
+    });
+    s = finish(s);
+    expect(completion(s.session!)).toBe('goal');
+    s = reduce(s, {
+      type: 'configure',
+      config: {
+        ...s.session!.config,
+        members: [...s.session!.config.members, person('p4')],
+      },
+    });
+    expect(completion(s.session!)).toBe('goal');
+  });
+
+  it('is left behind by a jump past it', () => {
+    let s = run({ start: page(292), goal: { to: 'surah' } });
+    s = reduce(s, { type: 'goToPage', page: 400 });
+    expect(s.session!.until).toBeNull();
+    expect(where(s).page).toBe(400);
+    s = reduce(s, { type: 'goToPage', page: 100 });
+    expect(s.session!.until).toBeNull();
+  });
+
+  it('is kept by a jump that stays before it', () => {
+    const s = run(
+      { start: page(292), goal: { to: 'juz' } },
+      { type: 'goToPage', page: 295 },
+    );
+    expect(s.session!.until).toBe(juzRange(15).to);
+  });
+
+  it('is worked out again, from where the circle is, when it is changed', () => {
+    let s = run({ start: page(2) });
+    s = reduce(s, { type: 'goToPage', page: 293 });
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, goal: { to: 'surah' } },
+    });
+    // Page 293 begins in al-Isra.
+    expect(s.session!.until).toBe(surahRange(17).to);
   });
 });
 
@@ -707,6 +868,7 @@ describe('a saved halaqa', () => {
       start: ayahIndex(18, 1),
       unit: 'ayah',
       size: 5,
+      goal: { to: 'page', page: 300 },
     });
     s = finish(s, 3);
     s = reduce(s, { type: 'nextPage' });
@@ -739,29 +901,38 @@ describe('a saved halaqa', () => {
         unit: 'line',
         size: 7,
         start: 7000,
+        goal: { to: 'page', page: 9999 },
       },
       session: {
-        config: { unit: 'ayah', size: 4, start: -2 },
+        config: { unit: 'ayah', size: 4, start: -2, goal: 'juz' },
         turn: 4,
         anchor: { turn: 2, at: 99999 },
         pageInTurn: 7,
         ayatRead: -1,
+        startedAt: 'yesterday',
+        from: 0,
+        until: 1,
       },
     });
     expect(s.config).toMatchObject({
       unit: 'page',
       size: 1,
       start: 1,
+      goal: { to: 'none' },
     });
     const session = s.session!;
     expect(session.config).toMatchObject({
       unit: 'ayah',
       size: 1,
       start: 1,
+      goal: { to: 'none' },
     });
     expect(session.anchor).toEqual({ turn: 2, at: 1 });
     expect(session.pageInTurn).toBe(0);
     expect(session.ayatRead).toBe(0);
+    expect(session.startedAt).toBeNull();
+    expect(session.from).toBe(1);
+    expect(session.until).toBeNull();
   });
 
   it('keeps only the sizes the start screen offers', () => {
@@ -801,6 +972,9 @@ describe('a saved halaqa', () => {
     expect(session.anchor).toEqual({ turn: 3, at: 34 });
     expect(currentPages(session)).toEqual([34, 35]);
     expect(where(s)).toEqual({ page: 35, reader: 1 });
+    expect(session.from).toBe(page(30));
+    expect(session.startedAt).toBeNull();
+    expect(session.until).toBeNull();
     // And it carries on exactly as it would have.
     let t = finish(s);
     expect(where(t)).toEqual({ page: 34, reader: 2 });

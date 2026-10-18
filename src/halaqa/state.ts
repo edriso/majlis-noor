@@ -8,9 +8,13 @@ import {
   AYAH_COUNT,
   clampPage,
   firstAyahOfPage,
+  juzOfAyah,
+  juzRange,
   PAGE_COUNT,
   pageOfAyah,
   pagesOfRange,
+  surahOfAyah,
+  surahRange,
   type AyahRange,
 } from '@/data/mushaf';
 import { defaultReciter, reciterById, reciters } from '@/data/reciters';
@@ -25,6 +29,7 @@ import {
   roundOf,
   startOf,
   UNIT_COUNT,
+  unitAfter,
   unitOf,
   unitStart,
   type Anchor,
@@ -75,6 +80,14 @@ export type ReciterMember = { id: string; kind: 'reciter'; reciter: string };
 export type Member = Person | ReciterMember;
 export type MemberKind = Member['kind'];
 
+/** Where a sitting means to stop, if anywhere: the end of the surah or the
+    juz it starts in, or the end of a given page. */
+export type Goal =
+  | { to: 'none' }
+  | { to: 'surah' }
+  | { to: 'juz' }
+  | { to: 'page'; page: number };
+
 export type Config = {
   /** Everyone in the circle, in the order they read. */
   members: Member[];
@@ -91,6 +104,7 @@ export type Config = {
   /** Where the next sitting starts, as an ayah's number through the whole
       Mushaf (1 to 6236). A turn begins on the unit that holds it. */
   start: number;
+  goal: Goal;
 };
 
 export type Allowance = 1 | 1.25 | 1.5;
@@ -116,6 +130,15 @@ export type Session = {
   pagesRead: number;
   /** Ayat the circle has finished in this sitting. */
   ayatRead: number;
+  /** When the sitting began, as the start action carried it (ms since the
+      epoch); null for one saved before the app kept it. */
+  startedAt: number | null;
+  /** The first ayah the sitting read. */
+  from: number;
+  /** The ayah at which the sitting's goal is reached, exclusive (the goal
+      read, this ayah is not); null for none. Worked out when the sitting
+      starts, from where it starts. */
+  until: number | null;
 };
 
 export type State = {
@@ -137,6 +160,7 @@ export const defaultConfig: Config = {
   allowance: 1,
   reciter: defaultReciter,
   start: 1,
+  goal: { to: 'none' },
 };
 
 export const defaultPrefs: Prefs = {
@@ -203,10 +227,15 @@ export function newMember(
   return kind === 'person' ? { id, kind, name: '' } : { id, kind, reciter };
 }
 
-/** The ayat a turn reads, as a half-open range of ayah numbers, cut short
-    at the end of the Mushaf. */
+/* What the circle is reading. A sitting with a goal reads up to it and no
+   further, as every sitting reads up to the end of the Mushaf: both cut the
+   turn that crosses them, and leave nothing for the turns after. */
+
+const endOf = (s: Session) => s.until ?? END;
+
+/** The ayat a turn reads, as a half-open range of ayah numbers. */
 export const turnRange = (s: Session, turn: number) =>
-  rangeOf(planOf(s.config), s.anchor, turn);
+  rangeOf(planOf(s.config), s.anchor, turn, endOf(s));
 
 /** The pages a turn reads, in order. */
 export const turnPages = (s: Session, turn: number) =>
@@ -217,14 +246,24 @@ export const currentPages = (s: Session) => turnPages(s, s.turn);
 
 const isEmpty = (r: AyahRange) => r.to <= r.from;
 
-/** A turn with nothing left to read: the Mushaf has been completed. */
-export const isComplete = (s: Session) => isEmpty(currentRange(s));
+/** How a sitting with nothing left to read ended: the Mushaf completed (a
+    khatm), or the goal it set itself reached. Null while there is more. */
+export type Completion = 'khatm' | 'goal' | null;
+
+export function completion(s: Session): Completion {
+  if (!isEmpty(currentRange(s))) return null;
+  const plan = planOf(s.config);
+  return isEmpty(rangeOf(plan, s.anchor, s.turn)) ? 'khatm' : 'goal';
+}
+
+export const isComplete = (s: Session) => completion(s) !== null;
 
 /**
  * Where the circle is: the first ayah it has not yet left behind. That is
  * the start of the turn, or of the page open in it if the reader has turned
- * on; after a khatm, the end of the Mushaf. The next sitting starts here,
- * and a change to the circle carries on from here.
+ * on; after a khatm, the end of the Mushaf, and after the goal, the goal.
+ * The next sitting starts here, and a change to the circle carries on from
+ * here.
  */
 export function placeOf(s: Session) {
   const range = currentRange(s);
@@ -233,7 +272,7 @@ export function placeOf(s: Session) {
     const open = pages[Math.min(s.pageInTurn, pages.length - 1)];
     return Math.max(range.from, firstAyahOfPage(open));
   }
-  return END;
+  return completion(s) === 'khatm' ? END : endOf(s);
 }
 
 /** The page open: one of the turn's, or, once nothing is left, the last
@@ -272,6 +311,24 @@ export function canStepBack(s: Session) {
   return turn >= 0 && !isBeforeStart(plan, s.anchor, turn);
 }
 
+/** The ayah at which `goal` is reached for a sitting at `place`, exclusive;
+    null for no goal, or for one already behind. */
+export function goalEnd(goal: Goal, place: number): number | null {
+  const at = Math.min(Math.max(place, 1), AYAH_COUNT);
+  const end =
+    goal.to === 'surah'
+      ? surahRange(surahOfAyah(at)).to
+      : goal.to === 'juz'
+        ? juzRange(juzOfAyah(at)).to
+        : goal.to === 'page'
+          ? firstAyahOfPage(goal.page + 1)
+          : null;
+  return end !== null && end > place ? end : null;
+}
+
+const sameGoal = (a: Goal, b: Goal) =>
+  a.to === b.to && (a.to !== 'page' || b.to !== 'page' || a.page === b.page);
+
 const samePlan = (a: Plan, b: Plan) =>
   a.readers === b.readers &&
   a.mode === b.mode &&
@@ -280,7 +337,9 @@ const samePlan = (a: Plan, b: Plan) =>
 
 export type Action =
   | { type: 'draft'; config: Config }
-  | { type: 'start'; config: Config }
+  /** `at` is the time it starts, read by the event handler, so the reducer
+      stays pure. */
+  | { type: 'start'; config: Config; at: number }
   | { type: 'end' }
   | { type: 'finishTurn' }
   | { type: 'previousTurn' }
@@ -317,13 +376,20 @@ function keepOpen(s: Session, next: Session) {
 /**
  * Moves the current turn so it begins on the unit holding ayah `a`, with
  * the page that ayah is on open. Re-anchoring keeps the turn number, so the
- * same member keeps the turn.
+ * same member keeps the turn. A jump to or past the sitting's goal leaves
+ * the goal behind, and the sitting carries on without one.
  */
 function jumpTo(s: Session, a: number): Session {
   const plan = planOf(s.config);
   const ayah = Math.min(Math.max(Math.round(a) || 1, 1), AYAH_COUNT);
   const anchor = anchorAt(s.turn, unitOf(plan.unit, ayah));
-  const next: Session = { ...s, anchor, pageInTurn: 0 };
+  const passed = s.until !== null && unitStart(plan.unit, anchor.at) >= s.until;
+  const next: Session = {
+    ...s,
+    anchor,
+    until: passed ? null : s.until,
+    pageInTurn: 0,
+  };
   return {
     ...next,
     pageInTurn: Math.max(0, currentPages(next).indexOf(pageOfAyah(ayah))),
@@ -352,6 +418,12 @@ export function reduce(state: State, action: Action): State {
         pageInTurn: 0,
         pagesRead: 0,
         ayatRead: 0,
+        startedAt: Number.isFinite(action.at) ? action.at : null,
+        from: unitStart(config.unit, anchor.at),
+        // From the place chosen, not the start of the unit holding it: a
+        // quarter that opens in the surah before is still a sitting in the
+        // surah that was chosen.
+        until: goalEnd(config.goal, config.start),
       },
     };
   }
@@ -409,6 +481,8 @@ export function reduce(state: State, action: Action): State {
         return set({ ...s, pageInTurn: s.pageInTurn + 1 });
       const page = currentPage(s);
       if (pages.length === 0 || page >= PAGE_COUNT) return state;
+      if (s.until !== null && firstAyahOfPage(page + 1) >= s.until)
+        return state;
       // Past the end of the turn the whole circle moves one page on. A turn
       // of pages keeps its length and its open page; a turn of anything
       // else begins in the next page, as a jump to it would.
@@ -445,6 +519,12 @@ export function reduce(state: State, action: Action): State {
     case 'configure': {
       const config = sanitizeConfig(action.config);
       const next = planOf(config);
+      const here = placeOf(s);
+      const reached = completion(s) === 'goal';
+      /* The goal is worked out again only if it was changed; changed in a
+         sitting, «the end of the surah» is the surah being read. */
+      const keptGoal = sameGoal(config.goal, s.config.goal);
+      const until = keptGoal ? s.until : goalEnd(config.goal, here);
       /* Whoever is reading keeps the turn wherever they now sit: the circle
          may have been reordered, or someone added or removed. If it was
          they who left, the turn goes to whoever took their seat. */
@@ -463,20 +543,38 @@ export function reduce(state: State, action: Action): State {
         samePlan(next, plan) &&
         reader === seat &&
         (!repeating || ahead(config, reader) === ahead(s.config, seat));
-      if (unchanged) return configured({ ...s, config });
+      if (unchanged) {
+        // A goal reached and then changed or let go («تابعوا») carries the
+        // circle on from where it stopped, in the unit that holds it.
+        if (reached && !keptGoal)
+          return configured({
+            ...s,
+            config,
+            until,
+            anchor: anchorAt(s.turn, unitOf(plan.unit, here)),
+            pageInTurn: 0,
+          });
+        return configured({ ...s, config, until });
+      }
 
       // A fresh round, so the turn number names the right member from here
       // on; the turns before this one are history either way.
       const start = (roundOf(plan, s.turn) + 1) * next.readers;
 
-      // Continue mode carries on from the place being read.
+      // Continue mode carries on from the place being read; a goal reached
+      // and kept stays reached.
       if (!repeating) {
         const turn = start + reader;
+        const at =
+          reached && keptGoal
+            ? unitAfter(next.unit, here)
+            : unitOf(next.unit, here);
         const carried: Session = {
           ...s,
           config,
+          until,
           turn,
-          anchor: anchorAt(turn, unitOf(next.unit, placeOf(s))),
+          anchor: anchorAt(turn, at),
         };
         return configured({ ...carried, pageInTurn: keepOpen(s, carried) });
       }
@@ -505,6 +603,7 @@ export function reduce(state: State, action: Action): State {
         return configured({
           ...s,
           config,
+          until,
           turn: start,
           anchor: anchorAt(start, at),
           pageInTurn: 0,
@@ -518,7 +617,12 @@ export function reduce(state: State, action: Action): State {
           r.state,
         ]),
       );
-      const fresh = rangeOf(next, anchorAt(start, firstNext), start);
+      const fresh = rangeOf(
+        next,
+        anchorAt(start, firstNext),
+        start,
+        until ?? END,
+      );
       const covered =
         isEmpty(fresh) || (fresh.from >= read.from && fresh.to <= read.to);
       const marks = config.members.slice(0, reader).map((m) => was.get(m.id));
@@ -531,6 +635,7 @@ export function reduce(state: State, action: Action): State {
       const carried: Session = {
         ...s,
         config,
+        until,
         turn: start + reader,
         anchor: anchorAt(start + ticked, firstNext),
         pageInTurn: 0,
@@ -599,6 +704,16 @@ function sanitizeMembers(c: Record<string, unknown>): Member[] {
   return members.length ? members : [defaultConfig.members[0]];
 }
 
+function sanitizeGoal(v: unknown): Goal {
+  const g = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  if (g.to === 'surah' || g.to === 'juz') return { to: g.to };
+  if (g.to === 'page') {
+    const page = intIn(g.page, 1, PAGE_COUNT, 0);
+    if (page) return { to: 'page', page };
+  }
+  return { to: 'none' };
+}
+
 /** Whatever was stored, made into a valid configuration. A stored value is
     data from an older version or a hand-edited store, never trusted. One
     saved before turns could be counted in anything but pages has
@@ -630,6 +745,7 @@ export function sanitizeConfig(raw: unknown): Config {
       AYAH_COUNT,
       firstAyahOfPage(intIn(c.startPage, 1, PAGE_COUNT, 1)),
     ),
+    goal: sanitizeGoal(c.goal),
   };
 }
 
@@ -656,6 +772,7 @@ export function sanitizeState(raw: unknown): State {
       intIn(a.turn, 0, turn, 0),
       intIn(at, 1, UNIT_COUNT[sc.unit] + 1, unitOf(sc.unit, sc.start)),
     );
+    const stored = s.startedAt;
     const built: Session = {
       config: sc,
       anchor,
@@ -663,6 +780,12 @@ export function sanitizeState(raw: unknown): State {
       pageInTurn: 0,
       pagesRead: intIn(s.pagesRead, 0, Number.MAX_SAFE_INTEGER, 0),
       ayatRead: intIn(s.ayatRead, 0, Number.MAX_SAFE_INTEGER, 0),
+      startedAt:
+        typeof stored === 'number' && Number.isFinite(stored) && stored >= 0
+          ? stored
+          : null,
+      from: intIn(s.from, 1, AYAH_COUNT, sc.start),
+      until: intIn(s.until, 2, END, 0) || null,
     };
     session = {
       ...built,
