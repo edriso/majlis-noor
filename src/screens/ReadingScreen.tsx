@@ -4,7 +4,7 @@ import {
   ChevronRight,
   Settings,
   Users,
-} from 'lucide-react';
+} from '@/components/icons';
 import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { arabic, clock, pagesCount } from '@/data/arabic';
 import { PAGE_COUNT, surahOfPage } from '@/data/mushaf';

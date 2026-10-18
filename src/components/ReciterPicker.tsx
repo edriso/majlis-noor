@@ -1,4 +1,4 @@
-import { Check, Play, Square } from 'lucide-react';
+import { Check, Play, Square } from './icons';
 import { useId } from 'react';
 import { clock } from '@/data/arabic';
 import { paceLabel, reciters, type Reciter } from '@/data/reciters';

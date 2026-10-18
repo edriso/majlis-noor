@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog';
-import { ArrowRight, X } from 'lucide-react';
+import { ArrowRight, X } from './icons';
 import { useRef, type ReactNode } from 'react';
 
 /**

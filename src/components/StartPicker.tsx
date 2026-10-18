@@ -1,4 +1,4 @@
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus } from './icons';
 import { useId, useState } from 'react';
 import { arabic, digits } from '@/data/arabic';
 import {

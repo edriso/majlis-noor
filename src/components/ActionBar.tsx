@@ -7,7 +7,7 @@ import {
   Play,
   RotateCcw,
   Undo2,
-} from 'lucide-react';
+} from './icons';
 import type { ReactNode } from 'react';
 import { clock, durationWords } from '@/data/arabic';
 import type { Reciter } from '@/data/reciters';

@@ -1,4 +1,4 @@
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowLeft, Settings } from '@/components/icons';
 import { useState } from 'react';
 import { arabic } from '@/data/arabic';
 import { surahOfPage } from '@/data/mushaf';

@@ -1,4 +1,4 @@
-import { Check, User } from 'lucide-react';
+import { Check, User } from './icons';
 import { arabic } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';
 import { pagesShort } from '@/halaqa/labels';

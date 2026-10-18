@@ -5,7 +5,7 @@ import {
   Headphones,
   UserPlus,
   X,
-} from 'lucide-react';
+} from './icons';
 import { useEffect, useId, useRef, useState } from 'react';
 import { arabic, seatsCount } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';

@@ -1,4 +1,4 @@
-import { User } from 'lucide-react';
+import { User } from './icons';
 import { reciterById } from '@/data/reciters';
 import type { Member } from '@/halaqa/state';
 import { ReciterAvatar } from './ReciterAvatar';
