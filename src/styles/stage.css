@@ -1,72 +1,86 @@
-/* The stage of the reading screen (MushafView.tsx): the room the Mushaf
-   page has, and the page fitted into it. */
+/* The stage of the reading screen (MushafView.tsx): the room the Mushaf has,
+   and one page, or two side by side, fitted into it.
 
-/* The page's room. A size container, so the page inside can be sized by
-   both its sides at once. On a screen too short to show a page at a size
-   anyone can read (a phone on its side) the page keeps that size, 220px
-   wide, and this room scrolls instead. */
+   The room is a size container, so a page can be sized by both its sides
+   at once: `min(100cqw, 100cqh / --page-height)` wide is as large as the
+   room allows in both directions, with no breakpoint deciding it. Only
+   where that would make it narrower than 220px (a window too short to
+   read a page whole) does it keep 220px and the room scroll.
+
+   Where the room is wider than 1.2 times its height, two whole pages fit
+   at full height (each is about 0.59 of it wide), so the Mushaf opens as
+   a spread. The page each `.mushaf-page` reads its own `--page-height`,
+   since a page drawn from its text is a little taller. */
+
 .mushaf-view {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 6px;
   min-height: 0;
 }
+
 .mushaf-stage {
-  container-type: size;
+  --spread-gap: clamp(var(--space-2), 1.2cqw, var(--space-5));
+  container: stage / size;
   display: grid;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--control-border) transparent;
+  /* The browser keeps scrolling and pinching; a stroke across is the
+     page's to read (MushafView). */
+  touch-action: pan-y pinch-zoom;
 }
-.mushaf-stage .mushaf-page {
-  width: max(min(100cqw, 100cqh / var(--page-height)), min(100cqw, 220px));
+
+.mushaf-spread {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spread-gap);
   /* Centred both ways, and to the top when it is taller than its room,
      which a centred grid item would push out of reach above. */
   margin: auto;
 }
+.mushaf-leaf {
+  flex: none;
+}
+.mushaf-leaf .mushaf-page {
+  width: max(min(100cqw, 100cqh / var(--page-height)), min(100cqw, 220px));
+}
+/* One page where there is room for one: the page open. */
+.mushaf-leaf:not([data-current]) {
+  display: none;
+}
 
-.page-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+@container stage (min-aspect-ratio: 6 / 5) {
+  .mushaf-spread[data-pages='2'] .mushaf-leaf {
+    display: block;
+  }
+  .mushaf-spread[data-pages='2'] .mushaf-page {
+    width: max(
+      min((100cqw - var(--spread-gap)) / 2, 100cqh / var(--page-height)),
+      min((100cqw - var(--spread-gap)) / 2, 220px)
+    );
+  }
+  /* The page beside that is not the turn's, drawn but stepped back. Its
+     ink keeps AA against its own paper over every ground: 0.7 of the
+     page over the sand ground, the lightest, still leaves 6.6:1. */
+  .mushaf-leaf[data-dim] .mushaf-page {
+    opacity: 0.7;
+    box-shadow: none;
+  }
 }
-.quiet-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  transition:
-    color 160ms var(--ease),
-    background-color 160ms var(--ease);
+
+/* «بعرض الشاشة»: one page as wide as the room, read by scrolling down. */
+.mushaf-stage[data-size='width'] .mushaf-spread {
+  margin-block: 0;
+  align-self: start;
 }
-.quiet-button:hover {
-  color: var(--fg);
-  background: var(--hover);
-}
-.page-nav-number {
-  font-variant-numeric: tabular-nums;
-  color: var(--fg);
+.mushaf-stage[data-size='width'] .mushaf-page {
+  width: 100cqw;
 }
 
 @media (max-width: 759px) {
   .mushaf-page {
     border-radius: 4px;
-  }
-}
-
-/* A short screen gives every line of height to the page: it turns with
-   the buttons below, and the chip at the top opens any page. */
-@media (max-height: 700px) {
-  .page-nav {
-    display: none;
   }
 }

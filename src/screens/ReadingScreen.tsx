@@ -102,10 +102,11 @@ export function ReadingScreen({
         ) : (
           <MushafView
             page={turn.page}
+            turnFirst={turn.pages[0]}
+            turnLast={turn.pages[turn.pages.length - 1]}
+            size={prefs.pageSize}
             prefetch={turn.prefetch}
-            onPrevious={actions.previousPage}
-            onNext={actions.nextPage}
-            onJump={openJump}
+            onSwipe={actions.turnPage}
           />
         )}
       </main>

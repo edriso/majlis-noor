@@ -218,15 +218,20 @@ export function useTurn({
         : { type: 'previousTurn' },
     );
   };
-  // Handed to the page, which is drawn again only when they change.
-  const previousPage = useCallback(() => {
-    wakeSound();
-    dispatch({ type: 'previousPage' });
-  }, [dispatch]);
-  const nextPage = useCallback(() => {
-    wakeSound();
-    dispatch({ type: 'nextPage' });
-  }, [dispatch]);
+  /* A finger drawn across the page turns between the turn's own pages and
+     no further: past the last, the turn is the main button's to pass, and
+     before the first, «القارئ السابق»'s. Handed to the page, which is drawn
+     again only when it changes. */
+  const canTurnOn = !end && !lastPage;
+  const canTurnBack = !end && session.pageInTurn > 0;
+  const turnPage = useCallback(
+    (direction: 'forward' | 'back') => {
+      if (direction === 'forward' ? !canTurnOn : !canTurnBack) return;
+      wakeSound();
+      dispatch({ type: direction === 'forward' ? 'nextPage' : 'previousPage' });
+    },
+    [dispatch, canTurnOn, canTurnBack],
+  );
 
   /** Space: an ayah heard alone first, then whatever else runs. */
   const space = () => {
@@ -323,10 +328,10 @@ export function useTurn({
       toggleRecitation,
       toggleListen,
       togglePause,
-      previousPage,
-      nextPage,
+      turnPage,
       space,
       goToPage: (p: number) => dispatch({ type: 'goToPage', page: p }),
+      goToAyah: (ayah: number) => dispatch({ type: 'goToAyah', ayah }),
       restart: () => dispatch({ type: 'restartMushaf' }),
       // Letting the goal go carries the circle on from where it stopped.
       carryOn: () =>

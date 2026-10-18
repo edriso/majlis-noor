@@ -483,6 +483,38 @@ describe('a circle that reads by the ayah', () => {
     expect(screen.getByText('قرأتم ٥ آيات في هذا المجلس')).toBeTruthy();
   });
 
+  it('turns between the turn’s pages with a finger, and no further', async () => {
+    // Al-Kahf 14 to 18: two ayat at the foot of page 294, three on 295.
+    await startWith({ ...ayat, start: ayahIndex(18, 14) });
+    const stage = screen.getByRole('region', { name: /^المصحف، الصفحة/ });
+    const draw = (from: number, to: number) => {
+      fireEvent.pointerDown(stage, {
+        pointerId: 1,
+        isPrimary: true,
+        clientX: from,
+        clientY: 100,
+      });
+      fireEvent.pointerUp(stage, {
+        pointerId: 1,
+        isPrimary: true,
+        clientX: to,
+        clientY: 104,
+      });
+    };
+    // Rightwards is forward, as a right-to-left book turns.
+    draw(100, 260);
+    expect(place()).toBe('ص ٢٩٥');
+    // Past the turn's last page, the turn is the main button's to pass.
+    draw(100, 260);
+    expect(place()).toBe('ص ٢٩٥');
+    expect(status()).toContain('دورك');
+    draw(260, 100);
+    expect(place()).toBe('ص ٢٩٤');
+    // A tap is left for the page.
+    draw(100, 110);
+    expect(place()).toBe('ص ٢٩٤');
+  });
+
   it('turns the page when a turn’s ayat run onto the next', async () => {
     // Al-Kahf 14 to 18: two ayat at the foot of page 294, three on 295.
     const user = await startWith({ ...ayat, start: ayahIndex(18, 14) });
