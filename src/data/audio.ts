@@ -12,8 +12,9 @@
    - A surah's word times: how the API's segments are cleaned
      (`cleanSegments`), and their compact form (`encodeAyahWords`).
    - How a file the host serves today differs from the one the timings
-     were made from (`fileChange`), and whether a file fits its timings at
-     all (`endMisfit`, `misplacedAyat`), for scripts/build-timings.ts and
+     were made from (`fileChange`), whether a file fits its timings at all
+     (`endMisfit`), and which ayat are misplaced in one that does
+     (`misplacedAyat`), for scripts/build-timings.ts and
      scripts/check-audio.ts. */
 
 /** The address of a surah's file, from a reciter's address template. */
@@ -310,37 +311,75 @@ export function endMisfit(file: FileRecord, lastEnd: number): string | null {
   return null;
 }
 
-/** An ayah as the pace check sees it: its verse key, how many words the
-    print gives it, how long its timings make it, and how far the API's
-    own word segments for it reach outside it, before or after. */
-export type AyahPace = {
+/** An ayah as the check for misplaced ayat sees it: its verse key, how
+    many words the print gives it, its span in the file, and where the
+    API's own word segments for it begin and end (null if it has none). */
+export type AyahCheck = {
   key: string;
   words: number;
-  ms: number;
-  stray: number;
+  from: number;
+  to: number;
+  heard: Span | null;
 };
+
+/** How far an ayah's own words may reach outside it before they say its
+    span is wrong: al-Rifai's ayah 27 of many a surah has a last word timed
+    1.1 to 1.9 s past it, by a quirk of the segments, not of the ayah. */
+const STRAY_MS = 2000;
 
 /**
  * The ayat whose own start or end is misplaced, in a file that may fit
- * its timings otherwise: an ayah of six words or more, timed at under half
- * its reciter's median pace (milliseconds per word over all his ayat of
- * six words or more), whose own word segments reach more than a second
- * outside it.
+ * its timings otherwise, given every ayah of a reciter in order.
  *
- * Either sign alone is found in good timings: short words recited quickly
- * (al-Husary's 3:25 and al-Dosari's 18:68 at 0.49 of their median, with
- * no word outside), a first word timed from before the ayah (al-Afasy's
- * and al-Rifai's often are). Together they mark the boundaries that are
- * seconds off, and only those, over all ten reciters: Abdul Basit's
- * al-Baqarah 49 to 189, al-Husary's teaching 3:127, 4:10, 5:64 and 43:32,
- * al-Afasy's 14:17, al-Rifai's 8:61 (timed at 21 ms) and al-Sudais's 5:5,
- * each at 0.45 of the median or under, with words 4.7 s to 102 s outside.
+ * It starts from the ayat that cannot be right: six words or more, timed
+ * at under 0.6 of the reciter's median pace (milliseconds per word over
+ * all his ayat of six words or more), with their own words more than two
+ * seconds outside them. Either sign alone is found in good timings: short
+ * words recited quickly (al-Husary's 3:25 and al-Dosari's 18:68 at 0.49
+ * of their median, with no word outside), words timed off their ayah at a
+ * pace that is the ayah's own (al-Afasy's 35:2 at 0.69, al-Minshawi's
+ * 13:2 at 0.70). Together, in files that fit, they mark only al-Husary's
+ * teaching 3:127, 3:177, 4:9, 4:10, 4:23, 5:64 and 43:32 and al-Rifai's
+ * 8:61 (timed at 21 ms), at 0.57 of the median or under, with words 2.9 s
+ * to 87 s outside.
+ *
+ * A misplaced ayah moves a boundary it shares, and which of its two is
+ * wrong cannot be told, so both its neighbours in the surah are taken with
+ * it. And where a taken ayah's own words reach more than two seconds into
+ * the ayat after it (or before it), those are taken too, as far as they
+ * reach: al-Husary's 4:23 is heard into 4:25.
  */
-export function misplacedAyat(ayat: readonly AyahPace[]): string[] {
+export function misplacedAyat(ayat: readonly AyahCheck[]): string[] {
   const long = ayat.filter((a) => a.words >= 6);
-  const paces = long.map((a) => a.ms / a.words).sort((a, b) => a - b);
+  const paces = long
+    .map((a) => (a.to - a.from) / a.words)
+    .sort((a, b) => a - b);
   const median = paces[paces.length >> 1];
-  return long
-    .filter((a) => a.ms / a.words < median / 2 && a.stray > 1000)
-    .map((a) => a.key);
+  const surahOf = (i: number) => ayat[i].key.split(':')[0];
+  const taken = new Set<number>();
+  ayat.forEach((a, i) => {
+    const stray = a.heard
+      ? Math.max(a.from - a.heard[0], a.heard[1] - a.to)
+      : 0;
+    if (
+      a.words >= 6 &&
+      (a.to - a.from) / a.words < 0.6 * median &&
+      stray > STRAY_MS
+    )
+      for (const j of [i - 1, i, i + 1])
+        if (ayat[j] && surahOf(j) === surahOf(i)) taken.add(j);
+  });
+  // As far as the words of what is taken reach. A Set's loop goes on to
+  // what is added while it runs, so this reaches every ayah that is.
+  for (const i of taken) {
+    const heard = ayat[i].heard;
+    if (!heard) continue;
+    for (const step of [1, -1])
+      for (let j = i + step; ayat[j] && surahOf(j) === surahOf(i); j += step) {
+        const into = step > 0 ? heard[1] - ayat[j].from : ayat[j].to - heard[0];
+        if (into <= STRAY_MS) break;
+        taken.add(j);
+      }
+  }
+  return [...taken].sort((a, b) => a - b).map((i) => ayat[i].key);
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PAGE_COUNT, surahs, type Page } from './mushaf';
+import { ayahIndex, PAGE_COUNT, surahs, verseKey, type Page } from './mushaf';
 import { paceLabel, reciters } from './reciters';
 import {
   cleanSegments,
@@ -16,7 +16,7 @@ import {
   misplacedAyat,
   stampOf,
   surahFile,
-  type AyahPace,
+  type AyahCheck,
   type FileRecord,
   type Span,
   type WordsFile,
@@ -24,6 +24,7 @@ import {
 import {
   ayahAt,
   ayahOf,
+  ayahTimed,
   ayahTimes,
   ayatDuration,
   ayatRecitation,
@@ -191,23 +192,40 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
     }
   });
 
-  it('marks untimed every surah whose file does not fit its timings', () => {
-    expect(t.untimed).toEqual([...(t.untimed ?? [])].sort((a, b) => a - b));
-    for (const s of surahs) {
-      const misfit = endMisfit(t.files[s.n - 1], ayahTimes(t, s.n).at(-1)![1]);
-      if (misfit) expect(t.untimed, `surah ${s.n}: ${misfit}`).toContain(s.n);
+  it('marks untimed exactly the surahs whose file does not fit them', () => {
+    expect(t.untimed).toEqual(
+      surahs
+        .filter((s) =>
+          endMisfit(t.files[s.n - 1], ayahTimes(t, s.n).at(-1)![1]),
+        )
+        .map((s) => s.n),
+    );
+  });
+
+  it('marks misplaced only ayat of surahs whose file fits', () => {
+    const misplaced = t.misplaced ?? [];
+    expect(misplaced).toEqual([...new Set(misplaced)].sort((a, b) => a - b));
+    for (const n of misplaced) {
+      const [surah] = verseKey(n).split(':').map(Number);
+      expect(isTimed(t, surah), verseKey(n)).toBe(true);
     }
-    // The rest were marked for an ayah timed at under half his pace, which
-    // the pages bear out (that its own words stray too, only the API's
-    // segments can tell).
+    // Each run of them holds the ayah that set it off, timed at under 0.6
+    // of his pace, which the pages bear out (that its own words stray too,
+    // only the API's segments can tell).
     const median = medianPace(t);
-    for (const n of t.untimed ?? []) {
-      if (endMisfit(t.files[n - 1], ayahTimes(t, n).at(-1)![1])) continue;
-      const hurried = ayahTimes(t, n).some(([from, to], i) => {
-        const words = wordCount.get(`${n}:${i + 1}`)!;
-        return words >= 6 && (to - from) / words < median / 2;
+    const runs: number[][] = [];
+    for (const n of misplaced)
+      if (runs.at(-1)?.at(-1) === n - 1) runs.at(-1)!.push(n);
+      else runs.push([n]);
+    for (const run of runs) {
+      const hurried = run.some((n) => {
+        const key = verseKey(n);
+        const [surah, ayah] = key.split(':').map(Number);
+        const [from, to] = ayahTimes(t, surah)[ayah - 1];
+        const words = wordCount.get(key)!;
+        return words >= 6 && (to - from) / words < 0.6 * median;
       });
-      expect(hurried, `surah ${n}`).toBe(true);
+      expect(hurried, run.map(verseKey).join(' ')).toBe(true);
     }
   });
 
@@ -303,18 +321,69 @@ describe('surah files that do not fit their timings', () => {
     expect(
       Object.fromEntries(reciters.map((r) => [r.id, load(r.id).untimed])),
     ).toEqual({
-      // An ayah misplaced in each: 3:127, 4:10, 5:64, 43:32.
-      'husary-muallim': [3, 4, 5, 43],
+      'husary-muallim': [],
       husary: [52],
       abdulbasit: [2],
       alafasy: [14, 82],
       minshawi: [],
       dosari: [20, 50, 92],
       shatri: [10, 17, 59],
-      rifai: [8],
+      rifai: [],
       sudais: [3, 4, 5, 28, 29],
       shuraim: [],
     });
+  });
+
+  it('leave misplaced, where the file fits, only the ayat around a bad one', () => {
+    const misplaced = (id: string) => (load(id).misplaced ?? []).map(verseKey);
+    // al-Husary's teaching 3:127, 3:177, 4:9, 4:10, 4:23, 5:64 and 43:32,
+    // each with its neighbours and the ayat its words run into.
+    expect(misplaced('husary-muallim').join(' ')).toBe(
+      '3:126 3:127 3:128 3:176 3:177 3:178 4:8 4:9 4:10 4:11 4:12 ' +
+        '4:22 4:23 4:24 4:25 5:63 5:64 5:65 5:66 43:31 43:32 43:33',
+    );
+    // al-Rifai's 8:61, timed at 21 ms, its words heard into 8:63.
+    expect(misplaced('rifai')).toEqual(['8:60', '8:61', '8:62', '8:63']);
+    for (const r of reciters)
+      if (r.id !== 'husary-muallim' && r.id !== 'rifai')
+        expect(misplaced(r.id), r.id).toEqual([]);
+  });
+
+  it('cost the teaching recording a few pages, not four surahs', () => {
+    const t = load('husary-muallim');
+    expect(range(1, PAGE_COUNT).filter((p) => !pageTimed(t, p))).toEqual([
+      66, 73, 78, 79, 81, 82, 118, 119, 491,
+    ]);
+    expect(
+      range(1, PAGE_COUNT).filter((p) => !pageTimed(load('rifai'), p)),
+    ).toEqual([184, 185]);
+    expect(recitationOf(t, [65, 66, 67]).map((s) => s.page)).toEqual([65, 67]);
+    expect(pageDuration(t, 66)).toBe(
+      Math.max(stretched(t, 66), averagePage(t)),
+    );
+    expect(pageDuration(t, 67)).toBe(stretched(t, 67));
+  });
+
+  it('play no ayah misplaced, nor any run that holds one', () => {
+    const t = load('husary-muallim');
+    expect(ayahTimed(t, '3:127')).toBe(false);
+    expect(ayahTimed(t, '3:126')).toBe(false); // its neighbour
+    // On the same page, but its own span is sound.
+    expect(ayahTimed(t, '3:125')).toBe(true);
+    expect(ayatRecitation(t, '3:125')).toHaveLength(1);
+    expect(ayatRecitation(t, '3:120', '3:130')).toEqual([]);
+    expect(ayatDuration(t, '3:120', '3:130')).toBeNull();
+    expect(ayatRecitation(t, '3:129', '3:130')).toHaveLength(1);
+    // By their numbers through the Mushaf, as the halaqa's ranges count.
+    expect(ayahIndex(3, 127)).toBe(420);
+    expect(ayatTimed(t, 420)).toBe(false);
+    expect(ayatTimed(t, 421 + 1, 421 + 5)).toBe(true);
+    // Nothing is marked as recited inside one, and its neighbours' times
+    // are not trusted either.
+    const mid = ([from, to]: Span) => (from + to) / 2;
+    expect(ayahAt(t, 3, mid(ayahTimes(t, 3)[126]))).toBeNull();
+    expect(ayahAt(t, 3, mid(ayahTimes(t, 3)[127]))).toBeNull();
+    expect(ayahAt(t, 3, mid(ayahTimes(t, 3)[124]))).toBe(125);
   });
 
   it('are never played, page by page', () => {
@@ -416,9 +485,14 @@ describe('ayah times', () => {
     ],
   } satisfies Timings;
 
-  it('names an ayah by its verse key or by surah and ayah', () => {
+  it('names an ayah by its verse key, by surah and ayah, or by number', () => {
     expect(ayahOf('2:255')).toEqual([2, 255]);
     expect(ayahOf([2, 255])).toEqual([2, 255]);
+    expect(ayahOf(262)).toEqual([2, 255]);
+    expect(ayahOf(1)).toEqual([1, 1]);
+    expect(ayahOf(6236)).toEqual([114, 6]);
+    for (const bad of [0, 6237, 1.5, Number.NaN])
+      expect(() => ayahOf(bad), String(bad)).toThrow(RangeError);
     for (const bad of [
       '',
       '2',
@@ -749,25 +823,68 @@ describe('the files the timings were made from', () => {
     expect(endMisfit([1, '', 100_000, 97_999], 97_999)).not.toBeNull();
   });
 
-  it('finds an ayah timed at under half the pace whose words stray', () => {
-    const ayah = (key: string, words: number, ms: number, stray = 0) =>
-      ({ key, words, ms, stray }) satisfies AyahPace;
-    const usual = Array.from({ length: 9 }, (_, i) =>
-      ayah(`2:${i + 1}`, 10, 10_000),
-    );
+  /** Ayat of ten words at a second a word, one after another from 0 s,
+      their words heard where they are, unless given otherwise. */
+  const recited = (
+    keys: string[],
+    odd: Record<string, { words?: number; ms?: number; heard?: Span }> = {},
+  ) => {
+    let at = 0;
+    return keys.map((key): AyahCheck => {
+      const { words = 10, ms = 10_000, heard } = odd[key] ?? {};
+      const from = at;
+      at += ms;
+      return { key, words, from, to: at, heard: heard ?? [from, at] };
+    });
+  };
+  const keys = (surah: number, count: number) =>
+    Array.from({ length: count }, (_, i) => `${surah}:${i + 1}`);
+
+  it('finds an ayah timed far too fast whose words stray, and its neighbours', () => {
     expect(
-      misplacedAyat([
-        ...usual,
-        // Abdul Basit's 2:61: 59 words in 10.8 s, its words 91 s outside.
-        ayah('2:61', 59, 10_800, 90_900),
-        // Quick, but its words are where it says: short words, quickly.
-        ayah('3:25', 15, 7_000),
-        // Words outside, but at a believable pace: a word timed early.
-        ayah('2:177', 30, 25_000, 8_000),
-        // Too short an ayah to judge by its pace.
-        ayah('74:27', 4, 1_000, 2_000),
-      ]),
-    ).toEqual(['2:61']);
+      misplacedAyat(
+        recited(keys(2, 12), {
+          // 59 words in 10 s (a sixth of the pace), its words heard for
+          // 40 s, on into 2:6, 2:7 and 2:8.
+          '2:5': { words: 59, heard: [40_000, 80_000] },
+        }),
+      ),
+    ).toEqual(['2:4', '2:5', '2:6', '2:7', '2:8']);
+  });
+
+  it('follows the words of what it takes as far as they reach', () => {
+    // 2:5's words run 15 s past it, into 2:6 and 2:7, and 2:7's own words
+    // run on 5 s into 2:8.
+    const ayat = recited(keys(2, 12), {
+      '2:5': { words: 30, heard: [40_000, 65_000] },
+      '2:7': { heard: [60_000, 75_000] },
+    });
+    expect(misplacedAyat(ayat)).toEqual(['2:4', '2:5', '2:6', '2:7', '2:8']);
+  });
+
+  it('takes no neighbour from another surah', () => {
+    const ayat = [
+      ...recited(keys(1, 7)),
+      ...recited(keys(2, 7), { '2:1': { words: 30, heard: [0, 30_000] } }),
+    ];
+    expect(misplacedAyat(ayat)).toEqual(['2:1', '2:2', '2:3']);
+  });
+
+  it('leaves an ayah that is only quick, or only strays', () => {
+    expect(
+      misplacedAyat(
+        recited(keys(3, 12), {
+          // Quick, but its words are where it says: short words, quickly.
+          '3:3': { words: 20 },
+          // Words outside, but at a believable pace: a word timed early.
+          '3:6': { heard: [42_000, 60_000] },
+          // Quick, with words only just outside: al-Rifai's ayah 27.
+          '3:11': { words: 20, heard: [100_000, 111_900] },
+          // Too short an ayah to judge by its pace.
+          '3:12': { words: 4, ms: 1_000, heard: [110_000, 120_000] },
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 

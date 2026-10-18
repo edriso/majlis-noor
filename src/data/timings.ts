@@ -12,11 +12,13 @@
    Every time is in milliseconds from the start of the surah's file.
 
    Some surah files on the host are not the recordings their timings were
-   made from, or have an ayah misplaced in them, and the build lists them
-   in `untimed`. Nothing of them is ever played: the stretches to play
-   (`pageStretches`, `recitationOf`, `ayatRecitation`) leave them out, and
-   `isTimed`, `pageTimed` and `ayatTimed` say so, for a caller to tell the
-   reader rather than play the wrong ayat. */
+   made from, and the build lists them in `untimed`; in some that are, a
+   few ayat are misplaced, and it lists those in `misplaced`. Nothing of
+   either is ever played: the stretches to play (`pageStretches`,
+   `recitationOf`, `ayatRecitation`) leave out every page and every run of
+   ayat that holds one, and `isTimed`, `ayahTimed`, `pageTimed` and
+   `ayatTimed` say so, for a caller to tell the reader rather than play the
+   wrong ayat. */
 
 import {
   decodeAyahWords,
@@ -26,7 +28,13 @@ import {
   type Span,
   type WordsFile,
 } from './audio';
-import { PAGE_COUNT } from './mushaf';
+import {
+  AYAH_COUNT,
+  ayahIndex,
+  ayatOfPage,
+  PAGE_COUNT,
+  verseOf,
+} from './mushaf';
 
 /** [surah, fromMs, toMs]: a stretch of the reciter's recording of that surah. */
 export type Stretch = [surah: number, from: number, to: number];
@@ -48,9 +56,12 @@ export type Timings = {
       index surah - 1, which scripts/check-audio.ts compares with what it
       serves now. */
   files: FileRecord[];
-  /** The surahs whose timings do not fit the file served, in order; none
-      if absent. */
+  /** The surahs whose file does not fit their timings, in order; none if
+      absent. */
   untimed?: number[];
+  /** The ayat misplaced in a file that fits, by their number through the
+      Mushaf (see mushaf.ts), in order; none if absent. */
+  misplaced?: number[];
   /** Each surah's ayat in a compact form, index surah - 1; read them
       through `ayahTimes()`. */
   ayat: number[][];
@@ -77,9 +88,20 @@ export function loadTimings(reciter: string): Promise<Timings> {
 export const isTimed = (t: Timings, surah: number) =>
   !t.untimed?.includes(surah);
 
-/** Whether every surah with text on a page is timed. */
-export const pageTimed = (t: Timings, page: number) =>
-  (t.pages[page - 1] ?? []).every(([surah]) => isTimed(t, surah));
+/** Whether any ayah from `from` to `to`, numbers through the Mushaf with
+    `to` not included, is misplaced. */
+const holdsMisplaced = (t: Timings, from: number, to: number) =>
+  !!t.misplaced?.some((n) => n >= from && n < to);
+
+/** Whether every surah with text on a page is timed, and none of its ayat
+    misplaced. */
+export const pageTimed = (t: Timings, page: number) => {
+  const { from, to } = ayatOfPage(page);
+  return (
+    (t.pages[page - 1] ?? []).every(([surah]) => isTimed(t, surah)) &&
+    !holdsMisplaced(t, from, to)
+  );
+};
 
 /** The stretches of the recording that recite a page, or none if the page
     is not timed: half a page would leave a hole in it, and the other half
@@ -94,12 +116,13 @@ const stretchesLength = (t: Timings, page: number) =>
 /**
  * Milliseconds the reciter takes over a page, which times a reader's turn.
  *
- * A page he is not timed on is given his average page, or its own
- * stretches where they are longer. Nothing of it is played, so the number
- * only sets a clock for a reader, which may run long (the reader says
- * «تمّ») but should not cut him off; and the stretches of such a page can
- * be a quarter of what it takes (Abdul Basit's pages 9 and 29), while his
- * average page is never under four fifths of it.
+ * A page he is not timed on (`pageTimed`: an untimed surah or a misplaced
+ * ayah on it) is given his average page, or its own stretches where they
+ * are longer. Nothing of it is played, so the number only sets a clock for
+ * a reader, which may run long (the reader says «تمّ») but should not cut
+ * him off; and the stretches of such a page can be a quarter of what it
+ * takes (Abdul Basit's pages 9 and 29), while his average page is never
+ * under four fifths of it.
  */
 export const pageDuration = (t: Timings, page: number) =>
   pageTimed(t, page)
@@ -130,13 +153,20 @@ export const recitationOf = (t: Timings, pages: readonly number[]): Segment[] =>
     })),
   );
 
-/** An ayah, by its verse key (`'2:255'`) or by surah and ayah
-    (`[2, 255]`). */
-export type AyahRef = string | readonly [surah: number, ayah: number];
+/** An ayah, by its verse key (`'2:255'`), by surah and ayah
+    (`[2, 255]`), or by its number through the Mushaf (`262`), as the
+    halaqa's ranges count them. */
+export type AyahRef = string | number | readonly [surah: number, ayah: number];
 
 /** The surah and ayah an `AyahRef` names. Throws a RangeError for
     anything that is not one, so a slip shows where it was made. */
 export function ayahOf(ref: AyahRef): [surah: number, ayah: number] {
+  if (typeof ref === 'number') {
+    if (!Number.isInteger(ref) || ref < 1 || ref > AYAH_COUNT)
+      throw new RangeError(`not an ayah: ${ref}`);
+    const { surah, ayah } = verseOf(ref);
+    return [surah, ayah];
+  }
   const [surah, ayah] =
     typeof ref === 'string'
       ? (/^(\d{1,3}):(\d{1,3})$/.exec(ref)?.slice(1).map(Number) ?? [])
@@ -187,14 +217,17 @@ function timedAyah(t: Timings, ref: AyahRef) {
 }
 
 /** Whether every surah the ayat from `first` to `last` run through is
-    timed. */
+    timed, and none of those ayat misplaced. */
 export function ayatTimed(t: Timings, first: AyahRef, last: AyahRef = first) {
-  const [s1] = timedAyah(t, first);
-  const [s2] = timedAyah(t, last);
+  const [s1, a1] = timedAyah(t, first);
+  const [s2, a2] = timedAyah(t, last);
   for (let surah = s1; surah <= s2; surah++)
     if (!isTimed(t, surah)) return false;
-  return true;
+  return !holdsMisplaced(t, ayahIndex(s1, a1), ayahIndex(s2, a2) + 1);
 }
+
+/** Whether one ayah may be played by these timings. */
+export const ayahTimed = (t: Timings, ayah: AyahRef) => ayatTimed(t, ayah);
 
 /** A reciter's recitation of the ayat from `first` to `last`, both
     included, as the stretches to play in order: one per surah file the run
@@ -258,12 +291,14 @@ function startedBy<T>(list: readonly T[], start: (x: T) => number, ms: number) {
 
 /** The ayah being recited `ms` into a surah's file: the last one to have
     started by then, unless it has already ended. Null before the first,
-    after the last, in a pause between two, and in a surah not timed. */
+    after the last, in a pause between two, in a surah not timed, and in an
+    ayah misplaced, whose span may hold another ayah's words. */
 export function ayahAt(t: Timings, surah: number, ms: number): number | null {
   if (!isTimed(t, surah)) return null;
   const spans = ayahTimes(t, surah);
   const n = startedBy(spans, ([from]) => from, ms);
-  return n > 0 && ms < spans[n - 1][1] ? n : null;
+  if (n === 0 || ms >= spans[n - 1][1]) return null;
+  return t.misplaced?.includes(ayahIndex(surah, n)) ? null : n;
 }
 
 /** A word heard in a surah's recording: its ayah, its number in that ayah

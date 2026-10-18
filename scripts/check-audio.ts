@@ -13,7 +13,10 @@
    file that changed fails the check, saying whether its timings still fit
    it; so does one that no longer fits them (`endMisfit`) though nothing
    else changed. A file the build already found does not fit (`untimed`) is
-   listed as known, not failed: the app plays nothing of it.
+   listed as known, not failed: the app plays nothing of it; so are the
+   ayat it found misplaced in files that fit (`misplaced`), which the app
+   plays no page or run of ayat around. A file holding those that changes
+   fails like any other.
 
    A file that changed means its reciter's timings need
    `npm run build:timings` again, which measures it and decides afresh.
@@ -77,13 +80,17 @@ async function check(
       `has changed: ${change}; ${misfit ? `it no longer fits its timings: ${misfit}` : 'its timings still fit it'}`,
     );
   if (untimed)
-    return { problem: null, known: misfit ?? 'an ayah in it is misplaced' };
+    return {
+      problem: null,
+      known: misfit ?? 'did not fit its timings when they were built',
+    };
   return misfit ? fail(`no longer fits its timings: ${misfit}`) : NO_PROBLEM;
 }
 const NO_PROBLEM: Verdict = { problem: null, known: null };
 
 const failures: string[] = [];
 const known: string[] = [];
+const misplacedKnown: string[] = [];
 for (const reciter of reciters) {
   const timings = JSON.parse(
     readFileSync(`src/data/timings/${reciter.id}.json`, 'utf8'),
@@ -91,9 +98,10 @@ for (const reciter of reciters) {
     audio: string;
     files?: FileRecord[];
     untimed?: number[];
+    misplaced?: number[];
     ayat: number[][];
   };
-  const { audio, files = [], untimed = [] } = timings;
+  const { audio, files = [], untimed = [], misplaced = [] } = timings;
   const lastEnd = (n: number) => decodeSpans(timings.ayat[n - 1]).at(-1)![1];
   let wrong = 0;
   for (let i = 0; i < 114; i += AT_ONCE) {
@@ -123,11 +131,25 @@ for (const reciter of reciters) {
   console.log(
     `${reciter.id}: ${114 - wrong} of 114 surah files served as timed`,
   );
+  // Misplaced ayat by their number through the Mushaf, as verse keys.
+  const keyOf = (index: number) => {
+    let surah = 1;
+    let first = 1;
+    while (index >= first + timings.ayat[surah - 1].length / 2)
+      first += timings.ayat[surah++ - 1].length / 2;
+    return `${surah}:${index - first + 1}`;
+  };
+  if (misplaced.length)
+    misplacedKnown.push(`${reciter.id}: ${misplaced.map(keyOf).join(' ')}`);
 }
 
 if (known.length) {
   console.log(`\n${known.length} surah files known not to fit their timings:`);
   console.log(known.join('\n'));
+}
+if (misplacedKnown.length) {
+  console.log('\nAyat known to be misplaced in files that fit:');
+  console.log(misplacedKnown.join('\n'));
 }
 if (failures.length) {
   console.error(`\n${failures.length} surah files are not as timed:`);

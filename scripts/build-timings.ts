@@ -26,8 +26,12 @@
               only right for the file it was made from, and the host
               replaces files in place, so `npm run check:audio` compares
               these with what it serves now.
-     untimed  the surahs, in order, whose timings cannot be trusted for the
-              file served: the app plays nothing of them (see below)
+     untimed  the surahs, in order, whose file does not fit their timings:
+              the app plays nothing of them (see below)
+     misplaced
+              the ayat, by their number through the Mushaf (2:255 is 262),
+              whose own span is wrong in a file that otherwise fits: the app
+              plays no page and no run of ayat that holds one
      ayat     ayat[s - 1] = [gap, length, gap, length, …], one pair per ayah
               of surah s in order: where the ayah starts in the surah file,
               counted from where the ayah before it ended (the first from
@@ -69,9 +73,10 @@
 
    A surah is untimed when its file does not fit its timings (`endMisfit`:
    the last ayah ends after the file does, or the file is not the one the
-   API timed and runs on well past it), or when an ayah inside it is
-   misplaced (`misplacedAyat`: timed at under half the reciter's pace,
-   with its own words seconds outside it). The script prints each, and
+   API timed and runs on well past it). In a file that fits, an ayah is
+   misplaced when it is timed far faster than the reciter recites with its
+   own words seconds outside it, and so are its neighbours and the ayat
+   its words reach into (`misplacedAyat`). The script prints each, and
    why; src/data/audio.ts says how the bounds were chosen.
 
    The Madani Mushaf ends every page on the end of an ayah, so a page is
@@ -92,7 +97,7 @@ import {
   misplacedAyat,
   stampOf,
   surahFile,
-  type AyahPace,
+  type AyahCheck,
   type FileRecord,
   type FileStamp,
   type Span,
@@ -250,6 +255,9 @@ const ayatOf = (surah: number) => {
   while (pagesOfWords.has(`${surah}:${n + 1}`)) n++;
   return n;
 };
+/** The number through the Mushaf of each surah's first ayah. */
+const firstAyah = [1];
+for (let n = 1; n < 114; n++) firstAyah.push(firstAyah[n - 1] + ayatOf(n));
 
 await mkdir(OUT, { recursive: true });
 // Every words file is written afresh, so none is left from a reciter gone.
@@ -262,7 +270,7 @@ for (const reciter of reciters) {
   );
   const ayat: number[][] = [];
   const files: FileRecord[] = [];
-  const paces: AyahPace[] = [];
+  const checks: AyahCheck[] = [];
   const untimed = new Map<number, string>();
   const tally = {
     full: 0,
@@ -354,10 +362,10 @@ for (const reciter of reciters) {
         if (word <= before[0]) tally.repeats++;
         if (start - before[2] > 300) tally.gaps++;
       });
-      // How far the API's own words for the ayah reach outside it. Over a
-      // second, either they or the ayah's times are wrong there; which, the
-      // pace check below tells where it can.
-      let stray = 0;
+      // Where the API's own words for the ayah are heard. Over a second
+      // outside it, either they or the ayah's times are wrong there; which,
+      // the check for misplaced ayat below tells where it can.
+      let spoken: Span | null = null;
       for (const s of Array.isArray(v.segments) ? v.segments : [])
         if (
           Array.isArray(s) &&
@@ -365,9 +373,12 @@ for (const reciter of reciters) {
           s.every((x) => typeof x === 'number' && Number.isFinite(x)) &&
           s[2] >= s[1]
         )
-          stray = Math.max(stray, from - s[1], s[2] - to);
-      if (stray > 1000) tally.stray++;
-      paces.push({ key, words: count, ms: to - from, stray });
+          spoken = spoken
+            ? [Math.min(spoken[0], s[1]), Math.max(spoken[1], s[2])]
+            : [s[1], s[2]];
+      if (spoken && (spoken[0] < from - 1000 || spoken[1] > to + 1000))
+        tally.stray++;
+      checks.push({ key, words: count, from, to, heard: spoken });
       words.push(encodeAyahWords([from, to], clean.words));
     });
 
@@ -385,17 +396,10 @@ for (const reciter of reciters) {
     );
   }
 
-  const misplaced = Map.groupBy(misplacedAyat(paces), (key) =>
-    Number(key.split(':')[0]),
+  // Misplaced ayat in a surah already untimed change nothing.
+  const misplaced = misplacedAyat(checks).filter(
+    (key) => !untimed.has(Number(key.split(':')[0])),
   );
-  for (const [n, keys] of misplaced) {
-    const why = untimed.get(n);
-    const which =
-      keys.length === 1
-        ? `${keys[0]} is misplaced`
-        : `${keys.length} ayat are misplaced, ${keys[0]} to ${keys[keys.length - 1]}`;
-    untimed.set(n, why ? `${why}; ${which}` : which);
-  }
 
   const empty = pages.findIndex((list) => list.length === 0);
   if (empty !== -1)
@@ -408,6 +412,10 @@ for (const reciter of reciters) {
       audio: urlTemplate,
       files,
       untimed: [...untimed.keys()].sort((a, b) => a - b),
+      misplaced: misplaced.map((key) => {
+        const [n, a] = key.split(':').map(Number);
+        return firstAyah[n - 1] + a - 1;
+      }),
       ayat,
       pages,
     }),
@@ -424,4 +432,5 @@ for (const reciter of reciters) {
   );
   for (const [n, why] of [...untimed].sort(([a], [b]) => a - b))
     console.log(`  surah ${n} untimed: ${why}`);
+  if (misplaced.length) console.log(`  misplaced: ${misplaced.join(' ')}`);
 }
