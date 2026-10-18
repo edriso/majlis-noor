@@ -1,7 +1,27 @@
-@import './fonts.css';
-@import './tokens.css';
-@import './base.css';
-@import './setup.css';
-@import './sheet.css';
-@import './mushaf.css';
-@import './reading.css';
+/* Every stylesheet, each in its cascade layer. A later layer wins over an
+   earlier one whatever the selectors' weight, so a screen restyles a
+   component with a plain class and never needs to out-specify it, and a
+   utility such as .visually-hidden beats both. Nothing is left outside a
+   layer but the font faces, which the cascade does not order. Within a
+   layer the files are read in the order listed. */
+
+@layer reset, tokens, base, components, screens, utilities;
+
+@import url('./fonts.css');
+@import url('./reset.css') layer(reset);
+@import url('./tokens.css') layer(tokens);
+@import url('./base.css') layer(base);
+
+@import url('./buttons.css') layer(components);
+@import url('./fields.css') layer(components);
+@import url('./choice.css') layer(components);
+@import url('./faces.css') layer(components);
+@import url('./reciters.css') layer(components);
+@import url('./sheet.css') layer(components);
+
+@import url('./setup.css') layer(screens);
+@import url('./settings.css') layer(screens);
+@import url('./mushaf.css') layer(screens);
+@import url('./reading.css') layer(screens);
+
+@import url('./utilities.css') layer(utilities);

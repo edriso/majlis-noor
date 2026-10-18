@@ -1,0 +1,120 @@
+/* The reciters: the row that opens their list, and the list itself, banded
+   by pace, each with a sample to hear before choosing (ReciterPicker.tsx). */
+
+.reciter-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  text-align: start;
+  line-height: 1.45;
+}
+.reciter-name {
+  font-weight: 600;
+}
+.reciter-caption,
+.reciter-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reciter-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: var(--well);
+  color: var(--fg);
+  text-align: start;
+  transition: border-color 160ms var(--ease);
+}
+.reciter-button:hover {
+  border-color: var(--gold);
+}
+.reciter-button svg {
+  color: var(--muted);
+}
+
+.reciter-picker {
+  display: grid;
+  gap: 20px;
+}
+.reciter-band-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.reciter-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.reciter-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline-end: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease);
+}
+.reciter-row:hover {
+  background: var(--surface-raised);
+}
+.reciter-row[data-chosen] {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
+.reciter-row[data-chosen] .reciter-avatar {
+  box-shadow: 0 0 0 2px var(--gold);
+}
+.reciter-choice {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: start;
+}
+.reciter-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  color: var(--gold);
+}
+.reciter-sample {
+  flex: none;
+  color: var(--gold);
+}
+.reciter-sample[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.reciter-sample[data-phase='loading'] svg {
+  animation: sample-wait 1s ease-in-out infinite alternate;
+}
+@keyframes sample-wait {
+  to {
+    transform: scale(0.6);
+  }
+}
+
+@media (forced-colors: active) {
+  .reciter-row[data-chosen] {
+    outline: 2px solid CanvasText;
+  }
+}

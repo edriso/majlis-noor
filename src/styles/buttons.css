@@ -1,0 +1,79 @@
+/* Buttons: the gold one that does the main thing, the quiet ones beside
+   it, and the round icon button. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease),
+    color 160ms var(--ease),
+    transform 160ms var(--ease);
+}
+.button:active {
+  transform: scale(0.985);
+}
+.button-block {
+  width: 100%;
+}
+.button-large {
+  min-height: 56px;
+  font-size: 18px;
+}
+.button-primary {
+  background: var(--gold);
+  color: var(--on-gold);
+}
+.button-primary:hover {
+  background: var(--gold-strong);
+}
+.button-quiet {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+.button-quiet:hover {
+  color: var(--fg);
+}
+.button-danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--danger);
+}
+.button-danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease);
+}
+.icon-button:hover {
+  background: var(--surface);
+  border-color: var(--control-border);
+}
+
+[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
