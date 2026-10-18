@@ -121,6 +121,17 @@ describe('a turn of ayat', () => {
     expect(rangeTimed(minshawi, range)).toBe(true);
   });
 
+  it('plays the ayat around one misplaced in a file that fits', () => {
+    // Only the turn holding it, and the page it is on, are left unplayed.
+    const t = { ...minshawi, misplaced: [ayahIndex(18, 7)] };
+    expect(rangeTimed(t, kahf(5, 9))).toBe(false);
+    expect(rangeRecitation(t, kahf(5, 9))).toEqual([]);
+    expect(rangeTimed(t, kahf(8, 9))).toBe(true);
+    expect(rangeRecitation(t, kahf(8, 9))).toHaveLength(1);
+    expect(rangeTimed(t, ayatOfPage(295))).toBe(true);
+    expect(rangeTimed(t, ayatOfPage(294))).toBe(false);
+  });
+
   it('is nothing for a turn with nothing left', () => {
     expect(rangeRecitation(minshawi, { from: 9, to: 9 })).toEqual([]);
     expect(turnDuration(minshawi, 'ayah', { from: 9, to: 9 })).toBe(0);
