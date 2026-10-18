@@ -473,13 +473,17 @@ function setMediaSession(
   }
 }
 
-/** Whether the system shows a recitation as playing, paused, or nothing. */
+/** Whether the system shows a recitation as playing, paused, or nothing.
+    One that failed stays, as paused: its play button tries it again, as
+    the reciter's button does, and clearing it would leave the retry
+    playing with nothing on the lock screen, since only `play()` sets what
+    it shows. */
 function setPlaybackState(status: PlayerStatus) {
   if (typeof navigator === 'undefined' || !navigator.mediaSession) return;
   const session = navigator.mediaSession;
   if (status === 'playing' || status === 'loading')
     session.playbackState = 'playing';
-  else if (status === 'paused' || status === 'blocked')
+  else if (status === 'paused' || status === 'blocked' || status === 'error')
     session.playbackState = 'paused';
   else {
     session.playbackState = 'none';

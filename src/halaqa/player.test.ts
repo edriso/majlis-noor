@@ -285,3 +285,63 @@ describe('the player', () => {
     expect(player.getState().status).toBe('paused');
   });
 });
+
+describe('the lock screen', () => {
+  type Session = {
+    metadata: { title: string } | null;
+    playbackState: string;
+    handlers: Record<string, () => void>;
+    setActionHandler: (action: string, handler: () => void) => void;
+  };
+  let session: Session;
+  beforeEach(() => {
+    session = {
+      metadata: null,
+      playbackState: 'none',
+      handlers: {},
+      setActionHandler(action, handler) {
+        this.handlers[action] = handler;
+      },
+    };
+    Object.defineProperty(navigator, 'mediaSession', {
+      value: session,
+      configurable: true,
+    });
+    vi.stubGlobal(
+      'MediaMetadata',
+      class {
+        constructor(init: object) {
+          Object.assign(this, init);
+        }
+      },
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, 'mediaSession');
+  });
+
+  const meta = { title: 'سورة البقرة · الصفحة ٤٩', artist: 'الحصري' };
+
+  it('shows the recitation, and clears when it stops', async () => {
+    player.play('turn', queue, { meta });
+    media.load();
+    await flush();
+    expect(session).toMatchObject({ playbackState: 'playing', metadata: meta });
+    player.stop('turn');
+    expect(session).toMatchObject({ playbackState: 'none', metadata: null });
+  });
+
+  it('keeps a failed recitation, whose play button tries it again', async () => {
+    player.play('turn', queue, { meta });
+    media.load();
+    await flush();
+    media.emit('error');
+    expect(session).toMatchObject({ playbackState: 'paused', metadata: meta });
+    session.handlers.play();
+    media.load();
+    await flush();
+    expect(player.getState().status).toBe('playing');
+    expect(session).toMatchObject({ playbackState: 'playing', metadata: meta });
+  });
+});
