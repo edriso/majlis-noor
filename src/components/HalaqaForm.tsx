@@ -7,7 +7,7 @@ import {
   X,
 } from './icons';
 import { useEffect, useId, useRef, useState } from 'react';
-import { arabic, seatsCount } from '@/data/arabic';
+import { arabic, pagesCount, seatsCount } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';
 import {
   MAX_MEMBERS,
@@ -89,11 +89,7 @@ export function HalaqaForm({
         legend="صفحات كل دور"
         value={config.unit === 'page' ? config.size : 0}
         onChange={(size) => set({ unit: 'page', size })}
-        options={[1, 2, 3].map((n) => ({
-          value: n,
-          label: arabic(n),
-          ariaLabel: ['صفحة واحدة', 'صفحتان', 'ثلاث صفحات'][n - 1],
-        }))}
+        options={[1, 2, 3].map((n) => ({ value: n, label: pagesCount(n) }))}
       />
 
       <div className="turn-change">

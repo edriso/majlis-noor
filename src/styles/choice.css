@@ -1,6 +1,11 @@
 /* Choices: radio groups drawn as buttons (Choice.tsx). The radio itself is
    laid over its option, unseen, so the option is the target and the
-   browser still does the keys and the announcing. */
+   browser still does the keys and the announcing.
+
+   The chosen option is ringed in gold over a well, and its words go from
+   muted to full: never a gold fill, which belongs to the one main action
+   of a view, so a sheet of choices does not show a row of gold blocks
+   competing with it. */
 
 .choice {
   margin: 0;
@@ -24,6 +29,13 @@
   outline: 2px solid var(--gold);
   outline-offset: 3px;
 }
+/* A label may carry a mark before its words, as the colours carry their
+   dot. */
+.choice-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 
 .choice-pills .choice-options {
   display: inline-flex;
@@ -31,14 +43,14 @@
   gap: var(--space-1);
   padding: var(--space-1);
   border: 1px solid var(--control-border);
-  border-radius: var(--radius-pill);
-  background: var(--well);
+  /* Round-ended on one row, and a rounded box, not a lozenge, when a
+     narrow column wraps the options onto two. */
+  border-radius: calc(var(--target) / 2 + var(--space-1));
 }
 .choice-pills .choice-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
   min-width: 52px;
   min-height: var(--target);
   padding: 6px var(--space-4);
@@ -48,14 +60,17 @@
   line-height: var(--leading-tight);
   transition:
     background-color var(--duration-short) var(--ease),
+    box-shadow var(--duration-short) var(--ease),
     color var(--duration-short) var(--ease);
 }
 .choice-pills .choice-option:hover {
   color: var(--fg);
+  background: var(--hover);
 }
 .choice-pills .choice-option[data-checked] {
-  background: var(--gold);
-  color: var(--on-gold);
+  background: var(--well);
+  box-shadow: inset 0 0 0 2px var(--gold);
+  color: var(--fg);
   font-weight: 600;
 }
 
@@ -72,25 +87,23 @@
   padding: 14px var(--space-4);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-md);
-  background: var(--well);
   line-height: var(--leading-tight);
   transition:
     border-color var(--duration-short) var(--ease),
-    background-color var(--duration-short) var(--ease);
+    background-color var(--duration-short) var(--ease),
+    box-shadow var(--duration-short) var(--ease);
 }
 .choice-cards .choice-option:hover {
   border-color: var(--muted);
+  background: var(--hover);
 }
 .choice-cards .choice-option[data-checked] {
   border-color: var(--gold);
-  background: var(--gold-soft);
+  background: var(--well);
   box-shadow: inset 0 0 0 1px var(--gold);
 }
 .choice-cards .choice-label {
   font-weight: 600;
-}
-.choice-cards .choice-option[data-checked] .choice-label {
-  color: var(--gold);
 }
 .choice-hint {
   color: var(--muted);
@@ -98,8 +111,9 @@
   text-wrap: pretty;
 }
 
+/* Shadows are not drawn with forced colours, so the ring is an outline. */
 @media (forced-colors: active) {
   .choice-option[data-checked] {
-    outline: 2px solid CanvasText;
+    outline: 2px solid Highlight;
   }
 }
