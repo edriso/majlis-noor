@@ -18,7 +18,6 @@
     "check:audio": "node scripts/check-audio.ts"
   },
   "dependencies": {
-    "@base-ui/react": "1.7.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
