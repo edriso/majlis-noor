@@ -1047,6 +1047,7 @@ describe('a saved halaqa', () => {
       size: 5,
       rotate: 'surah',
       goal: { to: 'page', page: 300 },
+      fromMemory: true,
     });
     s = finish(s, 3);
     s = reduce(s, { type: 'nextPage' });
@@ -1081,6 +1082,7 @@ describe('a saved halaqa', () => {
         rotate: 'always',
         start: 7000,
         goal: { to: 'page', page: 9999 },
+        fromMemory: 'yes',
       },
       session: {
         config: { unit: 'ayah', size: 4, start: -2, goal: 'juz' },
@@ -1100,6 +1102,7 @@ describe('a saved halaqa', () => {
       rotate: 'none',
       start: 1,
       goal: { to: 'none' },
+      fromMemory: false,
     });
     const session = s.session!;
     expect(session.config).toMatchObject({
@@ -1236,15 +1239,16 @@ describe('a saved halaqa', () => {
   it('starts fresh from nothing', () => {
     expect(sanitizeState(null)).toEqual(initialState);
     expect(initialState.config.members).toEqual([person('p1')]);
+    expect(initialState.config.fromMemory).toBe(false);
   });
 
   it('keeps the circle set up on the start screen, before it starts', () => {
     const members = [person('p1'), person('p2', 'عمر')];
     const s = reduce(initialState, {
       type: 'draft',
-      config: { ...defaultConfig, members, size: 2 },
+      config: { ...defaultConfig, members, size: 2, fromMemory: true },
     });
-    expect(s.config).toMatchObject({ members, size: 2 });
+    expect(s.config).toMatchObject({ members, size: 2, fromMemory: true });
     expect(s.session).toBeNull();
   });
 });

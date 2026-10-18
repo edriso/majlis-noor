@@ -113,6 +113,9 @@ export type Config = {
       Mushaf (1 to 6236). A turn begins on the unit that holds it. */
   start: number;
   goal: Goal;
+  /** A review from memory: the page stays covered on a reader's turn until
+      they ask to check it. */
+  fromMemory: boolean;
 };
 
 export type Allowance = 1 | 1.25 | 1.5;
@@ -172,6 +175,7 @@ export const defaultConfig: Config = {
   reciter: defaultReciter,
   start: 1,
   goal: { to: 'none' },
+  fromMemory: false,
 };
 
 export const defaultPrefs: Prefs = {
@@ -846,6 +850,7 @@ export function sanitizeConfig(raw: unknown): Config {
       firstAyahOfPage(intIn(c.startPage, 1, PAGE_COUNT, 1)),
     ),
     goal: sanitizeGoal(c.goal),
+    fromMemory: c.fromMemory === true,
   };
 }
 
