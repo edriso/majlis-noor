@@ -39,6 +39,7 @@ export function SettingsPanel({
   };
   const configure = (config: Session['config']) =>
     dispatch({ type: 'configure', config });
+  const repo = repositoryUrl();
 
   if (picking)
     return (
@@ -154,25 +155,27 @@ export function SettingsPanel({
             QuranicAudio
           </a>
           . صور القرّاء من ويكيميديا كومنز، ومصدر كل صورة وترخيصها في{' '}
-          <a
-            href="https://github.com/edriso/majlis-noor/blob/main/NOTICE"
-            target="_blank"
-            rel="noreferrer"
-          >
-            ملف المصادر
-          </a>
+          {repo ? (
+            <a
+              href={`${repo}/blob/HEAD/NOTICE`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ملف المصادر
+            </a>
+          ) : (
+            'ملف المصادر'
+          )}
           .
         </p>
         <p>يُحفظ كل شيء على جهازك وحده، ولا يُرسل إلى أحد.</p>
-        <p>
-          <a
-            href="https://github.com/edriso/majlis-noor"
-            target="_blank"
-            rel="noreferrer"
-          >
-            الشيفرة المصدرية
-          </a>
-        </p>
+        {repo ? (
+          <p>
+            <a href={repo} target="_blank" rel="noreferrer">
+              الشيفرة المصدرية
+            </a>
+          </p>
+        ) : null}
       </section>
 
       <button
@@ -187,4 +190,12 @@ export function SettingsPanel({
       </button>
     </Sheet>
   );
+}
+
+/** The repository's address, as the workflow that built the site passed
+    it. A local build has none, and an address that is not https is not
+    trusted, so the links that need it are left out rather than wrong. */
+function repositoryUrl() {
+  const url = import.meta.env.VITE_REPO_URL?.trim().replace(/\/+$/, '');
+  return url?.startsWith('https://') ? url : null;
 }

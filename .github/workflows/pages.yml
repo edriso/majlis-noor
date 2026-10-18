@@ -46,6 +46,9 @@ jobs:
           # nothing here names the repository and a fork deploys as itself.
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
           VITE_SITE_URL: ${{ steps.pages.outputs.base_url }}
+          # The about text links to the source and to NOTICE; the address
+          # comes from the run, so a fork links to its own.
+          VITE_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
       - name: Upload site
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
