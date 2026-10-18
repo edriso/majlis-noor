@@ -1,4 +1,4 @@
-/* Builds how long each reciter takes over each Mushaf page, once.
+/* Builds when each reciter recites each ayah and each Mushaf page, once.
 
      node scripts/build-timings.ts            fetch what is missing, then build
      node scripts/build-timings.ts --offline  build from .cache only
@@ -6,33 +6,49 @@
    Run `npm run build:mushaf` first: the page layout decides where a page
    begins and ends, and this script only measures it.
 
-   Writes src/data/timings/<reciter>.json. For every page it holds the stretch
-   (or stretches, where a page holds the end of one surah and the start of the
-   next) of that reciter's surah recording that covers the page:
+   The source is Quran.com's per-surah recordings with per-ayah
+   timestamps, asked for as its own site asks (`segments=true`; without it
+   the API leaves the timestamps out), cached under .cache/; delete a file
+   there to fetch it again.
 
-     pages[p - 1] = [[surah, fromMs, toMs], …]
+   Writes src/data/timings/<reciter>.json:
 
-   That one table gives both features that need a reciter. Reciter timing
+     audio    the address of every surah file, as a template (see
+              src/data/audio.ts), written only if it gives back the API's
+              own address for every one of the 114 surahs
+     ayat     ayat[s - 1] = [gap, length, gap, length, …], one pair per ayah
+              of surah s in order: where the ayah starts in the surah file,
+              counted from where the ayah before it ended (the first from
+              0), and how long it lasts, in milliseconds (`encodeSpans`).
+              Ends come from the API's `timestamp_to`, never its `duration`,
+              which is negative in places.
+     pages    pages[p - 1] = [[surah, fromMs, toMs], …]: the stretch (or
+              stretches, where a page holds the end of one surah and the
+              start of the next) of the surah recording that covers page p,
+              from its first ayah's start to its last ayah's end.
+
+   The pages give both features that need a reciter's pages: reciter timing
    (`توقيت القارئ`) adds the stretches up into the length of a turn, and the
-   listen button plays exactly those stretches of the surah file.
+   listen button plays exactly those stretches of the surah file. The ayat
+   give the same for any run of ayat, and the ayah being recited.
 
-   The source is Quran.com's per-surah recordings with per-ayah timestamps,
-   asked for as its own site asks (`segments=true`; without it the API
-   leaves the timestamps out). The address kept for a reciter's files is a
-   template (see src/data/audio.ts), written only if it gives back the
-   API's own address for every one of the 114 surahs.
    The Madani Mushaf ends every page on the end of an ayah, so a page is
    always a run of whole ayat and its length is theirs, with no ayah to cut
-   in two. The script checks that rather than assuming it. */
+   in two. The script checks that rather than assuming it, and that every
+   surah's ayat come in order, each starting no earlier and ending no
+   earlier than the one before, which is what lets the app find an ayah
+   by time with a binary search. */
 
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { surahFile } from '../src/data/audio.ts';
+import { encodeSpans, surahFile, type Span } from '../src/data/audio.ts';
 import { reciters } from '../src/data/reciters.ts';
 
 const API = 'https://api.qurancdn.com/api/qdc/audio/reciters';
 const CACHE = '.cache/quran-com/audio';
 const OUT = 'src/data/timings';
+// The pages are moving from src/data to public; read whichever is there.
+const PAGES = existsSync('src/data/pages') ? 'src/data/pages' : 'public/pages';
 const offline = process.argv.includes('--offline');
 
 type VerseTiming = {
@@ -77,13 +93,17 @@ function templateOf(url: string) {
 }
 
 /* Where each ayah's words sit: for every verse, the page of each of its
-   words in order, the end-of-ayah marker included as the last. */
+   words in order, the end-of-ayah marker included. */
 const pagesOfWords = new Map<string, number[]>();
-const pageCount = (await readdir('src/data/pages')).length;
+const pageCount = (await readdir(PAGES)).filter((f) =>
+  /^\d+\.json$/.test(f),
+).length;
 for (let p = 1; p <= pageCount; p++) {
   const { lines } = JSON.parse(
-    await readFile(`src/data/pages/${p}.json`, 'utf8'),
-  ) as { lines: PageLine[] };
+    await readFile(`${PAGES}/${p}.json`, 'utf8'),
+  ) as {
+    lines: PageLine[];
+  };
   for (const line of lines)
     for (const [, key] of line.w ?? []) {
       const list = pagesOfWords.get(key) ?? [];
@@ -91,6 +111,11 @@ for (let p = 1; p <= pageCount; p++) {
       pagesOfWords.set(key, list);
     }
 }
+const ayatOf = (surah: number) => {
+  let n = 0;
+  while (pagesOfWords.has(`${surah}:${n + 1}`)) n++;
+  return n;
+};
 
 await mkdir(OUT, { recursive: true });
 
@@ -99,6 +124,7 @@ for (const reciter of reciters) {
     { length: pageCount },
     () => [],
   );
+  const ayat: number[][] = [];
   let urlTemplate = '';
 
   const add = (page: number, surah: number, from: number, to: number) => {
@@ -117,13 +143,32 @@ for (const reciter of reciters) {
         `${reciter.id}: surah ${n} is at ${file.audio_url}, not ${surahFile(urlTemplate, n)}`,
       );
 
-    for (const v of file.verse_timings) {
-      const wordPages = pagesOfWords.get(v.verse_key);
-      if (!wordPages) throw new Error(`${v.verse_key} is not in the mushaf`);
+    const timings = file.verse_timings;
+    const where = `${reciter.id}: surah ${n}`;
+    if (timings.length !== ayatOf(n))
+      throw new Error(`${where} has ${timings.length} ayat, not ${ayatOf(n)}`);
+
+    const spans: Span[] = [];
+    timings.forEach((v, i) => {
+      const key = `${n}:${i + 1}`;
+      const from = v.timestamp_from;
+      const to = v.timestamp_to;
+      if (v.verse_key !== key)
+        throw new Error(`${where}: ${v.verse_key} where ${key} should be`);
+      if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from)
+        throw new Error(`${where}: ${key} is timed ${from} to ${to}`);
+      const last = spans[i - 1];
+      if (last && (from < last[0] || to < last[1]))
+        throw new Error(`${where}: ${key} starts or ends before ${n}:${i}`);
+      spans.push([from, to]);
+
+      const wordPages = pagesOfWords.get(key);
+      if (!wordPages) throw new Error(`${key} is not in the mushaf`);
       if (new Set(wordPages).size !== 1)
-        throw new Error(`${v.verse_key} runs over a page break`);
-      add(wordPages[0], n, v.timestamp_from, v.timestamp_to);
-    }
+        throw new Error(`${key} runs over a page break`);
+      add(wordPages[0], n, from, to);
+    });
+    ayat.push(encodeSpans(spans));
   }
 
   const empty = pages.findIndex((list) => list.length === 0);
@@ -135,6 +180,7 @@ for (const reciter of reciters) {
     JSON.stringify({
       source: `Quran.com recitation ${reciter.qdc}, ${API}/${reciter.qdc}/audio_files. Built by scripts/build-timings.ts.`,
       audio: urlTemplate,
+      ayat,
       pages,
     }),
   );
