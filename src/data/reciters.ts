@@ -33,8 +33,11 @@ export const reciters: readonly Reciter[] = [
   {
     id: 'husary-muallim',
     qdc: 12,
-    name: 'محمود خليل الحصري',
-    short: 'الحصري',
+    // The teaching recording, which leaves a silence after each ayah for
+    // the learner to repeat it, is named apart from his murattal
+    // everywhere, in the list as in a seat.
+    name: 'الحصري (المعلّم)',
+    short: 'الحصري المعلّم',
     style: 'المصحف المعلّم',
     secondsPerPage: 284,
     photo: 'husary.webp',
