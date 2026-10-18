@@ -16,6 +16,11 @@
   color: var(--muted);
   font-size: var(--text-xs);
 }
+/* A sample that could not be heard, said on the row until pressed again. */
+.reciter-failed {
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
 
 .reciter-button {
   display: flex;
@@ -89,6 +94,9 @@
   background: transparent;
   color: var(--fg);
   text-align: start;
+}
+.reciter-check:empty {
+  display: none;
 }
 .reciter-check {
   display: grid;

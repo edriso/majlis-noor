@@ -19,10 +19,11 @@ const paceBands = reciters.reduce<{ label: string; members: Reciter[] }[]>(
 );
 
 /**
- * The reciters, grouped by how deliberately they recite, since that is what
+ * The sheikhs, grouped by how deliberately they recite, since that is what
  * decides how long a turn is and what a halaqa learning new pages chooses
  * between. Each shows his average page, «نحو ٤:١٤ للصفحة», and can be heard
- * before he is chosen.
+ * before he is chosen. A sample that cannot be heard says so on his row,
+ * and aloud, until it is pressed again.
  *
  * Each is a button that says whether it is the chosen one, rather than a
  * radio: arrowing through a radio group selects as it goes, and choosing
@@ -39,11 +40,12 @@ export function ReciterPicker({
   const { timings } = useTimings(reciters.map((r) => r.id));
   const sample = useSample(timings);
   const groups = useId();
+  const failed = reciters.find((r) => sample.failed(r.id));
 
   return (
     <div className="reciter-picker">
       <p className="field-note">
-        اضغط زرّ التشغيل بجانب القارئ لتسمعه يتلو الفاتحة. والمدة تحت اسمه متوسط
+        اضغط زرّ التشغيل بجانب الشيخ لتسمعه يتلو الفاتحة. والمدة تحت اسمه متوسط
         تلاوته للصفحة.
       </p>
       {paceBands.map((band, i) => (
@@ -73,6 +75,11 @@ export function ReciterPicker({
                       <span className="reciter-meta">
                         {r.style} · نحو {clock(r.secondsPerPage * 1000)} للصفحة
                       </span>
+                      {failed === r ? (
+                        <span className="reciter-failed">
+                          تعذّر تشغيل الفاتحة
+                        </span>
+                      ) : null}
                     </span>
                     <span className="reciter-check" aria-hidden="true">
                       {chosen ? <Check size={18} /> : null}
@@ -98,6 +105,9 @@ export function ReciterPicker({
           </ul>
         </section>
       ))}
+      <p className="visually-hidden" aria-live="polite">
+        {failed ? `تعذّر تشغيل الفاتحة بصوت ${failed.name}.` : ''}
+      </p>
     </div>
   );
 }
