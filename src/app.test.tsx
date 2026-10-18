@@ -87,35 +87,49 @@ describe('the start screen', () => {
     );
   });
 
-  it('shows the starting page whichever way it is chosen', async () => {
+  it('shows the starting place whichever way it is chosen', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.selectOptions(screen.getByLabelText('السورة'), '2');
-    expect(screen.getByText('الصفحة ٢')).toBeTruthy();
+    const row = () => screen.getByRole('button', { name: /غيّر موضع البدء$/ });
+    expect(row().textContent).toContain('سورة الفاتحة');
+    await user.click(row());
+    await user.click(screen.getByRole('button', { name: /^٢\. البقرة/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(row().textContent).toContain('الصفحة ٢ · الجزء ١');
+    await user.click(row());
     await user.click(screen.getByLabelText('جزء'));
-    await user.selectOptions(screen.getByLabelText('الجزء'), '30');
-    expect(screen.getByText('الصفحة ٥٨٢')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'الجزء ٣٠' }));
+    expect(row().textContent).toContain('الصفحة ٥٨٢');
+    await user.click(row());
     await user.click(screen.getByLabelText('صفحة'));
     const field = screen.getByLabelText(/رقم الصفحة/);
     await user.clear(field);
     await user.type(field, '٢٤{Enter}');
-    expect(screen.getByText('الصفحة ٢٤')).toBeTruthy();
+    expect(row().textContent).toContain('الصفحة ٢٤');
   });
 
   it('seats only «أنت» at first, and hides the reading mode for one', async () => {
     const user = userEvent.setup();
     render(<App />);
+    const mode = async () => {
+      await user.click(
+        screen.getByRole('button', { name: /غيّر طريقة الحلقة$/ }),
+      );
+      const group = screen.queryByRole('group', { name: 'طريقة القراءة' });
+      await user.click(screen.getByRole('button', { name: 'إغلاق' }));
+      return group;
+    };
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
     expect(
       screen.getByRole('textbox', { name: 'اسم القارئ في المقعد ١' }),
-    ).toHaveProperty('placeholder', 'أنت');
-    expect(screen.queryByRole('group', { name: 'طريقة القراءة' })).toBeNull();
+    ).toHaveProperty('placeholder', 'اسمك (اختياري)');
+    expect(await mode()).toBeNull();
     await addReader(user);
-    expect(screen.getByRole('group', { name: 'طريقة القراءة' })).toBeTruthy();
+    expect(await mode()).toBeTruthy();
     await user.click(
       screen.getByRole('button', { name: 'إخراج من الحلقة: القارئ الثاني' }),
     );
-    expect(screen.queryByRole('group', { name: 'طريقة القراءة' })).toBeNull();
+    expect(await mode()).toBeNull();
   });
 
   it('keeps the circle as it was set up for the next visit', async () => {
@@ -214,12 +228,21 @@ describe('the start screen', () => {
     const user = userEvent.setup();
     render(<App />);
     const photos = () => document.querySelectorAll('img.reciter-photo');
-    expect(photos().length).toBeGreaterThan(0);
+    // No face before the choice is there to make.
+    expect(photos()).toHaveLength(0);
     await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
     await user.click(screen.getByRole('radio', { name: 'مموّهة' }));
+    await user.click(screen.getByRole('button', { name: 'إغلاق' }));
+    await user.click(screen.getByRole('button', { name: /أضف شيخًا/ }));
+    expect(photos().length).toBeGreaterThan(0);
     expect([...photos()].every((img) => img.hasAttribute('data-blur'))).toBe(
       true,
     );
+    await user.click(
+      screen.getByRole('button', { name: /^محمد صديق المنشاوي/ }),
+    );
+    expect(photos()).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
     await user.click(screen.getByRole('radio', { name: 'مخفية' }));
     expect(photos()).toHaveLength(0);
   });

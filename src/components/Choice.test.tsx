@@ -119,10 +119,13 @@ describe('every choice in the app', () => {
     const user = userEvent.setup();
     render(<App />);
     // A second reader brings the reading mode, and the timed turn its
-    // allowance; the settings hold the appearance and the sound.
+    // allowance, in the circle's sheet; the settings hold the appearance
+    // and the sound.
     await user.click(screen.getByRole('button', { name: /أضف قارئًا/ }));
+    await user.click(screen.getByRole('button', { name: /غيّر طريقة الحلقة$/ }));
     expect(radioNames().length).toBeGreaterThan(8);
     expect(mislabelled()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'إغلاق' }));
     await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
     expect(mislabelled()).toEqual([]);
   });

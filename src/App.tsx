@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { PhotosContext } from './components/photos';
-import { UpdateNotice } from './components/UpdateNotice';
 import { ReadingScreen } from './screens/ReadingScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { useHalaqa } from './halaqa/useHalaqa';
@@ -52,22 +51,17 @@ export function App() {
           dispatch={dispatch}
         />
       ) : (
-        <>
-          {/* A new version is offered here and never while reading, since
-              switching to it reloads the page. */}
-          <UpdateNotice />
-          <SetupScreen
-            initial={initialConfig(state)}
-            saved={state.session}
-            prefs={state.prefs}
-            onPrefs={setPrefs}
-            onConfig={(config) => dispatch({ type: 'draft', config })}
-            onStart={(config) =>
-              open(() => dispatch({ type: 'start', config, at: Date.now() }))
-            }
-            onResume={() => open(() => {})}
-          />
-        </>
+        <SetupScreen
+          initial={initialConfig(state)}
+          saved={state.session}
+          prefs={state.prefs}
+          onPrefs={setPrefs}
+          onConfig={(config) => dispatch({ type: 'draft', config })}
+          onStart={(config) =>
+            open(() => dispatch({ type: 'start', config, at: Date.now() }))
+          }
+          onResume={() => open(() => {})}
+        />
       )}
     </PhotosContext>
   );

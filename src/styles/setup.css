@@ -1,46 +1,45 @@
-/* The start screen: a single quiet column. */
+/* The start screen (SetupScreen.tsx): one quiet column. A one-line header,
+   three questions, and «ابدأ الحلقة» held at the foot of the window while
+   the column scrolls under it. Also the parts of the circle's form the
+   settings of a sitting show (HalaqaForm.tsx, CircleOptions.tsx). */
 
 .setup {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(560px, 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: max(40px, env(safe-area-inset-top)) 16px
-    max(48px, env(safe-area-inset-bottom));
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-4) 0;
 }
 
-/* The gear sits at the far corner, away from where the eye starts. */
-.setup-settings {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  inset-inline-end: 16px;
+/* Nothing is ever hidden under the held button: a field reached by Tab
+   or by a phone's keyboard scrolls clear of it. */
+html:has(.setup-start) {
+  scroll-padding-bottom: calc(var(--target-primary) + var(--space-7));
 }
 
-.setup-intro {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  margin-bottom: 36px;
-  text-align: center;
+/* ---------- The header ---------- */
+
+.setup-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
   color: var(--gold);
 }
-.setup-intro .logo-mark {
-  margin-bottom: 6px;
+.setup-header .logo-mark {
+  flex: none;
   animation: settle 900ms var(--ease) both;
 }
 .setup-title {
+  flex: 1;
   margin: 0;
-  line-height: 1.2;
-}
-.setup-title-ar {
-  font-family: var(--font-brand);
-  font-weight: 600;
-  font-size: clamp(2.5rem, 9vw, 3.375rem);
   color: var(--gold);
-}
-.setup-tagline {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-md);
+  font-family: var(--font-brand);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 @keyframes settle {
@@ -50,21 +49,336 @@
   }
 }
 
-.setup-form {
-  display: grid;
-  gap: 28px;
-}
-.setup-form > .button-primary {
-  margin-top: 4px;
+/* The notice is drawn for a page of its own; here it sits in the column. */
+.setup .update-notice {
+  width: auto;
+  margin: var(--space-2) 0 0;
 }
 
-.start-picker,
-.halaqa-form {
-  display: grid;
-  gap: 28px;
+/* ---------- The form ---------- */
+
+.setup-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
+.setup-body {
+  display: grid;
+  gap: var(--space-5);
+  padding-block: var(--space-4) var(--space-5);
+}
+.setup-section {
+  display: grid;
+  min-width: 0;
+}
+.setup-back {
+  justify-self: center;
+}
+
+/* Held at the foot of the window, on a band that fades the column into
+   the ground as it scrolls under. On a phone it stands at the foot even
+   when the column is short, where a thumb is; on a wider screen it
+   follows the questions, rather than wait at the far end of a tall
+   window. */
+.setup-start {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-inline: calc(var(--space-4) * -1);
+  padding: var(--space-4) var(--space-4)
+    max(var(--space-4), env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--bg) 35%);
+}
+@media (max-width: 759px) {
+  .setup-start {
+    margin-top: auto;
+  }
+}
+
+/* ---------- Who sits ---------- */
+
+/* A size container, so the rows fit the column they are in (the start
+   screen, or the settings sheet). */
+.members {
+  container-type: inline-size;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.members > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+}
+.members > legend + * {
+  clear: both;
+}
+.member-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  padding-inline-start: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--well);
+}
+.member[data-kind='reciter'] {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
+.member-name.input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--target);
+  padding-block: 6px;
+}
+/* «اسم القارئ (اختياري)» whole in the narrow field beside three buttons. */
+.member-name::placeholder {
+  font-size: var(--text-sm);
+}
+.member-reciter {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--target);
+  padding: 2px var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  text-align: start;
+  line-height: var(--leading-tight);
+  transition: border-color var(--duration-short) var(--ease);
+}
+.member-reciter:hover {
+  border-color: var(--gold);
+}
+.member-reciter-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A long name («الشيخ الحصري المعلّم») takes a second line rather than
+   lose its end beside the buttons. */
+.member-reciter-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.member-reciter-meta {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.member-actions {
+  display: flex;
+  flex: none;
+}
+.member-action {
+  display: grid;
+  place-items: center;
+  width: var(--target);
+  height: var(--target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  transition:
+    background-color var(--duration-short) var(--ease),
+    color var(--duration-short) var(--ease);
+}
+.member-action:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.member-action[aria-disabled='true']:hover {
+  background: transparent;
+  color: var(--muted);
+}
+/* On the narrowest phones, with buttons to make room for, the face gives
+   its room to the name. */
+@container (max-width: 330px) {
+  .member:has(.member-actions) > .person-avatar,
+  .member:has(.member-actions) > .reciter-avatar {
+    display: none;
+  }
+}
+
+.member-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.member-add-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--target-primary);
+  padding: 6px var(--space-3);
+  border: 1px dashed var(--control-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg);
+  text-align: start;
+  line-height: var(--leading-tight);
+  transition:
+    border-color var(--duration-short) var(--ease),
+    background-color var(--duration-short) var(--ease);
+}
+.member-add-button:hover {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.member-add-button[aria-disabled='true']:hover {
+  border-color: var(--control-border);
+  background: transparent;
+}
+.member-add-button svg {
+  flex: none;
+  color: var(--gold);
+}
+.member-add-text {
+  display: grid;
+  min-width: 0;
+}
+.member-add-label {
+  font-weight: 600;
+}
+.member-add-hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.member-full {
+  margin-top: var(--space-2);
+}
+
+/* ---------- How the circle reads ---------- */
+
+.halaqa-form,
+.circle-options {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.circle-size,
+.turn-change,
+.turn-timed {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* The teaching circle: one press, ringed rather than filled, since the
+   gold fill belongs to the screen's one main action. */
+.talqeen {
+  display: grid;
+  gap: var(--space-2);
+}
+.talqeen-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--target-primary);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-md);
+  background: var(--gold-soft);
+  color: var(--fg);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-align: start;
+  transition: border-color var(--duration-short) var(--ease);
+}
+.talqeen-button:hover {
+  border-color: var(--gold);
+}
+.talqeen-button svg {
+  flex: none;
+  color: var(--gold);
+}
+.talqeen-label {
+  flex: 1;
+}
+.talqeen-button[data-done] {
+  border-color: var(--gold);
+}
+
+/* Four goals, two to a row, so none is cut on a phone. */
+.circle-goal .choice-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: var(--radius-md);
+}
+.circle-goal-page {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 220px;
+}
+.circle-goal-page .field-label {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* ---------- A sitting left open ---------- */
+
+.resume {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  box-shadow: 0 18px 50px rgb(var(--shadow-rgb) / 0.25);
+  text-align: center;
+  animation: rise var(--duration-long) var(--ease) both;
+}
+.resume-title {
+  margin: 0;
+  color: var(--gold);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.resume-summary {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  line-height: var(--leading-tight);
+}
+.resume-page {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  text-wrap: balance;
+}
+.resume-reader {
+  color: var(--muted);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* ---------- The page picker the reading screen still uses ----------
+   StartPicker.tsx, in the jump and the settings of a sitting, until the
+   place picker takes its place there too. */
+
 .start-picker {
-  gap: 12px;
+  display: grid;
+  gap: var(--space-3);
 }
 .start-summary {
   display: flex;
@@ -98,198 +412,4 @@
 }
 .stepper .stepper-button:last-child {
   margin-inline-start: auto;
-}
-
-/* Who sits in the circle, in order. A size container, so the rows fit
-   the column they are in (the start screen, or the settings sheet). */
-.members {
-  container-type: inline-size;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.members-note {
-  margin: -6px 0 12px;
-}
-.member-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.member {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px;
-  padding-inline-start: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--well);
-}
-.member[data-kind='reciter'] {
-  border-color: var(--gold-line);
-  background: var(--gold-soft);
-}
-.member-name.input {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  padding-block: 8px;
-}
-.member-reciter {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  padding: 4px 12px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--fg);
-  text-align: start;
-  line-height: var(--leading-tight);
-  transition: border-color var(--duration-short) var(--ease);
-}
-.member-reciter:hover {
-  border-color: var(--gold);
-}
-.member-reciter-name,
-.member-reciter-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.member-reciter-name {
-  font-weight: 600;
-}
-.member-reciter-meta {
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-.member-actions {
-  display: flex;
-  flex: none;
-}
-.member-action {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  transition:
-    background-color var(--duration-short) var(--ease),
-    color var(--duration-short) var(--ease);
-}
-.member-action:hover {
-  background: var(--surface-raised);
-  color: var(--fg);
-}
-.member-action[aria-disabled='true']:hover {
-  background: transparent;
-  color: var(--muted);
-}
-/* On the narrowest phones the face gives its room to the name. */
-@container (max-width: 330px) {
-  .member > .person-avatar,
-  .member > .reciter-avatar {
-    display: none;
-  }
-}
-
-.member-add {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-}
-.member-add-button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 8px 14px;
-  border: 1px dashed var(--control-border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--fg);
-  text-align: start;
-  line-height: var(--leading-tight);
-  transition:
-    border-color var(--duration-short) var(--ease),
-    background-color var(--duration-short) var(--ease);
-}
-.member-add-button:hover {
-  border-color: var(--gold);
-  background: var(--gold-soft);
-}
-.member-add-button[aria-disabled='true']:hover {
-  border-color: var(--control-border);
-  background: transparent;
-}
-.member-add-button svg {
-  flex: none;
-  color: var(--gold);
-}
-.member-add-text {
-  display: grid;
-}
-.member-add-label {
-  font-weight: 600;
-}
-.member-add-hint {
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-.members > .field-note:not(.members-note) {
-  margin-top: 8px;
-}
-
-.turn-change {
-  display: grid;
-  gap: 12px;
-}
-
-/* Carry on where you left off. */
-.resume {
-  display: grid;
-  gap: 14px;
-  padding: 24px;
-  border: 1px solid var(--gold-line);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  box-shadow: 0 18px 50px rgb(var(--shadow-rgb) / 0.25);
-  text-align: center;
-  animation: rise var(--duration-long) var(--ease) both;
-}
-.resume-title {
-  margin: 0;
-  color: var(--gold);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-.resume-summary {
-  display: grid;
-  gap: 2px;
-  margin: 0 0 6px;
-}
-.resume-page {
-  font-size: var(--text-xl);
-  font-weight: 600;
-}
-.resume-reader {
-  color: var(--muted);
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
 }

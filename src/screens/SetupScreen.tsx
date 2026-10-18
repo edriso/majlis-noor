@@ -1,32 +1,50 @@
 import { ArrowLeft, Settings } from '@/components/icons';
-import { useState } from 'react';
-import { arabic } from '@/data/arabic';
-import { firstAyahOfPage, pageOfAyah, surahOfPage } from '@/data/mushaf';
-import { readerOf } from '@/halaqa/schedule';
+import { useEffect, useRef, useState } from 'react';
+import { pageOfAyah } from '@/data/mushaf';
 import {
-  currentPage,
-  isComplete,
-  memberName,
-  planOf,
+  circleSummary,
+  placeSummary,
+  resumeLines,
+} from '@/halaqa/circleLabels';
+import {
+  sanitizeConfig,
   type Config,
   type Prefs,
   type Session,
 } from '@/halaqa/state';
-import { AppearanceFields, SoundFields } from '@/components/Preferences';
-import { HalaqaForm, type ReciterRequest } from '@/components/HalaqaForm';
+import { CircleOptions } from '@/components/CircleOptions';
+import { Members, type ReciterRequest } from '@/components/HalaqaForm';
 import { LogoMark } from '@/components/Logo';
+import { PlacePicker } from '@/components/PlacePicker';
+import { AppearanceFields, SoundFields } from '@/components/Preferences';
 import { ReciterPicker } from '@/components/ReciterPicker';
 import { Sheet } from '@/components/Sheet';
-import { StartPicker } from '@/components/StartPicker';
+import { SummaryRow } from '@/components/SummaryRow';
+import { UpdateNotice } from '@/components/UpdateNotice';
+
+/** What the one sheet of the start screen holds. The reciter list opened
+    from the circle's sheet takes its place, with a way back to it. */
+type Panel =
+  | { kind: 'gear' }
+  | { kind: 'place' }
+  | { kind: 'circle' }
+  | { kind: 'reciter'; request: ReciterRequest; fromCircle: boolean };
 
 /**
- * The first screen, every time the app opens: the name, one line saying what
- * it is for, and the few choices a halaqa needs. Everything has a default, so
- * «ابدأ الحلقة» works on arrival.
+ * The first screen, every time the app opens: the name, and the three
+ * questions a halaqa needs answered, each with a default, so «ابدأ الحلقة»
+ * works on arrival. Where to start and how the circle reads are one row
+ * each, showing what is chosen and opening where it is changed; who sits is
+ * on the screen itself, since that is what changes from one sitting to the
+ * next. «ابدأ الحلقة» stays at the foot of the screen however long the
+ * circle grows. On a phone, a first visit fits without scrolling.
  *
  * A halaqa left open (the page refreshed, the phone locked) is offered first,
  * as one card, because carrying on is what someone returning almost always
- * wants. Starting over is the quieter link under it.
+ * wants. Starting over is the quieter button under it.
+ *
+ * Every choice is saved as it is made (`onConfig`), through the model's
+ * sanitiser, so what is shown is what will be kept.
  */
 export function SetupScreen({
   initial,
@@ -47,57 +65,73 @@ export function SetupScreen({
 }) {
   const [config, setConfig] = useState<Config>(initial);
   const [showForm, setShowForm] = useState(!saved);
-  const [picking, setPicking] = useState<ReciterRequest | null>(null);
-  const [looking, setLooking] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [open, setOpen] = useState(false);
+  // Where the focus goes once a panel has changed in place.
+  const focusNext = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!focusNext.current) return;
+    document.querySelector<HTMLElement>(focusNext.current)?.focus();
+    focusNext.current = null;
+  });
+
   const change = (next: Config) => {
-    setConfig(next);
-    onConfig(next);
+    const clean = sanitizeConfig(next);
+    setConfig(clean);
+    onConfig(clean);
   };
+  // The panel stays as it was while the sheet slides out, so it does not
+  // empty on its way.
+  const show = (p: Panel) => {
+    setPanel(p);
+    setOpen(true);
+  };
+  const pickReciter = (fromCircle: boolean) => (request: ReciterRequest) =>
+    show({ kind: 'reciter', request, fromCircle });
+  const backToCircle = () => {
+    setPanel({ kind: 'circle' });
+    focusNext.current = 'dialog[open] [data-focus="timer"] button';
+  };
+
+  const place = placeSummary(config.start, config.unit);
+  const circle = circleSummary(config);
 
   return (
     <main className="setup" id="main">
-      {/* How the app looks and sounds, before a halaqa starts: its
-          colour, whether the reciters' faces are shown, blurred or hidden
-          (which some would settle before the first photo appears), and the
-          speed of recitations. */}
-      <button
-        type="button"
-        className="icon-button setup-settings"
-        aria-label="الإعدادات"
-        onClick={() => setLooking(true)}
-      >
-        <Settings size={20} aria-hidden="true" />
-      </button>
-      <header className="setup-intro">
-        <LogoMark size={64} />
-        <h1 className="setup-title">
-          <span className="setup-title-ar">مجلس نور</span>
-        </h1>
-        <p className="setup-tagline">حلقة قرآن، أينما كنتم.</p>
+      <header className="setup-header">
+        <LogoMark size={32} />
+        <h1 className="setup-title">مجلس نور</h1>
+        {/* How the app looks and sounds, before a halaqa starts: its
+            colour, whether the sheikhs' faces are shown, blurred or hidden
+            (which some would settle before the first photo appears), and
+            the speed of recitations. */}
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="الإعدادات"
+          aria-haspopup="dialog"
+          onClick={() => show({ kind: 'gear' })}
+        >
+          <Settings size={20} aria-hidden="true" />
+        </button>
       </header>
 
+      {/* A new version is offered here and never while reading, since
+          switching to it reloads the page. */}
+      <UpdateNotice />
+
       {saved && !showForm ? (
-        <section className="resume" aria-labelledby="resume-title">
-          <h2 id="resume-title" className="resume-title">
-            تابع حلقتك
-          </h2>
-          <ResumeSummary session={saved} />
-          <button
-            type="button"
-            className="button button-primary button-block"
-            onClick={onResume}
-          >
-            متابعة
-            <ArrowLeft size={20} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="button button-quiet"
-            onClick={() => setShowForm(true)}
-          >
-            ابدأ حلقة جديدة
-          </button>
-        </section>
+        <Resume
+          session={saved}
+          onResume={onResume}
+          onNew={() => {
+            setShowForm(true);
+            // The card and the button pressed are gone; the focus starts
+            // the form, at its first question.
+            focusNext.current = '.setup-body .summary-row';
+          }}
+        />
       ) : (
         <form
           className="setup-form"
@@ -106,96 +140,189 @@ export function SetupScreen({
             onStart(config);
           }}
         >
-          <StartPicker
-            page={pageOfAyah(config.start)}
-            onChange={(page) =>
-              change({ ...config, start: firstAyahOfPage(page) })
-            }
-          />
-          <HalaqaForm
-            config={config}
-            onChange={change}
-            onPickReciter={setPicking}
-          />
-          <button
-            type="submit"
-            className="button button-primary button-block button-large"
-          >
-            ابدأ الحلقة
-            <ArrowLeft size={20} aria-hidden="true" />
-          </button>
-          {saved ? (
+          <div className="setup-body">
+            <section className="setup-section" aria-labelledby="setup-place">
+              <h2 id="setup-place" className="section-heading">
+                من أين نبدأ؟
+              </h2>
+              <SummaryRow
+                title={place.title}
+                detail={place.detail}
+                spokenSuffix="، غيّر موضع البدء"
+                opensDialog
+                onClick={() => show({ kind: 'place' })}
+              />
+            </section>
+
+            <Members
+              members={config.members}
+              onChange={(members) => change({ ...config, members })}
+              onPickReciter={pickReciter(false)}
+            />
+
+            <section className="setup-section" aria-labelledby="setup-circle">
+              <h2 id="setup-circle" className="section-heading">
+                طريقة الحلقة
+              </h2>
+              <SummaryRow
+                title={circle.title}
+                detail={circle.detail || undefined}
+                spokenSuffix="، غيّر طريقة الحلقة"
+                opensDialog
+                onClick={() => show({ kind: 'circle' })}
+              />
+            </section>
+
+            {saved ? (
+              <button
+                type="button"
+                className="button button-quiet setup-back"
+                onClick={() => {
+                  setShowForm(false);
+                  focusNext.current = '.resume .button-primary';
+                }}
+              >
+                العودة إلى المجلس المفتوح
+              </button>
+            ) : null}
+          </div>
+
+          <div className="setup-start">
             <button
-              type="button"
-              className="button button-quiet"
-              onClick={() => setShowForm(false)}
+              type="submit"
+              className="button button-primary button-block button-large"
             >
-              العودة إلى الحلقة السابقة
+              ابدأ الحلقة
+              <ArrowLeft size={20} aria-hidden="true" />
             </button>
-          ) : null}
+          </div>
         </form>
       )}
 
-      <Sheet
-        open={looking}
-        onOpenChange={setLooking}
-        title="الإعدادات"
-        description="مظهر التطبيق وصوته. تُطبَّق فور اختيارها."
-      >
-        <section className="settings-section" aria-labelledby="setup-look">
-          <h3 id="setup-look" className="settings-heading">
-            المظهر
-          </h3>
-          <AppearanceFields prefs={prefs} onChange={onPrefs} />
-        </section>
-        <section className="settings-section" aria-labelledby="setup-sound">
-          <h3 id="setup-sound" className="settings-heading">
-            الصوت
-          </h3>
-          <SoundFields prefs={prefs} onChange={onPrefs} />
-        </section>
-      </Sheet>
-
-      <Sheet
-        open={picking !== null}
-        onOpenChange={(open) => {
-          if (!open) setPicking(null);
-        }}
-        title={picking?.title ?? ''}
-        description={picking?.description}
-      >
-        {picking ? (
-          <ReciterPicker
-            value={picking.value}
-            onChange={(reciter) => {
-              picking.apply(reciter);
-              setPicking(null);
-            }}
-          />
-        ) : null}
-      </Sheet>
+      {/* One sheet for all of them, outside the form: a form inside a
+          sheet (the page field of the place picker) would otherwise submit
+          this one too, since React passes events up through a portal. */}
+      {panel ? (
+        <Sheet
+          open={open}
+          onOpenChange={setOpen}
+          variant="dialog"
+          {...sheetOf(panel)}
+          onBack={
+            panel.kind === 'reciter' && panel.fromCircle
+              ? backToCircle
+              : undefined
+          }
+        >
+          {panel.kind === 'gear' ? (
+            <>
+              <section
+                className="settings-section"
+                aria-labelledby="setup-look"
+              >
+                <h3 id="setup-look" className="settings-heading">
+                  المظهر
+                </h3>
+                <AppearanceFields prefs={prefs} onChange={onPrefs} />
+              </section>
+              <section
+                className="settings-section"
+                aria-labelledby="setup-sound"
+              >
+                <h3 id="setup-sound" className="settings-heading">
+                  الصوت
+                </h3>
+                <SoundFields prefs={prefs} onChange={onPrefs} />
+              </section>
+            </>
+          ) : panel.kind === 'place' ? (
+            <PlacePicker
+              current={{ ayah: config.start, page: pageOfAyah(config.start) }}
+              onChoose={(p) => {
+                change({ ...config, start: p.ayah });
+                setOpen(false);
+              }}
+            />
+          ) : panel.kind === 'circle' ? (
+            <CircleOptions
+              config={config}
+              onChange={change}
+              onPickReciter={pickReciter(true)}
+            />
+          ) : (
+            <ReciterPicker
+              value={panel.request.value}
+              onChange={(reciter) => {
+                panel.request.apply(reciter);
+                if (panel.fromCircle) backToCircle();
+                else setOpen(false);
+              }}
+            />
+          )}
+        </Sheet>
+      ) : null}
     </main>
   );
 }
 
-function ResumeSummary({ session }: { session: Session }) {
-  const page = currentPage(session);
-  const { config } = session;
-  const member = config.members[readerOf(planOf(config), session.turn)];
+/** Each panel's title, and the sentence a screen reader hears with it. */
+function sheetOf(panel: Panel): { title: string; description: string } {
+  switch (panel.kind) {
+    case 'gear':
+      return {
+        title: 'الإعدادات',
+        description: 'مظهر التطبيق وصوته. تُطبَّق فور اختيارها.',
+      };
+    case 'place':
+      return {
+        title: 'من أين نبدأ؟',
+        description: 'سورة أو جزء أو صفحة يبدأ منها المجلس.',
+      };
+    case 'circle':
+      return {
+        title: 'طريقة الحلقة',
+        description: 'كيف تدور القراءة في الحلقة. تُحفظ فور اختيارها.',
+      };
+    case 'reciter':
+      return {
+        title: panel.request.title,
+        description: panel.request.description,
+      };
+  }
+}
+
+/** The sitting left open: where it is and whose turn, «متابعة», and the
+    quieter way to a new one. */
+function Resume({
+  session,
+  onResume,
+  onNew,
+}: {
+  session: Session;
+  onResume: () => void;
+  onNew: () => void;
+}) {
+  const { place, turn } = resumeLines(session);
   return (
-    <p className="resume-summary">
-      <span className="resume-page">
-        الصفحة {arabic(page)} · سورة {surahOfPage(page).name}
-      </span>
-      <span className="resume-reader">
-        {isComplete(session)
-          ? 'خُتم المصحف'
-          : config.members.length > 1
-            ? `الدور على: ${memberName(member)}`
-            : member.kind === 'reciter'
-              ? `استماع إلى ${memberName(member)}`
-              : 'قراءة فردية'}
-      </span>
-    </p>
+    <section className="resume" aria-labelledby="resume-title">
+      <h2 id="resume-title" className="resume-title">
+        تابع حلقتك
+      </h2>
+      <p className="resume-summary">
+        <span className="resume-page">{place}</span>
+        <span className="resume-reader">{turn}</span>
+      </p>
+      <button
+        type="button"
+        className="button button-primary button-block button-large"
+        onClick={onResume}
+      >
+        متابعة
+        <ArrowLeft size={20} aria-hidden="true" />
+      </button>
+      <button type="button" className="button button-quiet" onClick={onNew}>
+        ابدأ مجلسًا جديدًا
+      </button>
+    </section>
   );
 }
