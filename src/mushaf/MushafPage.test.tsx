@@ -19,6 +19,7 @@ import {
   PAGE_MISSING,
   type MushafPageProps,
 } from './MushafPage';
+import { misnamed, unnamed } from '@/test-names';
 
 vi.mock('@/data/mushaf', async (actual) => ({
   ...(await actual<typeof import('@/data/mushaf')>()),
@@ -346,6 +347,8 @@ describe('a page with its ayat marked and tappable', () => {
     await drawn({ onAyahTap });
     const buttons = screen.getAllByRole('button');
     expect(buttons).toHaveLength(7);
+    expect(unnamed()).toEqual([]);
+    expect(misnamed()).toEqual([]);
     expect(buttons[6].getAttribute('aria-label')).toBe(
       'الآية ٧ من سورة الفاتحة — استمع إليها',
     );

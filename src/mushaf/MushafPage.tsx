@@ -444,7 +444,9 @@ const MushafLine = memo(function MushafLine({
               {...marks}
               aria-label={ayahButtonLabel(ayah)}
             >
-              {code}
+              {/* A code point that means nothing as text: what the button
+                  shows is the ayah's number, which its name says. */}
+              <span aria-hidden="true">{code}</span>
             </button>
           ) : (
             <span key={i} {...marks} aria-hidden="true">
