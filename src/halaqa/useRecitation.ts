@@ -146,6 +146,10 @@ export function useReciterTurn({
 
   return {
     status,
+    /** His recitation will not play: neither his timings nor his
+        recording would load, or the connection died and stayed dead.
+        The turn waits; the screen offers «تخطَّ» beside trying again. */
+    failed: status === 'error',
     /** Time left in the turn, once its recitation is known. */
     left: mine ? Math.max(0, state.total - state.played) / rate : null,
     total: mine ? state.total / rate : null,
@@ -281,6 +285,10 @@ function releaseHeld() {
  * another reciter's press replaces it, closing the list ends it. The
  * halaqa's own recitation waits while it plays and carries on when it
  * stops; if that recitation starts again some other way, the sample stops.
+ *
+ * A sample that cannot be heard says so (`failed`) until the next press,
+ * which tries again: his recording would not load, or his timings, which
+ * say where al-Fatiha is in it, never came.
  */
 export function useSample(timings: Record<string, Timings | null>) {
   const state = useSyncExternalStore(
@@ -290,6 +298,9 @@ export function useSample(timings: Record<string, Timings | null>) {
   );
   const main = usePlayer();
   const sounding = state.status === 'playing' || state.status === 'loading';
+  // The reciter pressed whose timings would not load. Nothing plays for
+  // him, so the sampler cannot remember it.
+  const [untimed, setUntimed] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -309,10 +320,18 @@ export function useSample(timings: Record<string, Timings | null>) {
     state.key === `sample:${id}` && sounding ? state.status : undefined;
 
   return {
+    /** `loading` or `playing` while his sample sounds. */
     phase,
+    /** Whether his sample, last pressed, could not be heard. */
+    failed: (id: string) =>
+      (state.key === `sample:${id}` && state.status === 'error') ||
+      (untimed === id && timings[id] === null),
     toggle: (id: string) => {
       if (phase(id)) return sampler.stop();
       const t = timings[id];
+      setUntimed(t === null ? id : null);
+      if (t === null) return sampler.stop();
+      // Still on its way: the list asked for every reciter's as it opened.
       if (!t) return;
       const now = player.getState();
       if (now.status === 'playing' || now.status === 'loading') {
