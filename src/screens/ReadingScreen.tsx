@@ -81,6 +81,12 @@ export function ReadingScreen({
         {/* The brand in the bar says which app this is; the heading says
             where in it a screen reader has landed. */}
         <h1 className="visually-hidden">مجلس نور: الحلقة</h1>
+        {turn.toast ? (
+          // Said aloud by the notice above already; this is for the eye.
+          <p key={turn.toast.id} className="toast" aria-hidden="true">
+            {turn.toast.text}
+          </p>
+        ) : null}
         {turn.end ? (
           <Completion
             end={turn.end}

@@ -1,5 +1,10 @@
 /* The action bar under the page and the circle (ActionBar.tsx,
-   TurnActions.tsx): one primary button and a few quiet ones beside it. */
+   TurnActions.tsx): back, one primary button, and a few quiet ones beside
+   it, under a slim line saying how far the sitting has come.
+
+   The bar is a size container. Below 560px of its own width (a phone) the
+   secondary actions drop their visible words and keep them as names, so
+   the main button keeps its own. */
 
 .action-bar {
   container-type: inline-size;
@@ -9,28 +14,61 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4)
+    max(var(--space-3), env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
 }
 
+/* ---------- The sitting's progress ---------- */
+
+.progress-line {
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  display: block;
+  width: 100%;
+  height: 3px;
+  appearance: none;
+  border: 0;
+  background: var(--line);
+  color: var(--gold);
+}
+/* The bar fills from the right, where a right-to-left reader starts, as a
+   progress bar does in a right-to-left page. */
+.progress-line::-webkit-progress-bar {
+  background: var(--line);
+}
+.progress-line::-webkit-progress-value {
+  background: var(--gold);
+  transition: inline-size var(--duration-long) var(--ease);
+}
+.progress-line::-moz-progress-bar {
+  background: var(--gold);
+}
+
+/* ---------- The primary button ---------- */
+
 .action-primary {
+  position: relative;
   display: grid;
   justify-items: center;
+  align-content: center;
   flex: 1;
   min-width: 0;
-  max-width: 440px;
-  min-height: 60px;
-  padding: 8px 22px;
+  max-width: calc(var(--screen-primary) * 7.5);
+  min-height: var(--screen-primary);
+  padding: var(--space-2) var(--space-5);
+  overflow: hidden;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--gold);
   color: var(--on-gold);
   box-shadow: 0 10px 30px rgb(var(--glow-rgb) / 0.18);
   transition:
-    background-color 160ms var(--ease),
-    transform 160ms var(--ease);
+    background-color var(--duration-short) var(--ease),
+    transform var(--duration-short) var(--ease);
 }
 .action-primary:hover {
   background: var(--gold-strong);
@@ -40,29 +78,48 @@
 }
 .action-primary-main {
   display: inline-flex;
-  white-space: nowrap;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
+  gap: var(--space-2);
+  font-size: var(--screen-text-lg);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: var(--leading-tight);
+  white-space: nowrap;
 }
 .action-primary-sub {
   max-width: 100%;
   overflow: hidden;
+  color: var(--on-gold-muted);
+  font-size: var(--screen-text-sm);
+  line-height: var(--leading-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  line-height: 1.3;
-  color: color-mix(in srgb, var(--on-gold) 80%, var(--gold));
+}
+
+/* The time a timed or recited turn has left, draining along the foot of
+   the button. */
+.turn-line {
+  position: absolute;
+  inset-inline: var(--space-6);
+  bottom: 5px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--on-gold) 18%, transparent);
+}
+.turn-line span {
+  display: block;
+  height: 100%;
+  background: var(--on-gold);
+  transform-origin: right;
+  transition: transform 260ms linear;
 }
 
 .action-recitation {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  padding-inline-end: 8px;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  padding-inline-start: var(--space-2);
   text-align: start;
 }
 .action-recitation .reciter-avatar {
@@ -83,7 +140,7 @@
   flex: none;
   width: 40px;
   height: 40px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--on-gold) 14%, transparent);
 }
 .spin {
@@ -95,50 +152,55 @@
   }
 }
 
+/* ---------- The quiet buttons ---------- */
+
 .action-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0 14px;
+  flex: none;
+  gap: var(--space-2);
+  min-width: var(--screen-target);
+  min-height: var(--screen-target);
+  padding: 0 var(--space-4);
   border: 1px solid var(--control-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--fg);
-  font-size: 14px;
+  font-size: var(--screen-text-sm);
+  line-height: var(--leading-tight);
   white-space: nowrap;
   transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease),
-    color 160ms var(--ease);
+    background-color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease),
+    color var(--duration-short) var(--ease);
 }
 .action-secondary:hover {
-  background: var(--surface);
+  background: var(--hover);
 }
 .action-secondary[data-active],
 .action-secondary[aria-pressed='true'] {
   border-color: var(--gold);
   color: var(--gold);
 }
+/* Nothing to go back to: gone from sight, but its room kept. */
+.action-secondary[data-hidden] {
+  visibility: hidden;
+}
 .action-clock {
-  min-width: 3.2em;
+  min-width: 2.6em;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
-/* When the bar is narrow (a phone) the secondary actions give up their
-   words, which they keep as names for screen readers, so the main button
-   keeps its own. */
 @container (max-width: 560px) {
   .action-secondary {
-    width: 48px;
+    width: var(--screen-target);
     padding: 0;
   }
-  .action-secondary:has(.action-clock) {
+  .action-timer {
     width: auto;
-    padding: 0 14px;
+    padding: 0 var(--space-3);
   }
   .action-secondary-label {
     position: absolute;
@@ -149,42 +211,100 @@
     white-space: nowrap;
   }
 }
-
-.turn-progress {
-  position: absolute;
-  inset-inline: 0;
-  top: -1px;
-  height: 2px;
-  overflow: hidden;
+/* The narrowest phones keep the timer's digits and let its icon go: the
+   digits say there is a clock, and the press pauses it. */
+@container (max-width: 380px) {
+  .action-timer {
+    padding: 0 var(--space-2);
+  }
+  .action-timer svg {
+    display: none;
+  }
 }
-.turn-progress span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-  transform-origin: right;
-  transition: transform 260ms linear;
+/* And where even then the main button would be squeezed under its words,
+   a back button with nothing to go back to gives up its room. */
+@container (max-width: 340px) {
+  .action-secondary[data-hidden] {
+    display: none;
+  }
 }
 
+@media (max-width: 759px) {
+  .action-bar {
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+  .action-primary {
+    padding-inline: var(--space-4);
+  }
+}
+@media (max-width: 400px) {
+  .action-bar {
+    gap: var(--space-1);
+    padding-inline: var(--space-2);
+  }
+  /* Who is reciting is in the strip above and in the circle; here the
+     photo would cost the button the words that say it. */
+  .action-recitation .reciter-avatar {
+    display: none;
+  }
+  .action-recitation {
+    padding-inline-start: var(--space-4);
+  }
+}
+/* A phone on its side. */
+@media (max-height: 520px) {
+  .action-bar {
+    padding-block: 6px max(6px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (forced-colors: active) {
+  .progress-line {
+    background: Canvas;
+    outline: 1px solid CanvasText;
+  }
+  .progress-line::-webkit-progress-value {
+    background: Highlight;
+  }
+  .progress-line::-moz-progress-bar {
+    background: Highlight;
+  }
+  .turn-line span {
+    background: Highlight;
+  }
+}
+
+/* ---------- The toast ---------- */
+
+/* A round read by everyone: shown for a moment at the top of the room, over
+   the page's margin rather than over any button, and said by the screen's
+   notice. It lets every press through. */
 .toast {
   position: absolute;
-  bottom: calc(100% + 12px);
+  top: var(--space-3);
   left: 50%;
+  z-index: 10;
+  max-width: calc(100% - var(--space-6));
   margin: 0;
-  padding: 8px 18px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--gold-line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--gold);
+  font-size: var(--screen-text-md);
   font-weight: 600;
-  white-space: nowrap;
+  line-height: var(--leading-tight);
+  text-align: center;
   box-shadow: 0 12px 30px rgb(var(--shadow-rgb) / 0.3);
+  pointer-events: none;
   transform: translateX(-50%);
   animation: toast 3.2s var(--ease) both;
 }
 @keyframes toast {
   0% {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translate(-50%, -8px);
   }
   10%,
   85% {
@@ -193,46 +313,5 @@
   }
   100% {
     opacity: 0;
-  }
-}
-/* Reduced motion runs every animation to its end at once, and this one
-   ends unseen; still, it simply shows, and leaves when its time is up. */
-@media (prefers-reduced-motion: reduce) {
-  .toast {
-    animation: none;
-  }
-}
-
-@media (max-width: 759px) {
-  .action-bar {
-    padding-inline: 12px;
-    gap: 8px;
-  }
-  .action-primary-main {
-    font-size: 17px;
-  }
-}
-@media (max-width: 400px) {
-  .action-bar {
-    gap: 6px;
-  }
-  .action-secondary {
-    width: 44px;
-    min-width: 44px;
-    min-height: 44px;
-  }
-  /* Who is reciting is in the line above and in the circle; here the
-     photo would cost the button the words that say it. */
-  .action-recitation .reciter-avatar {
-    display: none;
-  }
-  .action-recitation {
-    padding-inline-start: 18px;
-  }
-}
-/* A phone on its side. */
-@media (max-height: 520px) {
-  .action-bar {
-    padding-block: 6px max(6px, env(safe-area-inset-bottom));
   }
 }

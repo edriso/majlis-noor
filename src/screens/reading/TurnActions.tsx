@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import {
   ActionBar,
   BackButton,
@@ -8,7 +9,14 @@ import {
   TimerButton,
   type PrimaryView,
 } from '@/components/ActionBar';
-import { doneLabels, recitationLabels, skipLabel } from '@/halaqa/labels';
+import {
+  backLabel,
+  doneLabels,
+  recitationLabels,
+  sittingProgress,
+  skipLabel,
+} from '@/halaqa/labels';
+import { placeOf } from '@/halaqa/state';
 import type { Turn } from './useTurn';
 
 /**
@@ -17,6 +25,9 @@ import type { Turn } from './useTurn';
  * is timed, and «استمع»; on a reciter's, «تخطَّ», or trying again when his
  * recitation failed. The primary button stays in the same place in the
  * tree whatever the turn, so it stays the same element and keeps focus.
+ *
+ * Along the top runs the sitting's progress. A timed turn's clock is shown
+ * once, on its pause button, and drains as a line along the main button.
  */
 export function TurnActions({
   turn,
@@ -28,14 +39,16 @@ export function TurnActions({
   onChooseListener: () => void;
 }) {
   const { session, reciter, recitation, next, nextEnd, actions } = turn;
-  const backLabel =
-    session.pageInTurn > 0
-      ? 'الصفحة السابقة'
-      : !turn.alone
-        ? 'القارئ السابق'
-        : turn.unit === 'page'
-          ? 'الصفحة السابقة'
-          : 'الدور السابق';
+  const back = useRef<HTMLButtonElement>(null);
+  const primary = useRef<HTMLButtonElement>(null);
+
+  /* Stepping back to the very first turn hides the button that was
+     pressed; the focus goes on to the main button rather than out of the
+     screen. Before paint, while the browser still has it on the button. */
+  useLayoutEffect(() => {
+    if (!turn.canGoBack && back.current === document.activeElement)
+      primary.current?.focus();
+  }, [turn.canGoBack]);
 
   const failed = !!reciter && recitation.failed;
   const view: PrimaryView = reciter
@@ -67,16 +80,30 @@ export function TurnActions({
         }),
       };
 
+  const progress = sittingProgress({
+    unit: turn.unit,
+    page: turn.page,
+    place: placeOf(session),
+    from: session.from,
+    until: session.until,
+  });
+
   return (
-    <ActionBar toast={turn.toast} time={turn.time}>
+    <ActionBar progress={progress}>
       <BackButton
+        buttonRef={back}
         onClick={actions.back}
-        disabled={!turn.canGoBack}
-        label={backLabel}
+        hidden={!turn.canGoBack}
+        label={backLabel({
+          pageInTurn: session.pageInTurn,
+          alone: turn.alone,
+          unit: turn.unit,
+        })}
       />
       <PrimaryButton
+        buttonRef={primary}
         view={view}
-        time={turn.time}
+        time={failed ? null : turn.time}
         onClick={
           !reciter
             ? actions.done

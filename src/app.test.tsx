@@ -368,6 +368,36 @@ describe('a halaqa', () => {
     expect(await screen.findAllByText(/١:١[٠-٣]/)).toHaveLength(1);
   });
 
+  it('hides «القارئ السابق» on the first turn, and keeps the focus', async () => {
+    const user = await start();
+    const back = () => screen.queryByRole('button', { name: 'القارئ السابق' });
+    expect(back()).toBeNull();
+    await user.click(primary());
+    back()!.focus();
+    await user.keyboard('{Enter}');
+    expect(status()).toContain('دورك');
+    expect(back()).toBeNull();
+    // The button pressed went; the focus went on to the main one.
+    expect(document.activeElement).toBe(primary());
+  });
+
+  it('shows how far the sitting has come, in words', async () => {
+    await startWith({ members: [you], start: ayahIndex(3, 1) });
+    const line = screen.getByRole('progressbar', { name: 'الموضع في المصحف' });
+    expect(line.getAttribute('aria-valuetext')).toBe('الصفحة ٥٠ من ٦٠٤');
+    cleanup();
+    await startWith({
+      members: [you],
+      start: ayahIndex(3, 1),
+      goal: { to: 'page', page: 52 },
+    });
+    expect(
+      screen
+        .getByRole('progressbar', { name: 'الطريق إلى الغاية' })
+        .getAttribute('aria-valuetext'),
+    ).toBe('٣ صفحات إلى الغاية');
+  });
+
   it('announces whose turn it is to a screen reader', async () => {
     const user = await start();
     await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
@@ -643,10 +673,12 @@ describe('accessibility', () => {
     return out.join(' ');
   };
   /** Every button and radio whose name does not begin with the words it
-      shows (WCAG 2.5.3), at either width. */
+      shows (WCAG 2.5.3), at either width. A control hidden from everyone
+      (back on the first turn) shows nothing and has no name to begin. */
   const misnamed = () =>
     [...document.querySelectorAll('button, input[type="radio"]')].flatMap(
       (el) => {
+        if (el.closest('[inert], [aria-hidden="true"]')) return [];
         const name = words(nameOf(el));
         return [true, false].flatMap((wide) => {
           const shown = words(shownBy(el, wide));

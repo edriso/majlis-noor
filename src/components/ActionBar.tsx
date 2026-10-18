@@ -9,7 +9,7 @@ import {
   Undo2,
   Users,
 } from './icons';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { clock } from '@/data/arabic';
 import type { Reciter } from '@/data/reciters';
 import {
@@ -32,38 +32,49 @@ import { ReciterAvatar } from './ReciterAvatar';
    (`useTimeLeft`), and is the only thing drawn again as the time runs. */
 
 export function ActionBar({
-  toast,
-  time,
+  progress,
   children,
 }: {
-  toast: { id: number; text: string } | null;
-  /** The turn's time, drawn along the top while it is timed or recited. */
-  time: TurnTime | null;
+  progress: Progress;
   children: ReactNode;
 }) {
   return (
     <div className="action-bar">
-      {toast ? (
-        // Said aloud by the screen's notice already; this is for the eye.
-        <p key={toast.id} className="toast" aria-hidden="true">
-          {toast.text}
-        </p>
-      ) : null}
-      <TurnProgress time={time} />
+      <ProgressLine {...progress} />
       {children}
     </div>
   );
 }
 
-/** The share of a timed or recited turn left, a line along the bar's top. */
-function TurnProgress({ time }: { time: TurnTime | null }) {
+/** How far the sitting has come: what `sittingProgress` says. */
+export type Progress = { name: string; text: string; share: number };
+
+/** The slim line along the bar's top edge: the way to the goal, or the
+    place in the Mushaf. A screen reader hears its words rather than a
+    percentage. */
+function ProgressLine({ name, text, share }: Progress) {
+  return (
+    <progress
+      className="progress-line"
+      aria-label={name}
+      aria-valuetext={text}
+      max={1000}
+      value={Math.round(share * 1000)}
+    />
+  );
+}
+
+/** The share of a timed or recited turn left, a thin line along the foot
+    of the main button: the clock's one other trace, where the eye already
+    is. */
+function TurnLine({ time }: { time: TurnTime | null }) {
   const left = useTimeLeft(time);
   const total = time?.total;
   if (left === null || !total) return null;
   return (
-    <div className="turn-progress" aria-hidden="true">
+    <span className="turn-line" aria-hidden="true">
       <span style={{ transform: `scaleX(${left / total})` }} />
-    </div>
+    </span>
   );
 }
 
@@ -83,19 +94,26 @@ export function SizedText({ text }: { text: Sized }) {
 
 export function BackButton({
   onClick,
-  disabled,
+  hidden,
   label,
+  buttonRef,
 }: {
   onClick: () => void;
-  disabled: boolean;
+  /** Nothing to go back to: the button is not shown, nor reachable, but
+      keeps its room, so the main button does not move under a finger. */
+  hidden: boolean;
   label: string;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       className="action-secondary"
       onClick={onClick}
-      aria-disabled={disabled}
+      data-hidden={hidden || undefined}
+      aria-hidden={hidden || undefined}
+      inert={hidden}
       aria-keyshortcuts="ArrowRight"
       title={`${label} (→)`}
     >
@@ -133,10 +151,13 @@ export function PrimaryButton({
   view,
   time,
   onClick,
+  buttonRef,
 }: {
   view: PrimaryView;
+  /** The turn's time, while it is timed or recited. */
   time: TurnTime | null;
   onClick: () => void;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   const left = useTimeLeft(view.kind === 'recitation' ? time : null);
   const recitation =
@@ -155,6 +176,7 @@ export function PrimaryButton({
   const keys = recitation && !recitation.skips ? 'Space' : 'ArrowLeft';
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={
         recitation ? 'action-primary action-recitation' : 'action-primary'
@@ -191,6 +213,7 @@ export function PrimaryButton({
           ) : null}
         </>
       ) : null}
+      <TurnLine time={time} />
     </button>
   );
 }
@@ -260,7 +283,7 @@ export function TimerButton({
   return (
     <button
       type="button"
-      className="action-secondary"
+      className="action-secondary action-timer"
       onClick={onClick}
       aria-pressed={paused}
       aria-keyshortcuts="Space"
