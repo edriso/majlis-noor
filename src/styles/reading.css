@@ -371,6 +371,13 @@
     opacity: 0;
   }
 }
+/* Reduced motion runs every animation to its end at once, and this one
+   ends unseen; still, it simply shows, and leaves when its time is up. */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
 
 /* ---------- The circle ---------- */
 
