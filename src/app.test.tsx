@@ -7,11 +7,60 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { clock } from '@/data/arabic';
+import { ayahIndex } from '@/data/mushaf';
+import { ayatDuration, loadTimings } from '@/data/timings';
+import { player } from '@/halaqa/useRecitation';
 import { App } from './App';
+
+/* Every Mushaf page drawn is counted, and every brand in a bar, which the
+   reading screen draws whenever it is drawn itself, so a test can tell
+   that a turn's clock running draws neither the page nor the screen. */
+const draws = vi.hoisted(() => ({ page: 0, screen: 0 }));
+vi.mock('@/mushaf/MushafPage', async (original) => {
+  const real = await original<typeof import('@/mushaf/MushafPage')>();
+  return {
+    ...real,
+    MushafPage: (props: Parameters<typeof real.MushafPage>[0]) => {
+      draws.page++;
+      return createElement(real.MushafPage, props);
+    },
+  };
+});
+vi.mock('@/components/Logo', async (original) => {
+  const real = await original<typeof import('@/components/Logo')>();
+  return {
+    ...real,
+    Brand: (props: Parameters<typeof real.Brand>[0]) => {
+      draws.screen++;
+      return createElement(real.Brand, props);
+    },
+  };
+});
 
 const addReader = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /أضف قارئًا/ }));
+
+/** Starts a halaqa set up as `config` from the start screen, as a reader
+    would after setting it up there. */
+const startWith = async (config: object) => {
+  localStorage.setItem('majlis-noor:v1', JSON.stringify({ config }));
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+  return user;
+};
+
+const you = { id: 'p1', kind: 'person', name: '' };
+const omar = { id: 'p2', kind: 'person', name: 'عمر' };
+const minshawi = { id: 'r1', kind: 'reciter', reciter: 'minshawi' };
+/** Al-Kahf 5, the first ayah of page 294. */
+const kahf5 = ayahIndex(18, 5);
+
+/** The one main button under the page. */
+const primary = () => document.querySelector<HTMLElement>('.action-primary')!;
 
 /** A halaqa of three readers, «أنت» and the two added after. */
 const start = async () => {
@@ -289,6 +338,158 @@ describe('a halaqa', () => {
       'دور القارئ الثاني، الصفحة ٢',
     );
   });
+
+  it('keeps the focus on the main button as the turn passes to a reciter', async () => {
+    const user = await startWith({ members: [you, minshawi] });
+    const button = primary();
+    await user.click(button);
+    expect(status()).toContain('يتلو المنشاوي');
+    // The same element, now his recitation's, and still focused.
+    expect(primary()).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(button.getAttribute('aria-label')).toMatch(/تلاوة المنشاوي$/);
+  });
+
+  it('says a round read by everyone, and who it passed over', async () => {
+    const user = await startWith({ members: [you, omar], mode: 'repeat' });
+    await user.click(primary());
+    await user.click(primary());
+    expect(screen.getByText('قرأ الجميع الصفحة ١.')).toBeTruthy();
+    // Omar's turn, jumped to page 5 after «أنت» had read page 1: «أنت»
+    // did not read page 5, and the circle says so.
+    cleanup();
+    const config = { members: [you, omar], mode: 'repeat' };
+    localStorage.setItem(
+      'majlis-noor:v1',
+      JSON.stringify({
+        config,
+        session: { config, anchor: { turn: 1, at: 5 }, turn: 1 },
+      }),
+    );
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /^متابعة/ }));
+    await user.click(screen.getByRole('button', { name: 'الحلقة' }));
+    const seats = [...document.querySelectorAll('.halaqa-seat')].map(
+      (s) => s.textContent,
+    );
+    expect(seats[0]).toContain('لم يقرأها');
+    expect(seats[1]).toContain('يقرأ الآن');
+  });
+
+  it('listens for keys once, however often the turn passes', async () => {
+    const user = await start();
+    const bound = vi.spyOn(window, 'addEventListener');
+    for (let i = 0; i < 3; i++) await user.click(primary());
+    expect(bound.mock.calls.filter(([type]) => type === 'keydown')).toEqual([]);
+    bound.mockRestore();
+  });
+
+  it('draws only the clock as a timed turn’s clock runs', async () => {
+    await startWith({ members: [you, omar], turnChange: 'reciter' });
+    const timer = await screen.findByRole('button', { name: /^[٠-٩]+:/ });
+    const before = timer.getAttribute('aria-label');
+    const { page, screen: drawn } = draws;
+    await act(() => new Promise((r) => setTimeout(r, 1300)));
+    expect(timer.getAttribute('aria-label')).not.toBe(before);
+    expect(draws.page).toBe(page);
+    expect(draws.screen).toBe(drawn);
+  });
+});
+
+describe('a circle that reads by the ayah', () => {
+  const ayat = { members: [you, omar], unit: 'ayah', size: 5, start: kahf5 };
+
+  it('names each turn by its ayat, and passes them round', async () => {
+    const user = await startWith(ayat);
+    expect(status()).toContain('دورك · الآيات ٥–٩');
+    expect(primary().textContent).toContain('عمر · الآيات ١٠–١٤');
+    expect(screen.getByRole('status').textContent).toBe(
+      'دورك، الآيات ٥–٩ من سورة الكهف',
+    );
+    await user.click(primary());
+    expect(status()).toContain('دور عمر · الآيات ١٠–١٤');
+    await user.click(primary());
+    expect(status()).toContain('دورك · الآيات ١٥–١٩');
+    await user.click(screen.getByRole('button', { name: 'القارئ السابق' }));
+    expect(status()).toContain('دور عمر · الآيات ١٠–١٤');
+    // The circle says what each seat reads next, in ayat.
+    await user.click(screen.getByRole('button', { name: 'الحلقة' }));
+    expect(
+      [...document.querySelectorAll('.halaqa-seat')].map((s) => s.textContent),
+    ).toEqual(['أنتالتالي', 'ععمريقرأ الآن']);
+    expect(screen.getByText('قرأتم ٥ آيات في هذا المجلس')).toBeTruthy();
+  });
+
+  it('turns the page when a turn’s ayat run onto the next', async () => {
+    // Al-Kahf 14 to 18: two ayat at the foot of page 294, three on 295.
+    const user = await startWith({ ...ayat, start: ayahIndex(18, 14) });
+    expect(status()).toContain('الآيات ١٤–١٨');
+    expect(primary().textContent).toContain('الصفحة التالية');
+    expect(primary().textContent).toContain('٢ من ٢ · ثم عمر');
+    await user.click(primary());
+    expect(screen.getByRole('status').textContent).toContain('الآن الصفحة ٢٩٥');
+    expect(status()).toContain('دورك');
+  });
+
+  it('recites exactly the ayat of a reciter’s turn', async () => {
+    await startWith({ ...ayat, members: [minshawi, you] });
+    await act(() => vi.dynamicImportSettled());
+    const t = await loadTimings('minshawi');
+    expect(player.getState()).toMatchObject({
+      key: expect.stringMatching(/^turn:.*:minshawi$/),
+      page: 294,
+      total: ayatDuration(t, '18:5', '18:9'),
+    });
+    expect(status()).toContain('يتلو المنشاوي · الآيات ٥–٩');
+    expect(
+      screen.getByRole('button', { name: 'تخطَّ إلى أنت، الآيات ١٠–١٤' }),
+    ).toBeTruthy();
+  });
+
+  it('times a reader by exactly the ayat of the turn', async () => {
+    await startWith({
+      ...ayat,
+      size: 3,
+      turnChange: 'reciter',
+      reciter: 'husary',
+    });
+    const t = await loadTimings('husary');
+    const ms = ayatDuration(t, '18:5', '18:7')!;
+    const timer = await screen.findByRole('button', { name: /^[٠-٩]+:/ });
+    // A tick may have passed since it began.
+    expect([clock(ms), clock(ms - 1000)]).toContain(
+      timer.getAttribute('aria-label')!.split('،')[0],
+    );
+  });
+});
+
+describe('the end of a sitting', () => {
+  it('stops at the goal, and carries on past it when asked', async () => {
+    const user = await startWith({
+      members: [you],
+      start: 1,
+      goal: { to: 'page', page: 1 },
+    });
+    expect(primary().textContent).toContain('وبه تبلغون الغاية');
+    await user.click(primary());
+    expect(screen.getByRole('heading', { name: 'بلغتم الغاية' })).toBeTruthy();
+    expect(status()).toContain('بلغتم الغاية');
+    // The buttons it replaced had the focus; the card takes it.
+    const carryOn = screen.getByRole('button', { name: 'تابعوا' });
+    expect(document.activeElement).toBe(carryOn);
+    await user.click(carryOn);
+    expect(status()).toContain('دورك · الصفحة ٢');
+  });
+
+  it('tells a khatm from a goal', async () => {
+    const user = await startWith({ members: [you], start: 6236 });
+    expect(primary().textContent).toContain('وبه يُختم المصحف');
+    await user.click(primary());
+    expect(screen.getByRole('heading', { name: 'خُتم المصحف' })).toBeTruthy();
+    const again = screen.getByRole('button', { name: 'ختمة جديدة من الفاتحة' });
+    expect(document.activeElement).toBe(again);
+    expect(screen.getByRole('button', { name: 'إنهاء المجلس' })).toBeTruthy();
+  });
 });
 
 describe('accessibility', () => {
@@ -302,9 +503,98 @@ describe('accessibility', () => {
       return !labelled;
     });
 
+  /** Words alone, as someone speaking to their device says them. */
+  const words = (s: string) =>
+    s
+      .replace(/[،؛:.…·—–()«»/]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  /** The text nodes under `el`, but those inside `skip`. */
+  const texts = (el: Element, skip: (parent: Element) => boolean) => {
+    const out: Text[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode())
+      if (!skip(n.parentElement!)) out.push(n as Text);
+    return out;
+  };
+  /** A control's name, as the app gives it: its aria-label, or its words
+      (for a radio, its label's) but those hidden from screen readers. */
+  const nameOf = (el: Element) => {
+    const label = el.getAttribute('aria-label');
+    if (label) return label;
+    const from = el instanceof HTMLInputElement ? el.labels?.[0] : el;
+    return from
+      ? texts(from, (p) => !!p.closest('[aria-hidden="true"]'))
+          .map((t) => t.data)
+          .join(' ')
+      : '';
+  };
+  /** The words a control shows: on a wide screen the longer form of a text
+      that has a shorter one for a phone; on a phone, the words before the
+      first shortened one, since what follows is only shortened. Words kept
+      for screen readers alone are not shown. */
+  const shownBy = (el: Element, wide: boolean) => {
+    const from = el instanceof HTMLInputElement ? el.labels?.[0] : el;
+    if (!from) return '';
+    const out: string[] = [];
+    for (const t of texts(from, (p) => !!p.closest('.visually-hidden'))) {
+      const p = t.parentElement!;
+      if (wide ? p.closest('.label-short') : p.closest('.label-long')) continue;
+      if (!wide && p.closest('.label-short')) break;
+      out.push(t.data);
+    }
+    return out.join(' ');
+  };
+  /** Every button and radio whose name does not begin with the words it
+      shows (WCAG 2.5.3), at either width. */
+  const misnamed = () =>
+    [...document.querySelectorAll('button, input[type="radio"]')].flatMap(
+      (el) => {
+        const name = words(nameOf(el));
+        return [true, false].flatMap((wide) => {
+          const shown = words(shownBy(el, wide));
+          return shown && !name.startsWith(shown)
+            ? [`«${shown}» named «${name}»${wide ? '' : ' (phone)'}`]
+            : [];
+        });
+      },
+    );
+
   it('names every control on the start screen', () => {
     render(<App />);
     expect(unnamed()).toEqual([]);
+  });
+
+  it('names every control on the reading screen by the words it shows', async () => {
+    const user = await startWith({
+      members: [you, omar, minshawi],
+      turnChange: 'reciter',
+    });
+    await screen.findByRole('button', { name: /^[٠-٩]+:/ });
+    expect(misnamed()).toEqual([]);
+    await user.click(primary());
+    await user.click(primary());
+    expect(status()).toContain('يتلو المنشاوي');
+    expect(misnamed()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'الحلقة' }));
+    expect(misnamed()).toEqual([]);
+  });
+
+  it('names the start screen’s and the sheets’ controls by their words', async () => {
+    // The form's turn sizes show a numeral and are named by the count it
+    // stands for; the start screen's rework writes them out, and then
+    // this exception goes.
+    const sizes = /^«[١٢٣]» named «(صفحة واحدة|صفحتان|ثلاث صفحات)»/;
+    const others = () => misnamed().filter((m) => !sizes.test(m));
+    render(<App />);
+    expect(others()).toEqual([]);
+    cleanup();
+    const user = await start();
+    await user.click(topLine());
+    expect(misnamed()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'إغلاق' }));
+    await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
+    expect(others()).toEqual([]);
   });
 
   it('names every control on the reading screen', async () => {
