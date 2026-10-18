@@ -26,6 +26,7 @@ import {
   sanitizeState,
   seatTurn,
   planOf,
+  summaryOf,
   turnPages,
   turnPhrase,
   turnRange,
@@ -125,6 +126,7 @@ describe('a halaqa', () => {
     expect(where(s)).toEqual({ page: 10, reader: 0 });
     expect(s.session!.pagesRead).toBe(0);
     expect(s.session!.ayatRead).toBe(0);
+    expect(s.session!.lastRead).toBe(0);
     expect(reduce(s, { type: 'previousTurn' })).toBe(s);
     expect(canStepBack(s.session!)).toBe(false);
   });
@@ -488,8 +490,10 @@ describe('turns of ayat', () => {
     expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([0, 3]);
     s = finish(s);
     expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([1, 6]);
+    expect(s.session!.lastRead).toBe(13);
     s = reduce(s, { type: 'previousTurn' });
     expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([0, 3]);
+    expect(s.session!.lastRead).toBe(10);
   });
 
   it('repeats the same ayat round the circle, and counts them once', () => {
@@ -615,6 +619,7 @@ describe('turns of ayat', () => {
       });
       expect([reading(s), ...ayat(s)]).toEqual(['p1', 11, 13]);
       expect(s.session!.ayatRead).toBe(3);
+      expect(s.session!.lastRead).toBe(10);
     });
 
     it('keeps the round’s ayat when they are counted in pages instead', () => {
@@ -857,6 +862,54 @@ describe('who reads next', () => {
   });
 });
 
+describe('the close of a sitting', () => {
+  it('says from where to where, how much, how long, and who sat', () => {
+    const sheikh: Member = { id: 'r1', kind: 'reciter', reciter: 'husary' };
+    let s = run({
+      start: ayahIndex(2, 1),
+      unit: 'ayah',
+      size: 3,
+      members: [person('p1'), person('p2', 'عمر'), sheikh],
+    });
+    s = finish(s, 2);
+    const summary = summaryOf(s.session!, T0 + 25 * 60_000);
+    expect(summary).toEqual({
+      from: { ayah: 8, key: '2:1', page: 2 },
+      to: { ayah: 13, key: '2:6', page: 3 },
+      pagesRead: 1,
+      ayatRead: 6,
+      durationMs: 25 * 60_000,
+      members: [
+        { id: 'p1', kind: 'person', name: 'أنت' },
+        { id: 'p2', kind: 'person', name: 'عمر' },
+        { id: 'r1', kind: 'reciter', name: 'الحصري' },
+      ],
+    });
+  });
+
+  it('counts what the circle finished, not the turn under way', () => {
+    let s = run({ start: page(10) });
+    expect(summaryOf(s.session!, T0).to).toBeNull();
+    s = finish(s);
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    // Page 10 was finished; page 300 is open, not read.
+    const summary = summaryOf(s.session!, T0);
+    expect(summary.to).toEqual({ ayah: page(11) - 1, key: '2:69', page: 10 });
+    expect(summary.pagesRead).toBe(1);
+  });
+
+  it('counts a repeated round once', () => {
+    let s = run({ start: page(24), mode: 'repeat' });
+    s = finish(s, 2);
+    expect(summaryOf(s.session!, T0).to).toBeNull();
+    s = finish(s);
+    expect(summaryOf(s.session!, T0)).toMatchObject({
+      to: { page: 24 },
+      pagesRead: 1,
+    });
+  });
+});
+
 describe('a saved halaqa', () => {
   it('survives a round trip', () => {
     const s = run({ start: page(77) }, { type: 'finishTurn' });
@@ -909,6 +962,7 @@ describe('a saved halaqa', () => {
         anchor: { turn: 2, at: 99999 },
         pageInTurn: 7,
         ayatRead: -1,
+        lastRead: 1e9,
         startedAt: 'yesterday',
         from: 0,
         until: 1,
@@ -933,6 +987,7 @@ describe('a saved halaqa', () => {
     expect(session.startedAt).toBeNull();
     expect(session.from).toBe(1);
     expect(session.until).toBeNull();
+    expect(session.lastRead).toBe(0);
   });
 
   it('keeps only the sizes the start screen offers', () => {
@@ -975,12 +1030,15 @@ describe('a saved halaqa', () => {
     expect(session.from).toBe(page(30));
     expect(session.startedAt).toBeNull();
     expect(session.until).toBeNull();
+    // The round before this one read pages 32–33.
+    expect(session.lastRead).toBe(page(34) - 1);
     // And it carries on exactly as it would have.
     let t = finish(s);
     expect(where(t)).toEqual({ page: 34, reader: 2 });
     t = finish(t);
     expect(where(t)).toEqual({ page: 36, reader: 0 });
     expect(t.session!.pagesRead).toBe(8);
+    expect(summaryOf(session, 0).durationMs).toBeNull();
   });
 
   it('turns a halaqa saved before reciters could sit into people', () => {

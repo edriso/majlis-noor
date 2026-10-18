@@ -15,6 +15,7 @@ import {
   pagesOfRange,
   surahOfAyah,
   surahRange,
+  verseKey,
   type AyahRange,
 } from '@/data/mushaf';
 import { defaultReciter, reciterById, reciters } from '@/data/reciters';
@@ -130,6 +131,8 @@ export type Session = {
   pagesRead: number;
   /** Ayat the circle has finished in this sitting. */
   ayatRead: number;
+  /** The last ayah the circle finished, 0 before it has finished any. */
+  lastRead: number;
   /** When the sitting began, as the start action carried it (ms since the
       epoch); null for one saved before the app kept it. */
   startedAt: number | null;
@@ -359,10 +362,10 @@ const pagesFinished = (r: AyahRange) =>
     in continue mode, and a round's ayat once, as it ends, in repeat mode. */
 function finishedBy(s: Session, turn: number) {
   const plan = planOf(s.config);
-  if (plan.mode === 'repeat' && !endsRound(plan, turn))
-    return { pages: 0, ayat: 0 };
   const range = turnRange(s, turn);
-  return { pages: pagesFinished(range), ayat: range.to - range.from };
+  if (plan.mode === 'repeat' && !endsRound(plan, turn))
+    return { pages: 0, ayat: 0, range };
+  return { pages: pagesFinished(range), ayat: range.to - range.from, range };
 }
 
 /** Which page of `next`'s turn to open so the page in front of the reader
@@ -418,6 +421,7 @@ export function reduce(state: State, action: Action): State {
         pageInTurn: 0,
         pagesRead: 0,
         ayatRead: 0,
+        lastRead: 0,
         startedAt: Number.isFinite(action.at) ? action.at : null,
         from: unitStart(config.unit, anchor.at),
         // From the place chosen, not the start of the unit holding it: a
@@ -460,6 +464,7 @@ export function reduce(state: State, action: Action): State {
         pageInTurn: 0,
         pagesRead: s.pagesRead + done.pages,
         ayatRead: s.ayatRead + done.ayat,
+        lastRead: done.ayat ? done.range.to - 1 : s.lastRead,
       });
     }
 
@@ -467,13 +472,16 @@ export function reduce(state: State, action: Action): State {
       const turn = s.turn - 1;
       if (turn < 0 || isBeforeStart(plan, s.anchor, turn)) return state;
       const undone = finishedBy(s, turn);
-      return set({
-        ...s,
-        turn,
-        pageInTurn: 0,
-        pagesRead: Math.max(0, s.pagesRead - undone.pages),
-        ayatRead: Math.max(0, s.ayatRead - undone.ayat),
-      });
+      const pagesRead = Math.max(0, s.pagesRead - undone.pages);
+      const ayatRead = Math.max(0, s.ayatRead - undone.ayat);
+      // What was finished before the turn stepped back to ends where it
+      // begins, unless nothing was.
+      const lastRead = !undone.ayat
+        ? s.lastRead
+        : pagesRead || ayatRead
+          ? undone.range.from - 1
+          : 0;
+      return set({ ...s, turn, pageInTurn: 0, pagesRead, ayatRead, lastRead });
     }
 
     case 'nextPage': {
@@ -609,6 +617,7 @@ export function reduce(state: State, action: Action): State {
           pageInTurn: 0,
           pagesRead: s.pagesRead + pagesFinished(read),
           ayatRead: s.ayatRead + (read.to - read.from),
+          lastRead: isEmpty(read) ? s.lastRead : read.to - 1,
         });
       }
       const was = new Map(
@@ -646,6 +655,53 @@ export function reduce(state: State, action: Action): State {
       });
     }
   }
+}
+
+/** A member and how the circle names them, for the close of a sitting. */
+export type Sitter = { id: string; kind: MemberKind; name: string };
+
+/** An ayah as the close of a sitting shows it: its number through the
+    Mushaf, its verse key and its page. */
+export type Place = { ayah: number; key: string; page: number };
+
+export type Summary = {
+  /** Where the sitting began. */
+  from: Place;
+  /** The last ayah the circle finished; null if it finished none. */
+  to: Place | null;
+  pagesRead: number;
+  ayatRead: number;
+  /** How long it lasted; null for a sitting saved before its start was
+      kept. */
+  durationMs: number | null;
+  members: Sitter[];
+};
+
+const placeAt = (ayah: number): Place => ({
+  ayah,
+  key: verseKey(ayah),
+  page: pageOfAyah(ayah),
+});
+
+/**
+ * The close of a sitting: from where to where, how much, how long, and who
+ * sat. What was read is what the circle finished, the same count as
+ * `pagesRead`: a turn under way when the sitting ends is not counted.
+ */
+export function summaryOf(s: Session, endedAt: number): Summary {
+  return {
+    from: placeAt(s.from),
+    to: s.lastRead ? placeAt(s.lastRead) : null,
+    pagesRead: s.pagesRead,
+    ayatRead: s.ayatRead,
+    durationMs:
+      s.startedAt === null ? null : Math.max(0, endedAt - s.startedAt),
+    members: s.config.members.map((m) => ({
+      id: m.id,
+      kind: m.kind,
+      name: memberName(m),
+    })),
+  };
 }
 
 const themes: Theme[] = ['green', 'burgundy', 'blue', 'sand'];
@@ -780,6 +836,7 @@ export function sanitizeState(raw: unknown): State {
       pageInTurn: 0,
       pagesRead: intIn(s.pagesRead, 0, Number.MAX_SAFE_INTEGER, 0),
       ayatRead: intIn(s.ayatRead, 0, Number.MAX_SAFE_INTEGER, 0),
+      lastRead: 0,
       startedAt:
         typeof stored === 'number' && Number.isFinite(stored) && stored >= 0
           ? stored
@@ -793,7 +850,22 @@ export function sanitizeState(raw: unknown): State {
         intIn(s.pageInTurn, 0, Number.MAX_SAFE_INTEGER, 0),
         Math.max(0, currentPages(built).length - 1),
       ),
+      lastRead: intIn(s.lastRead, 0, AYAH_COUNT, lastBefore(built)),
     };
   }
   return { prefs, config, session };
+}
+
+/** For a sitting saved before the last ayah read was kept: the end of the
+    turn before the current one, or of the round before in repeat mode,
+    if the circle had read anything. */
+function lastBefore(s: Session) {
+  if (!s.pagesRead && !s.ayatRead) return 0;
+  const plan = planOf(s.config);
+  const turn =
+    plan.mode === 'repeat'
+      ? roundOf(plan, s.turn) * plan.readers - 1
+      : s.turn - 1;
+  const range = turnRange(s, turn);
+  return isEmpty(range) ? 0 : range.to - 1;
 }
