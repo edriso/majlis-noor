@@ -1,0 +1,205 @@
+/* The top bar of the reading screen (TopBar.tsx, TurnStrip.tsx): who reads
+   now, large, with who reads after under it; then the place, the switch
+   between the page and the circle, and the menu. One line. */
+
+.topbar {
+  flex: none;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--topbar-h);
+  padding-block: var(--space-2);
+  padding-inline: max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-left));
+  padding-top: max(var(--space-2), env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+
+/* ---------- The turn ---------- */
+
+/* Its own size container, so the name can give way to a narrow phone by
+   the room it actually has beside the controls. */
+.turn-strip {
+  container-type: inline-size;
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+.turn-strip-shown {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  /* In from the left, the way the turn travels in a right-to-left book. */
+  animation: strip-in var(--duration-long) var(--ease);
+}
+@keyframes strip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+.turn-face {
+  position: relative;
+  flex: none;
+  width: var(--screen-avatar);
+  height: var(--screen-avatar);
+  /* What the face's letter is measured against. */
+  font-size: var(--screen-avatar);
+}
+/* The gold ring, drawn round the new reader as the turn arrives: it starts
+   at the top and goes round the way the turn does. */
+.turn-ring {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  overflow: visible;
+  transform: rotate(-90deg) scaleY(-1);
+}
+.turn-ring circle {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2;
+  stroke-dasharray: 100;
+  animation: ring-in var(--duration-long) var(--ease);
+}
+@keyframes ring-in {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+.turn-text {
+  display: grid;
+  min-width: 0;
+  line-height: var(--leading-tight);
+}
+.turn-name {
+  color: var(--gold);
+  font-size: var(--screen-text-xl);
+  font-weight: 600;
+  text-wrap: balance;
+}
+/* What the turn reads and who reads after: two parts that keep their
+   words together and wrap between them, never cut. */
+.turn-detail {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0.4em;
+  color: var(--muted);
+  font-size: var(--screen-text-sm);
+}
+.turn-detail > span {
+  white-space: nowrap;
+}
+.turn-detail > span + span::before {
+  content: '· ';
+}
+/* Beside the controls on a narrow phone: a smaller face and name, and a
+   long name wraps onto a second line rather than losing its end. */
+@container (max-width: 200px) {
+  .turn-strip-shown {
+    gap: var(--space-2);
+  }
+  .turn-face {
+    width: 32px;
+    height: 32px;
+    font-size: 32px;
+  }
+  .turn-name {
+    font-size: var(--text-lg);
+    line-height: 1.2;
+  }
+}
+
+/* ---------- The controls ---------- */
+
+.topbar-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* «ص ٥٠»: the place, and the way to another. */
+.place-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--screen-target);
+  min-height: var(--screen-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg);
+  font-size: var(--screen-text-md);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    border-color var(--duration-short) var(--ease),
+    background-color var(--duration-short) var(--ease);
+}
+.place-chip:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}
+
+.topbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--screen-target);
+  min-height: var(--screen-target);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg);
+  font-size: var(--screen-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--duration-short) var(--ease);
+}
+.topbar-button:hover {
+  background: var(--hover);
+}
+.topbar-button svg {
+  flex: none;
+  color: var(--gold);
+}
+
+@media (max-width: 759px) {
+  .topbar {
+    gap: var(--space-2);
+    padding-inline: max(var(--space-3), env(safe-area-inset-right))
+      max(var(--space-3), env(safe-area-inset-left));
+  }
+  .topbar-actions {
+    gap: var(--space-1);
+  }
+  .topbar-button {
+    width: var(--screen-target);
+    padding: 0;
+  }
+  .topbar-label {
+    display: none;
+  }
+  .place-chip {
+    padding: 0 var(--space-2);
+  }
+}
+
+@media (forced-colors: active) {
+  .turn-ring circle {
+    stroke: Highlight;
+  }
+  .topbar-button svg {
+    color: ButtonText;
+  }
+}

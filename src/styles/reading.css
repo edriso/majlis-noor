@@ -1,8 +1,11 @@
 /* The reading screen: one column the height of the screen, never scrolled.
 
-     top bar      whose turn and which page, the page/circle switch, settings
-     main         the Mushaf page, or the circle
+     top bar      who reads now and after; the place, the switch, the menu
+                  (topbar.css)
+     main         the Mushaf page or a spread of two (stage.css), the circle
+                  (circle.css), or the card at the end (completion.css)
      action bar   the buttons that pass the turn on, under both
+                  (action-bar.css)
 
    The page is sized by both sides of the room it has (its shape,
    `--page-height`, is in tokens.css and itemised in mushaf.css): as wide as
@@ -11,6 +14,21 @@
    only rules per screen width are the words that give way on a phone. */
 
 .reading {
+  /* The screen's own scale. Up to a laptop everything keeps the sizes of
+     the type scale and the targets in tokens.css; past it, on a desktop
+     monitor or a television across a room, the bars, their words and the
+     faces grow with the screen's shorter side, so a control is not left at
+     the size of a phone's in the middle of a wall. In rem, so the reader's
+     own text size still carries through. */
+  --screen-text-sm: clamp(var(--text-sm), 0.5rem + 0.75vmin, 1.25rem);
+  --screen-text-md: clamp(var(--text-md), 0.55rem + 0.95vmin, 1.375rem);
+  --screen-text-lg: clamp(var(--text-lg), 0.6rem + 1.15vmin, 1.625rem);
+  --screen-text-xl: clamp(var(--text-xl), 0.75rem + 1.35vmin, 2rem);
+  --screen-target: clamp(var(--target), 1.5rem + 2.2vmin, 4rem);
+  --screen-primary: clamp(var(--target-primary), 1.9rem + 2.9vmin, 4.75rem);
+  --screen-icon: clamp(20px, 0.55rem + 1.1vmin, 28px);
+  --screen-avatar: clamp(40px, 1.4rem + 2vmin, 3.75rem);
+
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -18,723 +36,61 @@
   overflow: hidden;
 }
 
-/* ---------- Top bar ---------- */
-
-.topbar {
-  flex: none;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: var(--topbar-h);
-  padding: 10px 20px;
-  padding-top: max(10px, env(safe-area-inset-top));
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  border-bottom: 1px solid var(--line);
-}
-.topbar-status {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  margin: 0;
-  padding: 0 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  text-align: start;
-  font-size: 15px;
-}
-.topbar-status:hover {
-  color: var(--fg);
-}
-.topbar-status strong {
-  color: var(--gold);
-  font-weight: 600;
-}
-.topbar-clock {
-  font-variant-numeric: tabular-nums;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-/* The switch between the page and the circle: an icon, and from a tablet
-   up the word for where it goes. */
-.topbar-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--control-border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--fg);
-  font-size: 14px;
-  font-weight: 500;
-  transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease);
-}
-.topbar-toggle:hover {
-  border-color: var(--gold);
-  background: var(--surface);
-}
-.topbar-toggle svg {
-  color: var(--gold);
+/* The icons in the bars are drawn at 20px and grow with the screen. */
+.topbar-button > svg,
+.action-bar button svg {
+  width: var(--screen-icon);
+  height: var(--screen-icon);
 }
 
 /* ---------- Main ---------- */
 
 .reading-main {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
-  padding: 16px 16px 8px;
+  padding: var(--space-4) var(--space-4) var(--space-2);
   outline: none;
 }
 
-/* The page's room. A size container, so the page inside can be sized by
-   both its sides at once. On a screen too short to show a page at a size
-   anyone can read (a phone on its side) the page keeps that size, 220px
-   wide, and this room scrolls instead. */
-.mushaf-view {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 6px;
-  min-height: 0;
-}
-.mushaf-stage {
-  container-type: size;
-  display: grid;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--control-border) transparent;
-}
-.mushaf-stage .mushaf-page {
-  width: max(min(100cqw, 100cqh / var(--page-height)), min(100cqw, 220px));
-  /* Centred both ways, and to the top when it is taller than its room,
-     which a centred grid item would push out of reach above. */
-  margin: auto;
-}
+/* ---------- Faces ---------- */
 
-.page-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.quiet-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  transition:
-    color 160ms var(--ease),
-    background-color 160ms var(--ease);
-}
-.quiet-button:hover {
-  color: var(--fg);
-  background: var(--hover);
-}
-.page-nav-number {
-  font-variant-numeric: tabular-nums;
-  color: var(--fg);
-}
-
-/* The circle's room: the circle as large as it fits, with the names
-   around it and where the halaqa is under it. */
-.circle-view {
-  container-type: size;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 20px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-block: 8px;
-}
-.circle-view .halaqa-circle {
-  --circle-size: max(220px, min(540px, 100cqw - 110px, 100cqh - 250px));
-}
-
-/* ---------- The action bar ---------- */
-
-.action-bar {
-  container-type: inline-size;
-  position: relative;
-  flex: none;
-  z-index: 15;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  border-top: 1px solid var(--line);
-}
-
-.action-primary {
-  display: grid;
-  justify-items: center;
-  flex: 1;
-  min-width: 0;
-  max-width: 440px;
-  min-height: 60px;
-  padding: 8px 22px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--gold);
-  color: var(--on-gold);
-  box-shadow: 0 10px 30px rgb(var(--glow-rgb) / 0.18);
-  transition:
-    background-color 160ms var(--ease),
-    transform 160ms var(--ease);
-}
-.action-primary:hover {
-  background: var(--gold-strong);
-}
-.action-primary:active {
-  transform: scale(0.985);
-}
-.action-primary-main {
-  display: inline-flex;
-  white-space: nowrap;
-  align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-.action-primary-sub {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  line-height: 1.3;
-  color: color-mix(in srgb, var(--on-gold) 80%, var(--gold));
-}
-
-.action-recitation {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  padding-inline-end: 8px;
-  text-align: start;
-}
-.action-recitation .reciter-avatar {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-gold) 35%, transparent);
-}
-.recitation-text {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-}
-.recitation-text .action-primary-main {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recitation-icon {
+/* A member's face (MemberFace in HalaqaCircle.tsx), in a seat of the
+   circle and at the top: round, filling the frame it is given. */
+.member-face {
   display: grid;
   place-items: center;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--on-gold) 14%, transparent);
-}
-.spin {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.action-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0 14px;
-  border: 1px solid var(--control-border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--fg);
-  font-size: 14px;
-  white-space: nowrap;
-  transition:
-    background-color 160ms var(--ease),
-    border-color 160ms var(--ease),
-    color 160ms var(--ease);
-}
-.action-secondary:hover {
-  background: var(--surface);
-}
-.action-secondary[data-active],
-.action-secondary[aria-pressed='true'] {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-.action-clock {
-  min-width: 3.2em;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-/* When the bar is narrow (a phone) the secondary actions give up their
-   words, which they keep as names for screen readers, so the main button
-   keeps its own. */
-@container (max-width: 560px) {
-  .action-secondary {
-    width: 48px;
-    padding: 0;
-  }
-  .action-secondary:has(.action-clock) {
-    width: auto;
-    padding: 0 14px;
-  }
-  .action-secondary-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}
-
-.turn-progress {
-  position: absolute;
-  inset-inline: 0;
-  top: -1px;
-  height: 2px;
-  overflow: hidden;
-}
-.turn-progress span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-  transform-origin: right;
-  transition: transform 260ms linear;
-}
-
-.toast {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  left: 50%;
-  margin: 0;
-  padding: 8px 18px;
-  border: 1px solid var(--gold-line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--gold);
-  font-weight: 600;
-  white-space: nowrap;
-  box-shadow: 0 12px 30px rgb(var(--shadow-rgb) / 0.3);
-  transform: translateX(-50%);
-  animation: toast 3.2s var(--ease) both;
-}
-@keyframes toast {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-  10%,
-  85% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-/* Reduced motion runs every animation to its end at once, and this one
-   ends unseen; still, it simply shows, and leaves when its time is up. */
-@media (prefers-reduced-motion: reduce) {
-  .toast {
-    animation: none;
-  }
-}
-
-/* ---------- The circle ---------- */
-
-.halaqa-circle {
-  --circle-size: 280px;
-  /* The circle is its own size container, so what is drawn inside it
-     scales with the circle actually drawn, whatever column it is in. */
-  container-type: inline-size;
-  position: relative;
-  width: min(100%, var(--circle-size));
-  aspect-ratio: 1;
-  margin: 0 auto;
-  transition: width 420ms var(--ease);
-}
-/* A seat on the upper arc of a circle of three or four carries its name
-   above it, out of the box; this is the room for it. */
-.halaqa-circle[data-readers='3'],
-.halaqa-circle[data-readers='4'] {
-  margin-top: 60px;
-}
-/* A lone reader sits at the foot of the circle, with the name below it. */
-.halaqa-circle[data-readers='1'] {
-  margin-bottom: 64px;
-}
-.halaqa-ring {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
-}
-.halaqa-ring-line {
-  fill: none;
-  stroke: var(--gold-line);
-  stroke-width: 1;
-}
-.halaqa-ring-inner {
-  fill: var(--well);
-  stroke: var(--line);
-  stroke-width: 1;
-  stroke-dasharray: 2 4;
-}
-.halaqa-mark {
-  transform-origin: 100px 100px;
-  transition: transform 700ms var(--ease);
-}
-.halaqa-mark-arc {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgb(var(--glow-rgb) / 0.6));
-}
-
-.halaqa-center {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  line-height: 1.1;
-}
-.halaqa-center-label {
-  color: var(--muted);
-  font-size: clamp(12px, 3.6cqi, 16px);
-}
-.halaqa-center-page {
-  color: var(--fg);
-  font-family: var(--font-naskh);
-  font-size: 14cqi;
-  font-weight: 700;
-}
-
-/* Seats, names and marks are measured in the circle's own width (cqi), so
-   a circle drawn across a room has seats to match. */
-.halaqa-seat {
-  --seat-size: clamp(46px, 15cqi, 80px);
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: clamp(100px, 32cqi, 170px);
-  /* The avatar's centre, not the box's, sits on the ring. */
-  transform: translate(-50%, calc(var(--seat-size) / -2));
-  text-align: center;
-  line-height: 1.35;
-}
-/* A seat on the upper arc carries its name above it, out of the circle,
-   where the page number in the middle would otherwise collide with it. */
-.halaqa-seat[data-top] {
-  flex-direction: column-reverse;
-  gap: 6px;
-  transform: translate(-50%, calc(-100% + var(--seat-size) / 2));
-}
-.seat-avatar {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--seat-size);
-  height: var(--seat-size);
-  border-radius: 999px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--control-border);
-  transition:
-    box-shadow 400ms var(--ease),
-    background-color 400ms var(--ease),
-    transform 400ms var(--ease);
-}
-.seat-face {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 999px;
-}
-/* Ticked in a round of repeat mode: a small gold seal on the seat, so a
-   reciter keeps his face and a reader their letter. */
-.seat-done {
-  position: absolute;
-  inset-block-end: -2px;
-  inset-inline-start: -2px;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--gold);
-  color: var(--on-gold);
-  box-shadow: 0 0 0 2px var(--bg);
-}
-.seat-mark {
   color: var(--muted);
+}
+/* The figure is drawn in the colour of a control's edge, quieter than a
+   letter, which is text and must read. */
+.member-face[data-kind='person'] {
+  color: var(--control-border);
+}
+.member-face:has(.member-initial) {
+  color: var(--muted);
+}
+.member-initial {
   font-family: var(--font-naskh);
   font-weight: 700;
-  font-size: clamp(20px, 6.5cqi, 32px);
+  font-size: 0.5em;
   line-height: 1;
 }
-.seat-mark svg {
-  width: 45%;
-  height: auto;
-}
-.seat-name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: clamp(14px, 4.4cqi, 19px);
-  font-weight: 500;
-}
-.seat-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: clamp(12px, 3.4cqi, 14px);
-}
-/* Three bars that move while a reciter can be heard. */
-.seat-sound {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 10px;
-}
-.seat-sound i {
-  width: 2px;
-  height: 100%;
-  border-radius: 1px;
-  background: currentColor;
-  transform-origin: bottom;
-  animation: sound 900ms ease-in-out infinite;
-}
-.seat-sound i:nth-child(2) {
-  animation-delay: -300ms;
-}
-.seat-sound i:nth-child(3) {
-  animation-delay: -600ms;
-}
-@keyframes sound {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-.halaqa-seat[data-active] .seat-avatar {
-  background: var(--gold);
-  box-shadow:
-    0 0 0 3px var(--bg),
-    0 0 0 4.5px var(--gold),
-    0 0 28px rgb(var(--glow-rgb) / 0.45);
-  transform: scale(1.08);
-}
-.halaqa-seat[data-active] .seat-mark {
-  color: var(--on-gold);
-}
-/* A reciter's photo stays a photo when lit: the gold is the ring. Shown as
-   his initial, he is lit like anyone else. */
-.halaqa-seat[data-active] .seat-avatar:has(.reciter-photo) {
-  background: var(--surface-raised);
-}
-.halaqa-seat[data-active] .seat-name {
-  color: var(--fg);
-  font-weight: 600;
-}
-.halaqa-seat[data-active] .seat-status {
-  color: var(--gold);
-  font-weight: 600;
-}
-.seat-progress {
-  position: absolute;
-  inset: -7px;
-  width: calc(100% + 14px);
-  height: calc(100% + 14px);
-  transform: rotate(-90deg) scaleX(-1);
-}
-.seat-progress circle {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.6;
-  stroke-dasharray: 100;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 260ms linear;
-}
-
-/* ---------- Where the circle is ---------- */
-
-.sitting {
-  display: grid;
-  gap: 8px;
-  width: min(100%, 300px);
-  margin: 4px auto 0;
-}
-.sitting-label {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-.sitting-bar {
-  display: block;
+.member-figure {
   width: 100%;
-  height: 3px;
-  appearance: none;
-  border: 0;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--line);
-  color: var(--gold);
-}
-.sitting-bar::-webkit-progress-bar {
-  background: var(--line);
-}
-.sitting-bar::-webkit-progress-value {
-  background: var(--gold);
-  transition: width 500ms var(--ease);
-}
-.sitting-bar::-moz-progress-bar {
-  background: var(--gold);
-}
-.sitting-note {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-  text-align: center;
+  height: 100%;
+  fill: currentColor;
 }
 
-/* ---------- Khatm ---------- */
-
-.khatm {
-  display: grid;
-  align-self: center;
-  align-content: center;
-  justify-items: center;
-  gap: 10px;
-  width: min(520px, 100%);
-  margin: 6vh auto;
-  padding: 48px 28px;
-  border: 1px solid var(--gold-line);
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--surface) 85%, transparent);
-  text-align: center;
-  animation: rise 500ms var(--ease) both;
-}
-.khatm-ornament {
-  margin: 0;
-  color: var(--gold);
-  font-family: var(--font-naskh);
-  font-size: 44px;
-  line-height: 1;
-}
-.khatm-title {
-  margin: 0;
-  color: var(--gold);
-  font-family: var(--font-brand);
-  font-size: 34px;
-  font-weight: 600;
-}
-.khatm-text {
-  margin: 0 0 12px;
-  color: var(--fg);
-  font-size: 17px;
-}
-.khatm-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-/* ---------- Phone ---------- */
-
-@media (max-width: 759px) {
-  .topbar {
-    padding-inline: 12px;
-    gap: 8px;
-  }
-  .topbar .brand-name {
-    display: none;
-  }
-  .topbar-status {
-    padding-inline: 4px;
-    font-size: 14px;
-  }
-  .topbar-toggle {
-    width: 44px;
-    padding: 0;
-  }
-  .topbar-toggle-label {
-    display: none;
-  }
-  .reading-main {
-    padding: 10px 8px 4px;
-  }
-  .action-bar {
-    padding-inline: 12px;
-    gap: 8px;
-  }
-  /* The clock is already in the top bar on a phone; here it would cost the
-     main button its words. */
-  .action-clock {
-    display: none;
-  }
-  .action-primary-main {
-    font-size: 17px;
-  }
-  .mushaf-page {
-    border-radius: 4px;
-  }
-}
+/* ---------- Words that give way ---------- */
 
 .label-short {
   display: none;
@@ -751,37 +107,16 @@
   .label-short {
     display: inline;
   }
-  .action-bar {
-    gap: 6px;
-  }
-  .action-secondary {
-    width: 44px;
-    min-width: 44px;
-    min-height: 44px;
-  }
-  /* Who is reciting is in the line above and in the circle; here the
-     photo would cost the button the words that say it. */
-  .action-recitation .reciter-avatar {
-    display: none;
-  }
-  .action-recitation {
-    padding-inline-start: 18px;
-  }
 }
 
-/* A short screen gives every line of height to the page: it turns with
-   the buttons below, and the line at the top opens any page. */
-@media (max-height: 700px) {
-  .page-nav {
-    display: none;
+@media (max-width: 759px) {
+  .reading-main {
+    padding: 10px 8px 4px;
   }
 }
 /* A phone on its side. */
 @media (max-height: 520px) {
   .reading-main {
     padding-block: 6px 2px;
-  }
-  .action-bar {
-    padding-block: 6px max(6px, env(safe-area-inset-bottom));
   }
 }

@@ -29,5 +29,10 @@
 @import url('./mushaf.css') layer(screens);
 @import url('./marks.css') layer(screens);
 @import url('./reading.css') layer(screens);
+@import url('./topbar.css') layer(screens);
+@import url('./stage.css') layer(screens);
+@import url('./circle.css') layer(screens);
+@import url('./completion.css') layer(screens);
+@import url('./action-bar.css') layer(screens);
 
 @import url('./utilities.css') layer(utilities);

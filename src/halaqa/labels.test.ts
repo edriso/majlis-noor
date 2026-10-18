@@ -8,13 +8,14 @@ import {
 } from '@/data/mushaf';
 import {
   ayatLabel,
+  backLabel,
   circleCenter,
   doneLabels,
   endTitle,
   listenLabels,
   pagesLabel,
   pagesShort,
-  placeLine,
+  placeChip,
   portionLabel,
   portionNarrow,
   rangeLabel,
@@ -23,7 +24,9 @@ import {
   roundDone,
   seatStatus,
   sittingNote,
+  sittingProgress,
   skipLabel,
+  stripDetail,
   timerLabel,
   turnAnnouncement,
   untimedLabel,
@@ -130,14 +133,108 @@ describe('a turn at the length of a line', () => {
     expect(portionNarrow('page', ayatOfPage(294))).toBe('ص ٢٩٤');
     expect(portionNarrow('ayah', kahf(5, 9))).toBe('الآيات ٥–٩');
   });
+});
 
-  it('puts the open page beside whose turn it is, or the turn’s ayat', () => {
-    const two = { from: ayatOfPage(24).from, to: ayatOfPage(25).to };
-    expect(placeLine('page', two, 25)).toEqual({
-      long: 'الصفحة ٢٥',
-      short: 'ص ٢٥',
+describe('the top bar', () => {
+  it('shows the page in the chip, and names it by those words first', () => {
+    const chip = placeChip(50);
+    expect(chip.text).toBe('ص ٥٠');
+    expect(chip.name).toBe('ص ٥٠: الصفحة ٥٠، انتقل إلى موضع آخر');
+    expect(begins(chip.name, chip.text)).toBe(true);
+  });
+
+  it('says under the name what the turn reads, and who reads after', () => {
+    const omar = { name: 'عمر', unit: 'ayah' as Unit, range: kahf(10, 14) };
+    expect(
+      stripDetail({ unit: 'ayah', range: kahf(5, 9), next: omar, end: null }),
+    ).toEqual({ portion: 'الآيات ٥–٩', after: 'ثم عمر' });
+    // A turn of pages leaves the page to the chip beside it.
+    expect(
+      stripDetail({
+        unit: 'page',
+        range: ayatOfPage(24),
+        next: { ...omar, unit: 'page', range: ayatOfPage(25) },
+        end: null,
+      }),
+    ).toEqual({ portion: '', after: 'ثم عمر' });
+    // Nobody after a reader alone, nor after the turn that ends it all.
+    const alone = { ...omar, name: null };
+    expect(
+      stripDetail({ unit: 'ayah', range: kahf(5, 9), next: alone, end: null })
+        .after,
+    ).toBe('');
+    expect(
+      stripDetail({ unit: 'ayah', range: kahf(5, 9), next: omar, end: 'goal' })
+        .after,
+    ).toBe('');
+  });
+});
+
+describe('the progress line', () => {
+  it('shows the place in the Mushaf when there is no goal', () => {
+    expect(
+      sittingProgress({
+        unit: 'page',
+        page: 151,
+        place: ayatOfPage(151).from,
+        from: 1,
+        until: null,
+      }),
+    ).toEqual({
+      name: 'الموضع في المصحف',
+      text: 'الصفحة ١٥١ من ٦٠٤',
+      share: 0.25,
     });
-    expect(placeLine('ayah', kahf(5, 9), 294).long).toBe('الآيات ٥–٩');
+  });
+
+  it('shows the way to the goal, and counts what is left in the unit', () => {
+    const from = ayatOfPage(50).from;
+    const until = ayatOfPage(53).to;
+    const pages = sittingProgress({
+      unit: 'page',
+      page: 51,
+      place: ayatOfPage(51).from,
+      from,
+      until,
+    });
+    expect(pages.name).toBe('الطريق إلى الغاية');
+    expect(pages.text).toBe('٣ صفحات إلى الغاية');
+    expect(pages.share).toBeGreaterThan(0);
+    expect(pages.share).toBeLessThan(0.5);
+    const ayat = sittingProgress({
+      unit: 'ayah',
+      page: 294,
+      place: kahf(5, 9).from,
+      from: kahf(1, 1).from,
+      until: kahf(10, 10).from,
+    });
+    expect(ayat.text).toBe('٥ آيات إلى الغاية');
+    expect(ayat.share).toBeCloseTo(4 / 9);
+    const reached = sittingProgress({
+      unit: 'ayah',
+      page: 294,
+      place: kahf(10, 10).from,
+      from: kahf(1, 1).from,
+      until: kahf(10, 10).from,
+    });
+    expect(reached).toMatchObject({ text: 'بلغتم الغاية', share: 1 });
+  });
+});
+
+describe('the button back', () => {
+  it('goes back a page within the turn, or to the turn before', () => {
+    expect(backLabel({ pageInTurn: 1, alone: false, unit: 'page' })).toBe(
+      'الصفحة السابقة',
+    );
+    expect(backLabel({ pageInTurn: 0, alone: false, unit: 'ayah' })).toBe(
+      'القارئ السابق',
+    );
+    expect(backLabel({ pageInTurn: 0, alone: true, unit: 'page' })).toBe(
+      'الصفحة السابقة',
+    );
+    expect(backLabel({ pageInTurn: 0, alone: true, unit: 'ayah' })).toBe(
+      'الدور السابق',
+    );
   });
 });
 

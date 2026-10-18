@@ -1,5 +1,6 @@
-import { arabic, clock, counted } from '@/data/arabic';
+import { arabic, ayatCount, clock, counted, pagesCount } from '@/data/arabic';
 import {
+  PAGE_COUNT,
   pagesOfRange,
   rubLabel,
   rubOfAyah,
@@ -158,14 +159,97 @@ export const endTitle = (end: End) =>
 const endNote = (end: End) =>
   end === 'khatm' ? 'وبه يُختم المصحف' : 'وبه تبلغون الغاية';
 
-/** Where the circle is, beside whose turn it is: the page open in a turn
-    of pages (a turn of two shows the one being read), or the turn's ayat
-    in any other unit. */
-export function placeLine(unit: Unit, range: AyahRange, page: number): Sized {
-  if (unit === 'page')
-    return { long: `الصفحة ${arabic(page)}`, short: `ص ${arabic(page)}` };
-  const label = portionLabel(unit, range);
-  return { long: label, short: label };
+/** The chip in the top bar that opens the jump: the page open, «ص ٥٠»,
+    as every reader of a Mushaf writes it, and a name that begins with
+    those words, says them in full and then what a press does. */
+export function placeChip(page: number) {
+  const text = `ص ${arabic(page)}`;
+  return {
+    text,
+    name: `${text}: الصفحة ${arabic(page)}، انتقل إلى موضع آخر`,
+  };
+}
+
+/**
+ * The quiet line under the reader's name at the top: what the turn reads,
+ * when it is counted in something other than the page the chip beside it
+ * names («الآيات ٥–٩»), and who reads after it («ثم عمر»). Nobody follows
+ * in a circle of one, nor after the turn that ends the sitting.
+ */
+export function stripDetail({
+  unit,
+  range,
+  next,
+  end,
+}: {
+  unit: Unit;
+  range: AyahRange;
+  next: Next;
+  end: End | null;
+}) {
+  return {
+    portion: unit === 'page' ? '' : portionLabel(unit, range),
+    after: next.name && !end ? `ثم ${next.name}` : '',
+  };
+}
+
+/**
+ * The slim line along the top of the buttons: how far the sitting has come
+ * towards the goal it set itself, or, with none, where it is in the
+ * Mushaf. `share` is the part of it done, from 0 to 1; `name` and `text`
+ * are what a screen reader hears of it. What is left is counted in pages
+ * where the circle reads pages, in ayat otherwise, so a turn of five ayat
+ * is not told it has a page to go when it has three ayat.
+ */
+export function sittingProgress({
+  unit,
+  page,
+  place,
+  from,
+  until,
+}: {
+  unit: Unit;
+  /** The page open. */
+  page: number;
+  /** The first ayah not yet left behind (`placeOf`). */
+  place: number;
+  /** Where the sitting began, and where its goal is reached (exclusive). */
+  from: number;
+  until: number | null;
+}) {
+  if (until === null || until <= from)
+    return {
+      name: 'الموضع في المصحف',
+      text: `الصفحة ${arabic(page)} من ${arabic(PAGE_COUNT)}`,
+      share: Math.min(1, Math.max(0, page / PAGE_COUNT)),
+    };
+  const at = Math.min(Math.max(place, from), until);
+  const left =
+    unit === 'page'
+      ? pagesCount(pagesOfRange({ from: at, to: until }).length)
+      : ayatCount(until - at);
+  return {
+    name: 'الطريق إلى الغاية',
+    text: at >= until ? 'بلغتم الغاية' : `${left} إلى الغاية`,
+    share: (at - from) / (until - from),
+  };
+}
+
+/** «القارئ السابق»'s words: the page before within the turn, or the turn
+    before, which is someone else's in a circle and the reader's own
+    alone, where it is the page before in a circle of pages. */
+export function backLabel({
+  pageInTurn,
+  alone,
+  unit,
+}: {
+  pageInTurn: number;
+  alone: boolean;
+  unit: Unit;
+}) {
+  if (pageInTurn > 0) return 'الصفحة السابقة';
+  if (!alone) return 'القارئ السابق';
+  return unit === 'page' ? 'الصفحة السابقة' : 'الدور السابق';
 }
 
 /** Who reads next and what, as the turn passing on shows it. */

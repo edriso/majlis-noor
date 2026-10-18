@@ -37,9 +37,7 @@ export function ReadingScreen({
 }) {
   const turn = useTurn({ session, prefs, dispatch });
   const { actions } = turn;
-  const [sheet, setSheet] = useState<'jump' | 'settings' | 'listener' | null>(
-    null,
-  );
+  const [sheet, setSheet] = useState<'jump' | 'menu' | 'listener' | null>(null);
   const [showing, setShowing] = useState<Showing>('mushaf');
   const closeSheet = (open: boolean) => {
     if (!open) setSheet(null);
@@ -69,12 +67,9 @@ export function ReadingScreen({
           setShowing((v) => (v === 'mushaf' ? 'circle' : 'mushaf'))
         }
         onJump={openJump}
-        onSettings={() => setSheet('settings')}
+        onMenu={() => setSheet('menu')}
       />
 
-      <output className="visually-hidden" aria-live="polite">
-        {turn.announcement}
-      </output>
       {/* What happens once, beside the turn: a round read by everyone, or
           «استمع» that could not play. Its own region, so the turn above is
           not said again when it clears. */}
@@ -135,7 +130,7 @@ export function ReadingScreen({
         }
       />
       <SettingsPanel
-        open={sheet === 'settings'}
+        open={sheet === 'menu'}
         onOpenChange={closeSheet}
         session={session}
         prefs={prefs}

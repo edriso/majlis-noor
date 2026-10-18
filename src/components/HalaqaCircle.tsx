@@ -1,4 +1,4 @@
-import { Check, User } from './icons';
+import { Check } from './icons';
 import { reciterById } from '@/data/reciters';
 import { circleCenter, rangeShort, seatStatus } from '@/halaqa/labels';
 import { readerOf, round } from '@/halaqa/schedule';
@@ -135,7 +135,7 @@ export function HalaqaCircle({
             }}
           >
             <span className="seat-avatar">
-              <SeatFace member={member} />
+              <MemberFace member={member} />
               {isActive ? <SeatProgress time={time} /> : null}
               {done ? (
                 <span className="seat-done" aria-hidden="true">
@@ -182,22 +182,36 @@ function SeatProgress({ time }: { time: TurnTime | null }) {
   );
 }
 
-/** What fills a seat: a reciter's face as the reader has photos shown, a
-    reader's initial, or a figure for a reader not named. */
-function SeatFace({ member }: { member: Member }) {
+/**
+ * What fills a member's round frame, in the circle and at the top of the
+ * screen: a reciter's face as the reader has photos shown, or his initial;
+ * a named reader's first letter; or, for a reader not named, a figure,
+ * since a default name («القارئ الثاني») would make a misleading letter.
+ * The figure fills the frame as a portrait would, its shoulders cut by the
+ * circle, rather than a small icon floating in it. Decorative: the name is
+ * always written beside it.
+ */
+export function MemberFace({ member }: { member: Member }) {
   if (member.kind === 'reciter')
     return (
-      <span className="seat-face">
+      <span className="member-face" data-kind="reciter" aria-hidden="true">
         <ReciterFace
           reciter={reciterById(member.reciter)}
-          initialClass="seat-mark"
+          initialClass="member-initial"
         />
       </span>
     );
   const initial = member.name.trim().at(0);
   return (
-    <span className="seat-mark" aria-hidden="true">
-      {initial ?? <User size={22} strokeWidth={1.8} />}
+    <span className="member-face" data-kind="person" aria-hidden="true">
+      {initial ? (
+        <span className="member-initial">{initial}</span>
+      ) : (
+        <svg className="member-figure" viewBox="0 0 40 40">
+          <circle cx="20" cy="15.5" r="7.5" />
+          <path d="M5 40c0-9 6.7-14.5 15-14.5S35 31 35 40Z" />
+        </svg>
+      )}
     </span>
   );
 }

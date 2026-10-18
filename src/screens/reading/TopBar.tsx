@@ -1,57 +1,49 @@
-import { BookOpen, Settings, Users } from '@/components/icons';
-import { SizedText, TurnClock } from '@/components/ActionBar';
-import { Brand } from '@/components/Logo';
-import { endTitle, placeLine } from '@/halaqa/labels';
-import { turnPhrase } from '@/halaqa/state';
+import { BookOpen, Menu, Users } from '@/components/icons';
+import { placeChip } from '@/halaqa/labels';
+import { TurnStrip } from './TurnStrip';
 import type { Turn } from './useTurn';
 
 export type Showing = 'mushaf' | 'circle';
 
 /**
- * The bar at the top: whose turn it is and where the circle is, which is
- * also the way to jump elsewhere; the switch between the page and the
- * circle; and the settings.
- *
- * The line names itself by the words it shows, then says what a press
- * does. With a clock beside it, a narrow phone has room only for «ص ٢٤».
+ * The bar at the top. On the right, where a right-to-left eye starts, the
+ * turn: who reads now and who after. On the left, three controls: the
+ * place, «ص ٥٠», which opens the jump; the switch between the page and the
+ * circle; and the menu. From a tablet up the switch and the menu also show
+ * their words; on a phone they keep them as their names.
  */
 export function TopBar({
   turn,
   showing,
   onToggle,
   onJump,
-  onSettings,
+  onMenu,
 }: {
   turn: Turn;
   showing: Showing;
   onToggle: () => void;
   onJump: () => void;
-  onSettings: () => void;
+  onMenu: () => void;
 }) {
-  const place = placeLine(turn.unit, turn.range, turn.page);
+  const chip = placeChip(turn.page);
   const toggle = showing === 'mushaf' ? 'الحلقة' : 'المصحف';
   return (
     <header className="topbar">
-      <Brand compact />
-      <button type="button" className="topbar-status" onClick={onJump}>
-        {turn.end ? (
-          endTitle(turn.end)
-        ) : (
-          <>
-            <strong>{turnPhrase(turn.member)}</strong>
-            <span> · </span>
-            {turn.time ? <SizedText text={place} /> : <span>{place.long}</span>}
-            {/* A reciter's time is on the main button already. */}
-            {turn.timed ? <TurnClock time={turn.time} /> : null}
-          </>
-        )}
-        <span className="visually-hidden">، انتقل إلى موضع آخر</span>
-      </button>
+      <TurnStrip turn={turn} />
       <div className="topbar-actions">
+        <button
+          type="button"
+          className="place-chip"
+          onClick={onJump}
+          aria-label={chip.name}
+          aria-haspopup="dialog"
+        >
+          {chip.text}
+        </button>
         {turn.end ? null : (
           <button
             type="button"
-            className="topbar-toggle"
+            className="topbar-button topbar-toggle"
             onClick={onToggle}
             aria-label={toggle}
           >
@@ -60,18 +52,22 @@ export function TopBar({
             ) : (
               <BookOpen size={20} aria-hidden="true" />
             )}
-            <span className="topbar-toggle-label" aria-hidden="true">
+            <span className="topbar-label" aria-hidden="true">
               {toggle}
             </span>
           </button>
         )}
         <button
           type="button"
-          className="icon-button"
-          aria-label="الإعدادات"
-          onClick={onSettings}
+          className="topbar-button"
+          onClick={onMenu}
+          aria-label="القائمة"
+          aria-haspopup="dialog"
         >
-          <Settings size={20} aria-hidden="true" />
+          <Menu size={20} aria-hidden="true" />
+          <span className="topbar-label" aria-hidden="true">
+            القائمة
+          </span>
         </button>
       </div>
     </header>

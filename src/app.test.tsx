@@ -15,9 +15,10 @@ import { ayatDuration, loadTimings } from '@/data/timings';
 import { player } from '@/halaqa/useRecitation';
 import { App } from './App';
 
-/* Every Mushaf page drawn is counted, and every brand in a bar, which the
-   reading screen draws whenever it is drawn itself, so a test can tell
-   that a turn's clock running draws neither the page nor the screen. */
+/* Every Mushaf page drawn is counted, and every turn strip at the top,
+   which the reading screen draws whenever it is drawn itself, so a test
+   can tell that a turn's clock running draws neither the page nor the
+   screen. */
 const draws = vi.hoisted(() => ({ page: 0, screen: 0 }));
 vi.mock('@/mushaf/MushafPage', async (original) => {
   const real = await original<typeof import('@/mushaf/MushafPage')>();
@@ -29,13 +30,13 @@ vi.mock('@/mushaf/MushafPage', async (original) => {
     },
   };
 });
-vi.mock('@/components/Logo', async (original) => {
-  const real = await original<typeof import('@/components/Logo')>();
+vi.mock('@/screens/reading/TurnStrip', async (original) => {
+  const real = await original<typeof import('@/screens/reading/TurnStrip')>();
   return {
     ...real,
-    Brand: (props: Parameters<typeof real.Brand>[0]) => {
+    TurnStrip: (props: Parameters<typeof real.TurnStrip>[0]) => {
       draws.screen++;
-      return createElement(real.Brand, props);
+      return createElement(real.TurnStrip, props);
     },
   };
 });
@@ -72,12 +73,25 @@ const start = async () => {
   return user;
 };
 
-/** The line at the top: whose turn, and where; a press opens the jump. */
+/** The chip at the top: the page open, «ص ٥٠»; a press opens the jump. */
 const topLine = () =>
   within(document.querySelector<HTMLElement>('.topbar')!).getByRole('button', {
     name: /انتقل إلى موضع آخر/,
   });
-const status = () => topLine().textContent;
+const place = () => topLine().textContent;
+/** What the strip at the top shows: whose turn, then, quietly, what it
+    reads and who reads after, «دورك · الآيات ٥–٩ · ثم عمر». */
+const status = () =>
+  [...document.querySelectorAll('.turn-name, .turn-detail > span')]
+    .map((el) => el.textContent)
+    .join(' · ');
+/** What a screen reader hears of the turn: the strip's sentence, without
+    the words drawn for the eye, which are hidden from it. */
+const said = () =>
+  [...screen.getByRole('status').childNodes]
+    .filter((n) => !(n instanceof Element && n.closest('[aria-hidden="true"]')))
+    .map((n) => n.textContent)
+    .join('');
 
 describe('the start screen', () => {
   it('names the app once, as the page heading', () => {
@@ -202,7 +216,7 @@ describe('the start screen', () => {
     expect(screen.getByRole('button', { name: /تلاوة المنشاوي/ })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /^تخطَّ إلى أنت/ }));
     expect(status()).toContain('دورك');
-    expect(status()).toContain('الصفحة ٢');
+    expect(place()).toBe('ص ٢');
   });
 
   it('groups the reciters by pace', async () => {
@@ -273,10 +287,10 @@ describe('a halaqa', () => {
   it('passes the turn round the circle', async () => {
     const user = await start();
     expect(status()).toContain('دورك');
-    expect(status()).toContain('الصفحة ١');
+    expect(place()).toBe('ص ١');
     await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
     expect(status()).toContain('دور القارئ الثاني');
-    expect(status()).toContain('الصفحة ٢');
+    expect(place()).toBe('ص ٢');
     await user.click(screen.getByRole('button', { name: /القارئ السابق/ }));
     expect(status()).toContain('دورك');
   });
@@ -286,11 +300,11 @@ describe('a halaqa', () => {
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowLeft' });
     });
-    expect(status()).toContain('الصفحة ٢');
+    expect(place()).toBe('ص ٢');
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     });
-    expect(status()).toContain('الصفحة ١');
+    expect(place()).toBe('ص ١');
   });
 
   it('leaves the keys to an open sheet', async () => {
@@ -302,13 +316,13 @@ describe('a halaqa', () => {
         key: 'ArrowLeft',
       });
     });
-    expect(status()).toContain('الصفحة ١');
+    expect(place()).toBe('ص ١');
     await user.click(within(sheet).getByRole('button', { name: 'إغلاق' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowLeft' });
     });
-    expect(status()).toContain('الصفحة ٢');
+    expect(place()).toBe('ص ٢');
   });
 
   it('is offered again after a refresh', async () => {
@@ -350,16 +364,14 @@ describe('a halaqa', () => {
       JSON.stringify({ config: { turnChange: 'reciter', allowance: 1.5 } }),
     );
     await start();
-    // In the top line and on the pause button.
-    expect(await screen.findAllByText(/١:١[٠-٣]/)).toHaveLength(2);
+    // Once, on the pause button beside the main one.
+    expect(await screen.findAllByText(/١:١[٠-٣]/)).toHaveLength(1);
   });
 
   it('announces whose turn it is to a screen reader', async () => {
     const user = await start();
     await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
-    expect(screen.getByRole('status').textContent).toContain(
-      'دور القارئ الثاني، الصفحة ٢',
-    );
+    expect(said()).toContain('دور القارئ الثاني، الصفحة ٢');
   });
 
   it('keeps the focus on the main button as the turn passes to a reciter', async () => {
@@ -426,9 +438,7 @@ describe('a circle that reads by the ayah', () => {
     const user = await startWith(ayat);
     expect(status()).toContain('دورك · الآيات ٥–٩');
     expect(primary().textContent).toContain('عمر · الآيات ١٠–١٤');
-    expect(screen.getByRole('status').textContent).toBe(
-      'دورك، الآيات ٥–٩ من سورة الكهف',
-    );
+    expect(said()).toBe('دورك، الآيات ٥–٩ من سورة الكهف');
     await user.click(primary());
     expect(status()).toContain('دور عمر · الآيات ١٠–١٤');
     await user.click(primary());
@@ -450,7 +460,7 @@ describe('a circle that reads by the ayah', () => {
     expect(primary().textContent).toContain('الصفحة التالية');
     expect(primary().textContent).toContain('٢ من ٢ · ثم عمر');
     await user.click(primary());
-    expect(screen.getByRole('status').textContent).toContain('الآن الصفحة ٢٩٥');
+    expect(said()).toContain('الآن الصفحة ٢٩٥');
     expect(status()).toContain('دورك');
   });
 
@@ -516,15 +526,14 @@ describe('a recording that does not fit its timings', () => {
     expect(primary().getAttribute('aria-label')).toBe(
       'تخطَّ، لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط، التالي: أنت، الصفحة ٣',
     );
-    expect(screen.getByRole('status').textContent).toContain(
-      'لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط',
-    );
+    expect(said()).toContain('لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ عبد الباسط');
     const bar = document.querySelector<HTMLElement>('.action-bar')!;
     expect(within(bar).queryByRole('button', { name: /أعد المحاولة/ })).toBe(
       null,
     );
     await user.click(primary());
-    expect(status()).toContain('دورك · الصفحة ٣');
+    expect(status()).toContain('دورك');
+    expect(place()).toBe('ص ٣');
   });
 
   it('offers another sheikh for «استمع»', async () => {
@@ -565,7 +574,8 @@ describe('the end of a sitting', () => {
     const carryOn = screen.getByRole('button', { name: 'تابعوا' });
     expect(document.activeElement).toBe(carryOn);
     await user.click(carryOn);
-    expect(status()).toContain('دورك · الصفحة ٢');
+    expect(status()).toContain('دورك');
+    expect(place()).toBe('ص ٢');
   });
 
   it('tells a khatm from a goal', async () => {
@@ -675,7 +685,7 @@ describe('accessibility', () => {
     await user.click(topLine());
     expect(misnamed()).toEqual([]);
     await user.click(screen.getByRole('button', { name: 'إغلاق' }));
-    await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
     expect(misnamed()).toEqual([]);
   });
 

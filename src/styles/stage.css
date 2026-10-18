@@ -1,0 +1,72 @@
+/* The stage of the reading screen (MushafView.tsx): the room the Mushaf
+   page has, and the page fitted into it. */
+
+/* The page's room. A size container, so the page inside can be sized by
+   both its sides at once. On a screen too short to show a page at a size
+   anyone can read (a phone on its side) the page keeps that size, 220px
+   wide, and this room scrolls instead. */
+.mushaf-view {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 6px;
+  min-height: 0;
+}
+.mushaf-stage {
+  container-type: size;
+  display: grid;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-border) transparent;
+}
+.mushaf-stage .mushaf-page {
+  width: max(min(100cqw, 100cqh / var(--page-height)), min(100cqw, 220px));
+  /* Centred both ways, and to the top when it is taller than its room,
+     which a centred grid item would push out of reach above. */
+  margin: auto;
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.quiet-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  transition:
+    color 160ms var(--ease),
+    background-color 160ms var(--ease);
+}
+.quiet-button:hover {
+  color: var(--fg);
+  background: var(--hover);
+}
+.page-nav-number {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+@media (max-width: 759px) {
+  .mushaf-page {
+    border-radius: 4px;
+  }
+}
+
+/* A short screen gives every line of height to the page: it turns with
+   the buttons below, and the chip at the top opens any page. */
+@media (max-height: 700px) {
+  .page-nav {
+    display: none;
+  }
+}

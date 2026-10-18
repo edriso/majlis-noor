@@ -278,14 +278,6 @@ export function TimerButton({
   );
 }
 
-/** The time left in a timed or recited turn, « · ١:١٣», for the line at
-    the top; nothing until it is known. */
-export function TurnClock({ time }: { time: TurnTime | null }) {
-  const left = useTimeLeft(time);
-  if (left === null) return null;
-  return <span className="topbar-clock"> · {clock(left)}</span>;
-}
-
 /** «استمع»: what the reader is about to read, in the halaqa's reciter's
     voice, paused and resumed with the same button. Where his recording
     of it cannot be played (`untimed`), it offers another sheikh. */
