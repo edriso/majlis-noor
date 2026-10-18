@@ -208,15 +208,18 @@ export class Player {
   }
 
   /** Unlocks the element for sound started later without a tap. Call it
-      from a tap; it does nothing once the element has played. A
-      recitation the browser held back is the sound this tap was waiting
-      for, so it starts instead. */
+      from every tap. A recitation the browser held back is the sound
+      this tap was waiting for, so it starts instead, however long ago
+      the element was unlocked: a browser may still refuse a recitation
+      that starts on its own (a tab long in the background, a phone's
+      power saving). Once the element has played, there is nothing else
+      to do. */
   prime() {
-    if (this.primed) return;
     if (this.queue.length) {
       if (this.state.status === 'blocked') this.resume();
       return;
     }
+    if (this.primed) return;
     const media = this.element();
     media.src = silence();
     media.play().then(

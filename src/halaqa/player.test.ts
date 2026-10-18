@@ -118,6 +118,33 @@ describe('the player', () => {
     expect(player.getState().status).toBe('playing');
   });
 
+  it('starts a held-back recitation on a tap after sound was unlocked', async () => {
+    // The first tap of the sitting unlocked the element...
+    player.prime();
+    await flush();
+    // ...and still a browser may refuse a turn that starts on its own,
+    // after the tab was in the background for a while, say.
+    media.refuse = 'NotAllowedError';
+    player.play('turn', queue);
+    await flush();
+    expect(player.getState().status).toBe('blocked');
+    media.refuse = null;
+    player.prime();
+    await flush();
+    expect(player.getState().status).toBe('playing');
+  });
+
+  it('leaves what the reader paused paused on a tap anywhere', async () => {
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    player.pause();
+    player.prime();
+    await flush();
+    expect(player.getState().status).toBe('paused');
+    expect(media.paused).toBe(true);
+  });
+
   it('plays on through stretches whose timestamps overlap', async () => {
     const pages: number[] = [];
     player.play(
