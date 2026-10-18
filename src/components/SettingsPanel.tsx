@@ -6,57 +6,80 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react';
+import { reciterById } from '@/data/reciters';
 import {
-  currentPage,
+  placeOf,
   type Action,
   type Config,
+  type PageSize,
   type Prefs,
   type Session,
 } from '@/halaqa/state';
-import { AppearanceFields, SoundFields } from './Preferences';
+import { Choice } from './Choice';
 import { HalaqaForm, type ReciterRequest } from './HalaqaForm';
+import { Maximize } from './icons';
+import { AppearanceFields, SoundFields } from './Preferences';
 import { ReciterPicker } from './ReciterPicker';
 import { Sheet } from './Sheet';
-import { StartPicker } from './StartPicker';
+import { SummaryRow } from './SummaryRow';
+
+/** Where the menu is open: its own list, the circle's form, or the list
+    of sheikhs opened from either. */
+export type MenuPlace = 'menu' | 'halaqa';
 
 /**
- * Everything about the halaqa that can change while it runs, applied as it is
- * chosen: there is no «حفظ», because a halaqa in progress should not be one
- * forgotten button away from ignoring what was just set. Changing the shape
- * of the circle carries on from the page being read, with the same reader.
+ * The reading screen's menu: the sitting (changing the circle, ending it),
+ * how the screen looks, how it sounds, and about the app. Everything is
+ * applied as it is chosen: there is no «حفظ», because a halaqa in progress
+ * should not be one forgotten button away from ignoring what was just set.
+ * Changing the shape of the circle carries on from the page being read,
+ * with the same reader. The place is not here: it is the jump's, behind
+ * the chip at the top.
  *
- * Each part is a section of its own, taking only what it needs, so a menu
- * can hold them in another order or other sheets without their logic
- * moving: the circle, the place, how it looks, how it sounds, the keys,
- * about, and ending the sitting.
+ * The circle's form and the list of sheikhs open in place of the menu,
+ * with a way back, rather than as a sheet over a sheet. Opened from the
+ * circle's «عدّل الحلقة», the menu opens straight on the form (`start`),
+ * and its way back is to close.
  */
 export function SettingsPanel({
   open,
   onOpenChange,
+  start = 'menu',
   session,
   prefs,
   dispatch,
+  onQuiet,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Where it opens. */
+  start?: MenuPlace;
   session: Session;
   prefs: Prefs;
   dispatch: Dispatch<Action>;
+  /** Hides the bars round the page. */
+  onQuiet: () => void;
 }) {
-  // The reciter list opens in place of the settings, with a way back,
-  // rather than as a sheet over a sheet.
+  // What was asked for, and the menu's own place under it. Both start
+  // over each time the menu opens.
+  const [place, setPlace] = useState<MenuPlace>(start);
   const [picking, setPicking] = useState<ReciterRequest | null>(null);
-  const close = (v: boolean) => {
-    onOpenChange(v);
-    if (!v) setPicking(null);
-  };
+  const [opened, setOpened] = useState(open);
+  if (open !== opened) {
+    setOpened(open);
+    if (open) {
+      setPlace(start);
+      setPicking(null);
+    }
+  }
   const setPrefs = (p: Partial<Prefs>) => dispatch({ type: 'prefs', prefs: p });
+  const configure = (config: Config) => dispatch({ type: 'configure', config });
 
   if (picking)
     return (
       <Sheet
         open={open}
-        onOpenChange={close}
+        onOpenChange={onOpenChange}
         title={picking.title}
         description={picking.description}
         onBack={() => setPicking(null)}
@@ -71,37 +94,78 @@ export function SettingsPanel({
       </Sheet>
     );
 
+  if (place === 'halaqa')
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={onOpenChange}
+        title="عدّل الحلقة"
+        description="من في الحلقة وكيف تقرأ. يُطبَّق كل تغيير فور اختياره، ويكمل صاحب الدور من موضعه."
+        onBack={start === 'menu' ? () => setPlace('menu') : undefined}
+      >
+        <HalaqaSection
+          config={session.config}
+          from={placeOf(session)}
+          onChange={configure}
+          onPickReciter={setPicking}
+        />
+      </Sheet>
+    );
+
+  const listener = reciterById(session.config.reciter);
   return (
     <Sheet
       open={open}
-      onOpenChange={close}
-      title="الإعدادات"
-      description="إعدادات الحلقة والمظهر. تُطبَّق فور اختيارها."
+      onOpenChange={onOpenChange}
+      title="القائمة"
+      description="المجلس، والمظهر، والصوت. يُطبَّق كل اختيار فور اختياره."
     >
-      <HalaqaSection
-        config={session.config}
-        onChange={(config) => dispatch({ type: 'configure', config })}
-        onPickReciter={setPicking}
-      />
-      <PlaceSection
-        page={currentPage(session)}
-        onGo={(page) => dispatch({ type: 'goToPage', page })}
-      />
-      <AppearanceSection prefs={prefs} onChange={setPrefs} />
-      <SoundSection prefs={prefs} onChange={setPrefs} />
-      <KeysSection />
-      <AboutSection />
-      <EndSitting
-        onEnd={() => {
-          close(false);
-          dispatch({ type: 'end' });
+      <Section title="المجلس">
+        <SummaryRow
+          title="عدّل الحلقة"
+          detail="من فيها، وترتيبهم، وكيف تقرأ"
+          onClick={() => setPlace('halaqa')}
+        />
+        <EndSitting
+          onEnd={() => {
+            onOpenChange(false);
+            dispatch({ type: 'end' });
+          }}
+        />
+      </Section>
+      <AppearanceSection
+        prefs={prefs}
+        onChange={setPrefs}
+        onQuiet={() => {
+          onOpenChange(false);
+          onQuiet();
         }}
       />
+      <SoundSection prefs={prefs} onChange={setPrefs}>
+        <SummaryRow
+          title="شيخ الاستماع"
+          detail={listener.name}
+          spokenSuffix="، غيّره"
+          onClick={() =>
+            setPicking({
+              title: 'شيخ الاستماع',
+              description:
+                session.config.turnChange === 'reciter'
+                  ? 'شيخ يُستمع إليه في الصفحة، وتُقاس بتلاوته مدة الدور.'
+                  : 'شيخ يُستمع إليه في الصفحة.',
+              value: session.config.reciter,
+              apply: (reciter) => configure({ ...session.config, reciter }),
+            })
+          }
+        />
+      </SoundSection>
+      <AboutSection />
+      <KeysSection />
     </Sheet>
   );
 }
 
-/** A titled part of the settings. */
+/** A titled part of the menu. */
 function Section({
   title,
   className = '',
@@ -114,10 +178,10 @@ function Section({
   const id = useId();
   return (
     <section
-      className={`settings-section ${className}`.trim()}
+      className={`menu-section ${className}`.trim()}
       aria-labelledby={id}
     >
-      <h3 id={id} className="settings-heading">
+      <h3 id={id} className="menu-heading">
         {title}
       </h3>
       {children}
@@ -125,74 +189,100 @@ function Section({
   );
 }
 
-/** «عدّل الحلقة»: who sits, in what order, and how turns pass. */
+/** «عدّل الحلقة»: who sits, in what order, and how turns pass. A goal set
+    here is counted from where the circle is now. */
 export function HalaqaSection({
   config,
+  from,
   onChange,
   onPickReciter,
 }: {
   config: Config;
+  from: number;
   onChange: (config: Config) => void;
   onPickReciter: (request: ReciterRequest) => void;
 }) {
   return (
-    <Section title="الحلقة">
-      <HalaqaForm
-        config={config}
-        onChange={onChange}
-        onPickReciter={onPickReciter}
-      />
-    </Section>
+    <HalaqaForm
+      config={config}
+      onChange={onChange}
+      onPickReciter={onPickReciter}
+      from={from}
+    />
   );
 }
 
-/** Where to read from; the jump in the top bar does the same. */
-export function PlaceSection({
-  page,
-  onGo,
-}: {
-  page: number;
-  onGo: (page: number) => void;
-}) {
-  return (
-    <Section title="الموضع">
-      <StartPicker legend="الانتقال حسب" page={page} onChange={onGo} />
-    </Section>
-  );
-}
-
+/** How the screen looks: its colour, the sheikhs' photographs, the size
+    of the page, and the bars hidden for a page alone. */
 export function AppearanceSection({
   prefs,
   onChange,
+  onQuiet,
 }: {
   prefs: Prefs;
   onChange: (prefs: Partial<Prefs>) => void;
+  onQuiet: () => void;
 }) {
   return (
     <Section title="المظهر">
       <AppearanceFields prefs={prefs} onChange={onChange} />
+      <div className="field">
+        <Choice<PageSize>
+          legend="حجم الصفحة"
+          value={prefs.pageSize}
+          onChange={(pageSize) => onChange({ pageSize })}
+          options={[
+            { value: 'fit', label: 'الصفحة كاملة' },
+            { value: 'width', label: 'بعرض الشاشة' },
+          ]}
+        />
+        <p className="field-note">
+          بعرض الشاشة تكبر الصفحة، وتُقرأ بالتمرير إلى أسفل.
+        </p>
+      </div>
+      <div className="field">
+        <button
+          type="button"
+          className="button menu-action button-block"
+          onClick={onQuiet}
+        >
+          <Maximize size={20} aria-hidden="true" />
+          إخفاء الأزرار
+        </button>
+        <p className="field-note">
+          تبقى الصفحة وحدها. تعود الأزرار بالزر الصغير في طرف الشاشة، أو بمفتاح
+          Esc.
+        </p>
+      </div>
     </Section>
   );
 }
 
+/** How recitations sound, and the sheikh heard through «استمع». */
 export function SoundSection({
   prefs,
   onChange,
+  children,
 }: {
   prefs: Prefs;
   onChange: (prefs: Partial<Prefs>) => void;
+  children?: ReactNode;
 }) {
   return (
     <Section title="الصوت">
       <SoundFields prefs={prefs} onChange={onChange} />
+      {children}
     </Section>
   );
 }
 
-/** The reading screen's keys, as `useReadingKeys` takes them. */
+/** The reading screen's keys, as `useReadingKeys` takes them. Shown only
+    where there is a keyboard to press them, guessed from a fine pointer
+    that can hover (menu.css); hidden there from screen readers too, since
+    it is hidden with `display`. */
 export function KeysSection() {
   return (
-    <Section title="لوحة المفاتيح">
+    <Section title="لوحة المفاتيح" className="menu-keys">
       <dl className="shortcuts">
         <div>
           <dt>
@@ -214,6 +304,12 @@ export function KeysSection() {
           </dt>
           <dd>إيقاف تلاوة الشيخ أو التوقيت أو الاستماع مؤقتًا، واستئنافها</dd>
         </div>
+        <div>
+          <dt>
+            <kbd>Esc</kbd>
+          </dt>
+          <dd>إظهار الأزرار بعد إخفائها</dd>
+        </div>
       </dl>
     </Section>
   );
@@ -222,7 +318,7 @@ export function KeysSection() {
 export function AboutSection() {
   const repo = repositoryUrl();
   return (
-    <Section title="عن مجلس نور" className="settings-about">
+    <Section title="عن مجلس نور" className="menu-about">
       <p>
         صفحات مصحف المدينة النبوية برواية حفص، طبعة مجمع الملك فهد لطباعة المصحف
         الشريف، بخطوطه وبيانات صفحاته عن{' '}
@@ -233,7 +329,7 @@ export function AboutSection() {
         <a href="https://quranicaudio.com" target="_blank" rel="noreferrer">
           QuranicAudio
         </a>
-        . صور القرّاء من ويكيميديا كومنز، ومصدر كل صورة وترخيصها في{' '}
+        . صور المشايخ من ويكيميديا كومنز، ومصدر كل صورة وترخيصها في{' '}
         {repo ? (
           <a href={`${repo}/blob/HEAD/NOTICE`} target="_blank" rel="noreferrer">
             ملف المصادر
@@ -289,7 +385,7 @@ export function EndSitting({ onEnd }: { onEnd: () => void }) {
       </button>
     );
   return (
-    <div className="settings-section settings-about">
+    <div className="menu-confirm">
       <p id={question}>
         أتنهون المجلس؟ يُحفظ الموضع الذي بلغتموه، لتبدؤوا منه في المرة القادمة.
       </p>

@@ -330,7 +330,6 @@ export function useTurn({
       togglePause,
       turnPage,
       space,
-      goToPage: (p: number) => dispatch({ type: 'goToPage', page: p }),
       goToAyah: (ayah: number) => dispatch({ type: 'goToAyah', ayah }),
       restart: () => dispatch({ type: 'restartMushaf' }),
       // Letting the goal go carries the circle on from where it stopped.

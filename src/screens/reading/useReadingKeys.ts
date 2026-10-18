@@ -41,11 +41,18 @@ export function useReadingKeys(keys: {
   back: () => void;
   /** Pauses or resumes what runs, and says whether anything did. */
   space: () => boolean;
+  /** Brings the bars back if they are hidden, and says whether they were.
+      It works at the end of a sitting too, where nothing else does. */
+  escape: () => boolean;
 }) {
   const onKey = useEffectEvent((e: KeyboardEvent) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     const t = e.target instanceof Element ? e.target : null;
     if (t?.closest('input, select, textarea, dialog[open]')) return;
+    if (e.key === 'Escape') {
+      if (keys.escape()) e.preventDefault();
+      return;
+    }
     if (!keys.enabled) return;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();

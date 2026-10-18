@@ -29,6 +29,7 @@ const open = (dispatch: (action: Action) => void = () => {}) => {
       session={session}
       prefs={defaultPrefs}
       dispatch={dispatch}
+      onQuiet={() => {}}
     />,
   );
 };

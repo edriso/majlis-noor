@@ -120,3 +120,58 @@
     padding-block: 6px 2px;
   }
 }
+
+/* ---------- The page alone ---------- */
+
+/* The bars hidden (useQuiet). The action bar goes; the top bar is only put
+   out of sight, its controls with it, so the strip in it still says aloud
+   whose turn it is. */
+.reading[data-quiet] .action-bar {
+  display: none;
+}
+.reading[data-quiet] .topbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.reading[data-quiet] .topbar-actions {
+  visibility: hidden;
+}
+.reading[data-quiet] .reading-main {
+  padding: max(var(--space-2), env(safe-area-inset-top))
+    max(var(--space-2), env(safe-area-inset-left))
+    max(var(--space-2), env(safe-area-inset-bottom))
+    max(var(--space-2), env(safe-area-inset-right));
+}
+
+/* The way back: small, quiet, in the room's lower left corner, which a
+   page centred in the room leaves free, below it or beside it. */
+.quiet-return {
+  position: absolute;
+  inset-inline-end: max(var(--space-2), env(safe-area-inset-left));
+  bottom: max(var(--space-2), env(safe-area-inset-bottom));
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: var(--screen-target);
+  height: var(--screen-target);
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--muted);
+  transition:
+    color var(--duration-short) var(--ease),
+    border-color var(--duration-short) var(--ease);
+}
+.quiet-return:hover,
+.quiet-return:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.quiet-return svg {
+  width: var(--screen-icon);
+  height: var(--screen-icon);
+}

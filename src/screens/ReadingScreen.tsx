@@ -1,7 +1,9 @@
-import { useCallback, useState, type Dispatch } from 'react';
-import type { Action, Prefs, Session } from '@/halaqa/state';
-import { useWakeLock } from '@/hooks/useWakeLock';
+import { useState, type Dispatch } from 'react';
+import { Minimize } from '@/components/icons';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { AYAH_COUNT } from '@/data/mushaf';
+import { placeOf, type Action, type Prefs, type Session } from '@/halaqa/state';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import { CircleView } from './reading/CircleView';
 import { Completion } from './reading/Completion';
 import { JumpSheet } from './reading/JumpSheet';
@@ -9,16 +11,21 @@ import { ListenerSheet } from './reading/ListenerSheet';
 import { MushafView } from './reading/MushafView';
 import { TopBar, type Showing } from './reading/TopBar';
 import { TurnActions } from './reading/TurnActions';
+import { useQuiet } from './reading/useQuiet';
 import { useReadingKeys } from './reading/useReadingKeys';
 import { useTurn } from './reading/useTurn';
 
 /**
  * The halaqa itself, the same on every screen: one thing at a time between
- * a line saying whose turn it is and a bar of buttons that pass it on.
- * That one thing is the Mushaf page, as large as the screen allows and
- * never scrolled, or the circle, which is also the reading order (every
- * seat says what it does next). A button in the top bar turns from one to
- * the other; the buttons below stay with both.
+ * a strip saying whose turn it is and a bar of buttons that pass it on.
+ * That one thing is the Mushaf, as large as the screen allows (a spread of
+ * two pages where the room is wide), or the circle, which is also the
+ * reading order (every seat says what it does next). A button in the top
+ * bar turns from one to the other; the buttons below stay with both.
+ *
+ * The bars can be hidden for the page alone (`useQuiet`), from the menu or
+ * by turning a phone on its side, with a small button at the edge and
+ * Escape to bring them back.
  *
  * On a reciter's turn his recitation plays, the page follows it, and the
  * turn passes on when it ends; the primary button pauses it instead.
@@ -37,13 +44,14 @@ export function ReadingScreen({
 }) {
   const turn = useTurn({ session, prefs, dispatch });
   const { actions } = turn;
-  const [sheet, setSheet] = useState<'jump' | 'menu' | 'listener' | null>(null);
+  const [sheet, setSheet] = useState<
+    'jump' | 'menu' | 'halaqa' | 'listener' | null
+  >(null);
   const [showing, setShowing] = useState<Showing>('mushaf');
+  const quiet = useQuiet();
   const closeSheet = (open: boolean) => {
     if (!open) setSheet(null);
   };
-  // Handed to the page, which is drawn again only when its props change.
-  const openJump = useCallback(() => setSheet('jump'), []);
 
   useWakeLock(!turn.end);
   useReadingKeys({
@@ -53,10 +61,19 @@ export function ReadingScreen({
       if (turn.canGoBack) actions.back();
     },
     space: actions.space,
+    escape: () => {
+      if (!quiet.hidden) return false;
+      quiet.show();
+      return true;
+    },
   });
 
   return (
-    <div className="reading" data-showing={showing}>
+    <div
+      className="reading"
+      data-showing={showing}
+      data-quiet={quiet.hidden || undefined}
+    >
       <a className="skip-link" href="#reading-main">
         {showing === 'mushaf' ? 'تخطَّ إلى الصفحة' : 'تخطَّ إلى الحلقة'}
       </a>
@@ -66,7 +83,7 @@ export function ReadingScreen({
         onToggle={() =>
           setShowing((v) => (v === 'mushaf' ? 'circle' : 'mushaf'))
         }
-        onJump={openJump}
+        onJump={() => setSheet('jump')}
         onMenu={() => setSheet('menu')}
       />
 
@@ -78,14 +95,27 @@ export function ReadingScreen({
       </p>
 
       <main className="reading-main" id="reading-main" tabIndex={-1}>
-        {/* The brand in the bar says which app this is; the heading says
-            where in it a screen reader has landed. */}
+        {/* The heading says where in the app a screen reader has landed. */}
         <h1 className="visually-hidden">مجلس نور: الحلقة</h1>
         {turn.toast ? (
           // Said aloud by the notice above already; this is for the eye.
           <p key={turn.toast.id} className="toast" aria-hidden="true">
             {turn.toast.text}
           </p>
+        ) : null}
+        {quiet.hidden ? (
+          // The bars hidden: a way back at the corner of the room, which
+          // the page, centred in it, leaves free.
+          <button
+            type="button"
+            className="quiet-return"
+            onClick={quiet.show}
+            aria-label="إظهار الأزرار"
+            aria-keyshortcuts="Escape"
+            title="إظهار الأزرار (Esc)"
+          >
+            <Minimize size={20} aria-hidden="true" />
+          </button>
         ) : null}
         {turn.end ? (
           <Completion
@@ -98,7 +128,7 @@ export function ReadingScreen({
             onEnd={actions.end}
           />
         ) : showing === 'circle' ? (
-          <CircleView turn={turn} />
+          <CircleView turn={turn} onEdit={() => setSheet('halaqa')} />
         ) : (
           <MushafView
             page={turn.page}
@@ -121,8 +151,9 @@ export function ReadingScreen({
       <JumpSheet
         open={sheet === 'jump'}
         onOpenChange={closeSheet}
+        ayah={Math.min(placeOf(session), AYAH_COUNT)}
         page={turn.page}
-        onGo={actions.goToPage}
+        onGo={actions.goToAyah}
       />
       <ListenerSheet
         open={sheet === 'listener'}
@@ -137,11 +168,13 @@ export function ReadingScreen({
         }
       />
       <SettingsPanel
-        open={sheet === 'menu'}
+        open={sheet === 'menu' || sheet === 'halaqa'}
+        start={sheet === 'halaqa' ? 'halaqa' : 'menu'}
         onOpenChange={closeSheet}
         session={session}
         prefs={prefs}
         dispatch={dispatch}
+        onQuiet={quiet.hide}
       />
     </div>
   );

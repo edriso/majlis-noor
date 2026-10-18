@@ -651,6 +651,89 @@ describe('the end of a sitting', () => {
   });
 });
 
+describe('the menu and the jump', () => {
+  const menu = () => screen.getByRole('dialog', { name: 'القائمة' });
+
+  it('holds the sitting, how it looks and sounds, and no place', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    const headings = within(menu())
+      .getAllByRole('heading', { level: 3 })
+      .map((h) => h.textContent);
+    expect(headings).toEqual([
+      'المجلس',
+      'المظهر',
+      'الصوت',
+      'عن مجلس نور',
+      'لوحة المفاتيح',
+    ]);
+    expect(within(menu()).queryByText('الموضع')).toBeNull();
+    // The page as wide as the screen, and back.
+    await user.click(
+      within(menu()).getByRole('radio', { name: 'بعرض الشاشة' }),
+    );
+    expect(
+      document.querySelector('.mushaf-stage')!.getAttribute('data-size'),
+    ).toBe('width');
+  });
+
+  it('changes the circle in place of the menu, with a way back', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(
+      within(menu()).getByRole('button', { name: /^عدّل الحلقة/ }),
+    );
+    const form = screen.getByRole('dialog', { name: 'عدّل الحلقة' });
+    await user.click(within(form).getByRole('button', { name: 'رجوع' }));
+    expect(menu()).toBeTruthy();
+  });
+
+  it('opens the circle’s form straight from the circle', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'الحلقة' }));
+    await user.click(screen.getByRole('button', { name: 'عدّل الحلقة' }));
+    const form = screen.getByRole('dialog', { name: 'عدّل الحلقة' });
+    // Opened for this, it closes rather than going back to a menu.
+    expect(within(form).queryByRole('button', { name: 'رجوع' })).toBeNull();
+  });
+
+  it('jumps to the ayah a surah begins with', async () => {
+    const user = await startWith({
+      members: [you, omar],
+      unit: 'ayah',
+      size: 3,
+    });
+    await user.click(topLine());
+    const sheet = screen.getByRole('dialog', { name: 'الانتقال إلى' });
+    await user.type(within(sheet).getByRole('searchbox'), 'الكهف');
+    await user.click(within(sheet).getByRole('button', { name: /الكهف/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(status()).toContain('دورك · الآيات ١–٣');
+    expect(place()).toBe('ص ٢٩٣');
+  });
+
+  it('hides the bars for the page alone, and brings them back', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(
+      within(menu()).getByRole('button', { name: /إخفاء الأزرار/ }),
+    );
+    expect(document.querySelector('.reading[data-quiet]')).toBeTruthy();
+    // Whose turn it is is still said.
+    expect(said()).toContain('دورك');
+    act(() => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+    expect(document.querySelector('.reading[data-quiet]')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(
+      within(menu()).getByRole('button', { name: /إخفاء الأزرار/ }),
+    );
+    await user.click(screen.getByRole('button', { name: 'إظهار الأزرار' }));
+    expect(document.querySelector('.reading[data-quiet]')).toBeNull();
+  });
+});
+
 describe('accessibility', () => {
   const unnamed = () =>
     [...document.querySelectorAll('button, input, select, a')].filter((el) => {

@@ -1,0 +1,83 @@
+/* The reading screen's menu (SettingsPanel.tsx): sections under small
+   headings, the confirmation before ending, the about text and the keys. */
+
+.menu-section {
+  display: grid;
+  gap: var(--space-4);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+.menu-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.menu-heading {
+  margin: 0;
+  color: var(--gold);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+.menu-about p,
+.menu-confirm p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-prose);
+}
+.menu-confirm {
+  display: grid;
+  gap: var(--space-3);
+}
+.menu-confirm p {
+  color: var(--fg);
+}
+
+/* A plain action among the choices: «إخفاء الأزرار». */
+.menu-action {
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--fg);
+  font-weight: 500;
+}
+.menu-action:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}
+.menu-action svg {
+  color: var(--gold);
+}
+
+.shortcuts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.shortcuts div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.shortcuts dt {
+  min-width: 56px;
+}
+.shortcuts dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+
+/* The keys are for a keyboard, which a fine pointer that can hover goes
+   with; on a phone or a tablet the list would only be read past. Hidden
+   with `display`, so a screen reader passes it by too. */
+@media not ((hover: hover) and (pointer: fine)) {
+  .menu-keys {
+    display: none;
+  }
+}
+
+/* The circle's form, in the menu's place. */
+.sheet .halaqa-form {
+  gap: var(--space-5);
+}
