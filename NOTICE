@@ -54,7 +54,10 @@ endpoint in its `source`.
 
 Each timings file also records, for each surah file, its length and its
 last-modified date as https://download.quranicaudio.com reported them in
-answer to a HEAD request when the timings were built, so that
+answer to a HEAD request when the timings were built, how long it plays,
+read from the first kilobytes of the file itself, and the duration the
+API gives for the file it timed; and it lists the surahs whose file does
+not fit its timings, which the app does not play. From these,
 scripts/check-audio.ts can tell when a recording has been replaced.
 
 The recordings themselves are streamed from https://download.quranicaudio.com
