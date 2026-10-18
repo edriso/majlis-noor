@@ -1,15 +1,20 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PAGE_COUNT, surahs, type Page } from './mushaf';
 import { paceLabel, reciters } from './reciters';
 import {
+  cleanSegments,
+  coversAll,
+  decodeAyahWords,
   decodeSpans,
+  encodeAyahWords,
   encodeSpans,
   fileChange,
   stampOf,
   surahFile,
   type Span,
+  type WordsFile,
 } from './audio';
 import {
   ayahAt,
@@ -18,9 +23,13 @@ import {
   ayatDuration,
   ayatRecitation,
   averagePage,
+  loadWords,
   pageDuration,
   pagesDuration,
+  readWords,
   surahAudioUrl,
+  wordAt,
+  wordsCovered,
   type Timings,
 } from './timings';
 
@@ -48,6 +57,31 @@ const keysOf = (p: Page) =>
   p.lines.flatMap((l) => (l.t === 'text' ? l.w.map(([, key]) => key) : []));
 /** The ayat on each page, in order. */
 const ayatOfPage = pages.map((p) => [...new Set(keysOf(p))]);
+/** How many words the print gives each ayah: its entries on the page, less
+    its end-of-ayah marker. */
+const wordCount = new Map<string, number>();
+for (const p of pages)
+  for (const key of keysOf(p))
+    wordCount.set(key, (wordCount.get(key) ?? 0) + 1);
+for (const [key, n] of wordCount) wordCount.set(key, n - 1);
+
+const wordsFile = (id: string, surah: number) =>
+  read<WordsFile>('public/words', id, `${surah}.json`);
+
+/* The ayat each reciter's words cover entirely, as built on 2026-10-18.
+   A rebuild may raise these; one that lowers them has lost words. */
+const fullyTimed: Record<string, number> = {
+  'husary-muallim': 6209,
+  husary: 6215,
+  abdulbasit: 6013,
+  alafasy: 5993,
+  minshawi: 6190,
+  dosari: 6222,
+  shatri: 6008,
+  rifai: 6170,
+  sudais: 6196,
+  shuraim: 6177,
+};
 
 describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
   const t = load(id);
@@ -120,6 +154,37 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
       expect(Number.isInteger(bytes) && bytes > 10_000).toBe(true);
       expect(modified).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     }
+  });
+
+  it('times words in order, inside their ayah, and says where it cannot', () => {
+    let full = 0;
+    for (const s of surahs) {
+      const file = wordsFile(id, s.n);
+      expect(file.surah).toBe(s.n);
+      expect(file.source).toMatch(/^Quran\.com recitation \d+, /);
+      const w = readWords(file);
+      const spans = ayahTimes(t, s.n);
+      expect(w.ayat, `surah ${s.n}`).toHaveLength(s.ayat);
+      let heard = -Infinity;
+      w.ayat.forEach((a, i) => {
+        const key = `${s.n}:${i + 1}`;
+        const count = wordCount.get(key)!;
+        expect([a.from, a.to], key).toEqual(spans[i]);
+        for (const word of a.words) {
+          expect(word.from, key).toBeGreaterThanOrEqual(
+            Math.max(a.from, heard),
+          );
+          expect(word.to, key).toBeGreaterThan(word.from);
+          expect(word.to, key).toBeLessThanOrEqual(a.to);
+          expect(word.word >= 1 && word.word <= count, key).toBe(true);
+          heard = word.to;
+        }
+        const covered = new Set(a.words.map((x) => x.word)).size === count;
+        expect(a.full, key).toBe(covered);
+        if (covered) full++;
+      });
+    }
+    expect(full).toBeGreaterThanOrEqual(fullyTimed[id]);
   });
 });
 
@@ -304,6 +369,164 @@ describe('ayah times', () => {
   });
 });
 
+describe('cleaning word segments', () => {
+  const ayah = { from: 1000, to: 5000, words: 4 };
+
+  it('keeps well-formed words as they are', () => {
+    const segments = [
+      [1, 1000, 1500],
+      [2, 1500, 2600],
+      [3, 2600, 3900],
+      [4, 3900, 5000],
+    ];
+    const clean = cleanSegments('9:9', segments, ayah);
+    expect(clean.words).toEqual(segments);
+    expect(clean).toMatchObject({
+      malformed: 0,
+      clamped: 0,
+      trimmed: 0,
+      emptied: 0,
+    });
+    expect(coversAll(clean.words, 4)).toBe(true);
+  });
+
+  it('drops what is not a word with a time', () => {
+    const clean = cleanSegments(
+      '9:9',
+      [
+        [1, 1000],
+        [2],
+        [1, 1000, 1500, 9],
+        [1, '1000', 1500],
+        [1, 1000, Number.NaN],
+        null,
+        [3, 2600, 2590], // ends before it starts
+        [0, 1000, 1200], // there is no word 0
+        [5, 4000, 4500], // nor a word 5 in an ayah of four
+        [2.5, 2000, 2100],
+        [2, 1500, 2600],
+      ],
+      ayah,
+    );
+    expect(clean.words).toEqual([[2, 1500, 2600]]);
+    expect(clean.malformed).toBe(10);
+    expect(coversAll(clean.words, 4)).toBe(false);
+    expect(cleanSegments('9:9', undefined, ayah).words).toEqual([]);
+  });
+
+  it('rounds times and cuts them to the ayah', () => {
+    const clean = cleanSegments(
+      '9:9',
+      [
+        [1, 990.4, 1499.6],
+        [2, 1499.6, 2600],
+        [3, 2600, 3900],
+        [4, 3900, 5040],
+        [4, 6000, 7000], // wholly after the ayah: nothing left of it
+      ],
+      ayah,
+    );
+    expect(clean.words).toEqual([
+      [1, 1000, 1500],
+      [2, 1500, 2600],
+      [3, 2600, 3900],
+      [4, 3900, 5000],
+    ]);
+    expect(clean).toMatchObject({ clamped: 3, emptied: 1 });
+  });
+
+  it('keeps a word taken up again in the order it is heard', () => {
+    // Waqf and ibtida': the reciter stops after word 3 and starts again at 2.
+    const segments = [
+      [1, 1000, 1400],
+      [2, 1400, 1900],
+      [3, 1900, 2500],
+      [2, 2800, 3200],
+      [3, 3200, 3800],
+      [4, 3800, 4600],
+    ];
+    // Given out of order, they are put back in order of time.
+    const clean = cleanSegments('9:9', [...segments].reverse(), ayah);
+    expect(clean.words).toEqual(segments);
+    expect(coversAll(clean.words, 4)).toBe(true);
+  });
+
+  it('never lets two words be heard at once', () => {
+    const clean = cleanSegments(
+      '9:9',
+      [
+        [1, 1000, 2000],
+        [2, 1800, 2600], // starts before word 1 ends
+        [3, 2000, 2400], // wholly inside word 2
+        [4, 2600, 3000],
+      ],
+      ayah,
+    );
+    expect(clean.words).toEqual([
+      [1, 1000, 2000],
+      [2, 2000, 2600],
+      [4, 2600, 3000],
+    ]);
+    expect(clean).toMatchObject({ trimmed: 2, emptied: 1 });
+    // Nor across ayat whose times overlap: the last ayah's words ended at 1200.
+    expect(cleanSegments('9:9', [[1, 1000, 1500]], ayah, 1200).words).toEqual([
+      [1, 1200, 1500],
+    ]);
+  });
+
+  it('drops a word with no length', () => {
+    const clean = cleanSegments('9:9', [[1, 2000, 2000]], ayah);
+    expect(clean.words).toEqual([]);
+    expect(clean.emptied).toBe(1);
+  });
+
+  it('joins the two halves of «إِلْ يَاسِينَ» into its one printed word', () => {
+    const clean = cleanSegments(
+      '37:130',
+      [
+        [1, 1000, 1800],
+        [2, 1800, 2400],
+        [3, 2400, 2800],
+        [4, 2810, 3900],
+      ],
+      { from: 1000, to: 5000, words: 3 },
+    );
+    expect(clean.words).toEqual([
+      [1, 1000, 1800],
+      [2, 1800, 2400],
+      [3, 2400, 3900],
+    ]);
+    expect(clean.malformed).toBe(0);
+    // Anywhere else a fourth word in an ayah of three is no word.
+    expect(
+      cleanSegments('9:9', [[4, 2810, 3900]], {
+        from: 1000,
+        to: 5000,
+        words: 3,
+      }).malformed,
+    ).toBe(1);
+  });
+
+  it('counts the words of as-Saffat 130 as the print does', () => {
+    expect(wordCount.get('37:130')).toBe(3);
+  });
+
+  it('writes an ayah as its stretch and a gap and length per word', () => {
+    const words: [number, number, number][] = [
+      [1, 1000, 1400],
+      [2, 1400, 1900],
+      [2, 2800, 3200],
+    ];
+    const entry = encodeAyahWords([1000, 5000], words);
+    expect(entry).toEqual([1000, 5000, 1, 0, 400, 2, 0, 500, 2, 900, 400]);
+    expect(decodeAyahWords(entry)).toEqual({ span: [1000, 5000], words });
+    expect(decodeAyahWords([1000, 5000])).toEqual({
+      span: [1000, 5000],
+      words: [],
+    });
+  });
+});
+
 describe('the files the timings were made from', () => {
   const headers = (h: Record<string, string>) => ({
     get: (name: string) => h[name] ?? null,
@@ -348,5 +571,108 @@ describe('the files the timings were made from', () => {
     );
     expect(fileChange(timed, [1, '2026-09-08T01:47:18Z'])).toContain(', ');
     expect(fileChange(timed, null)).toBe('served without a length or a date');
+  });
+});
+
+describe('word times', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /* Surah 9 of a made-up reciter: ayah 1 read through, ayah 2 with its
+     words 2 and 3 taken up again after a pause, ayah 3 missing word 2. */
+  const file: WordsFile = {
+    source: 'test',
+    surah: 9,
+    partial: [3],
+    ayat: [
+      encodeAyahWords(
+        [0, 1000],
+        [
+          [1, 0, 400],
+          [2, 400, 1000],
+        ],
+      ),
+      encodeAyahWords(
+        [1000, 4000],
+        [
+          [1, 1000, 1500],
+          [2, 1500, 2000],
+          [3, 2000, 2500],
+          [2, 2800, 3200],
+          [3, 3200, 4000],
+        ],
+      ),
+      encodeAyahWords([4000, 5000], [[1, 4100, 4500]]),
+    ],
+  };
+  const w = readWords(file);
+
+  it('finds the word heard at a moment, by time and not by number', () => {
+    expect(wordAt(w, 0)).toEqual({ ayah: 1, word: 1, from: 0, to: 400 });
+    expect(wordAt(w, 400)).toMatchObject({ ayah: 1, word: 2 });
+    expect(wordAt(w, 1999)).toMatchObject({ ayah: 2, word: 2, from: 1500 });
+    expect(wordAt(w, 2600)).toBeNull(); // the pause before taking up again
+    expect(wordAt(w, 2800)).toMatchObject({ ayah: 2, word: 2, from: 2800 });
+    expect(wordAt(w, 3500)).toMatchObject({ ayah: 2, word: 3, from: 3200 });
+    expect(wordAt(w, 4050)).toBeNull();
+    expect(wordAt(w, 5000)).toBeNull();
+    expect(wordAt(w, -1)).toBeNull();
+  });
+
+  it('says which ayat have every word timed', () => {
+    expect([1, 2, 3, 4].map((a) => wordsCovered(w, a))).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(w.ayat[1].words.map((x) => x.word)).toEqual([1, 2, 3, 2, 3]);
+  });
+
+  it('finds the words of a real recording', async () => {
+    const husary = readWords(wordsFile('husary', 1));
+    expect(wordAt(husary, 0)).toMatchObject({ ayah: 1, word: 1 });
+    expect(wordAt(husary, 600)).toMatchObject({ ayah: 1, word: 2 });
+    expect(wordsCovered(husary, 7)).toBe(true);
+  });
+
+  const respond = (body: unknown, status = 200) =>
+    ({ ok: status === 200, status, json: async () => body }) as Response;
+
+  it("fetches a surah's words from the app's own address, once", async () => {
+    const fetch = vi.fn(async () => respond(file));
+    vi.stubGlobal('fetch', fetch);
+    const [a, b] = await Promise.all([
+      loadWords('husary', 9),
+      loadWords('husary', 9),
+    ]);
+    expect(a).toBe(b);
+    expect(await loadWords('husary', 9)).toBe(a);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      `${import.meta.env.BASE_URL}words/husary/9.json`,
+    );
+    expect(wordAt(a, 3500)).toMatchObject({ ayah: 2, word: 3 });
+  });
+
+  it('asks again after a load that failed', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(respond(null, 404))
+      .mockResolvedValueOnce(respond(file));
+    vi.stubGlobal('fetch', fetch);
+    await expect(loadWords('sudais', 9)).rejects.toThrow('404');
+    await expect(loadWords('sudais', 9)).resolves.toMatchObject({ surah: 9 });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses a file for another surah, a surah that is not, and a stranger', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => respond(file)),
+    );
+    await expect(loadWords('shatri', 10)).rejects.toThrow('not surah 10');
+    await expect(loadWords('shatri', 0)).rejects.toThrow(RangeError);
+    await expect(loadWords('shatri', 115)).rejects.toThrow(RangeError);
+    await expect(loadWords('nobody', 1)).rejects.toThrow('no timings');
   });
 });

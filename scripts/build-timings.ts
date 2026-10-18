@@ -1,16 +1,17 @@
-/* Builds when each reciter recites each ayah and each Mushaf page, once.
+/* Builds when each reciter recites each ayah and each word, once.
 
      node scripts/build-timings.ts            fetch what is missing, then build
      node scripts/build-timings.ts --offline  build from .cache only
 
    Run `npm run build:mushaf` first: the page layout decides where a page
-   begins and ends, and this script only measures it.
+   begins and ends and how many words an ayah has, and this script only
+   measures them.
 
-   The source is Quran.com's per-surah recordings with per-ayah
-   timestamps, asked for as its own site asks (`segments=true`; without it
-   the API leaves the timestamps out), and the audio host's own answer to
-   a HEAD request for each surah file. Both are cached under .cache/;
-   delete a file there to fetch it again.
+   The source is Quran.com's per-surah recordings with per-ayah and
+   per-word timestamps, asked for as its own site asks (`segments=true`;
+   without it the API leaves the timestamps out), and the audio host's own
+   answer to a HEAD request for each surah file. Both are cached under
+   .cache/; delete a file there to fetch it again.
 
    Writes src/data/timings/<reciter>.json:
 
@@ -39,6 +40,29 @@
    listen button plays exactly those stretches of the surah file. The ayat
    give the same for any run of ayat, and the ayah being recited.
 
+   And public/words/<reciter>/<surah>.json, served as they are and fetched
+   by the app only when it follows a recitation word by word:
+
+     source   where the words come from
+     surah    the surah's number
+     partial  the ayat, by number, not every word of which is timed; the
+              app marks those by the ayah instead
+     ayat     per ayah in order, [from, to, word, gap, length, …]: the
+              ayah's stretch, then each word as it is heard, its number in
+              the ayah (from 1, as the print counts them; the end-of-ayah
+              marker is never one), where it starts counted from where the
+              word before it ended (the first from the ayah's start), and
+              how long it lasts (`encodeAyahWords`)
+
+   The API's segments are cleaned on the way (`cleanSegments`): entries
+   that are not three numbers, that end before they start or that number
+   a word the ayah does not have are dropped; times are rounded and cut to
+   their ayah; a word number going back (the reciter taking up an earlier
+   word again) is kept in the order heard; no two words overlap. An ayah's
+   words are counted from the page data, where every word carries its
+   verse key and the end-of-ayah marker is one of them: an ayah of n words
+   has n + 1 entries.
+
    The Madani Mushaf ends every page on the end of an ayah, so a page is
    always a run of whole ayat and its length is theirs, with no ayah to cut
    in two. The script checks that rather than assuming it, and that every
@@ -46,9 +70,12 @@
    earlier than the one before, which is what lets the app find an ayah
    by time with a binary search. */
 
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import {
+  cleanSegments,
+  coversAll,
+  encodeAyahWords,
   encodeSpans,
   stampOf,
   surahFile,
@@ -61,6 +88,7 @@ const API = 'https://api.qurancdn.com/api/qdc/audio/reciters';
 const CACHE = '.cache/quran-com/audio';
 const HEADS = '.cache/quranicaudio';
 const OUT = 'src/data/timings';
+const WORDS = 'public/words';
 // The pages are moving from src/data to public; read whichever is there.
 const PAGES = existsSync('src/data/pages') ? 'src/data/pages' : 'public/pages';
 const offline = process.argv.includes('--offline');
@@ -71,6 +99,7 @@ type VerseTiming = {
   verse_key: string;
   timestamp_from: number;
   timestamp_to: number;
+  segments?: unknown;
 };
 type AudioFile = { audio_url: string; verse_timings: VerseTiming[] };
 type PageLine = { t: string; w?: [string, string][] };
@@ -164,6 +193,8 @@ for (let p = 1; p <= pageCount; p++) {
       pagesOfWords.set(key, list);
     }
 }
+/** How many words the print gives an ayah, its end marker left out. */
+const wordsOf = (key: string) => (pagesOfWords.get(key)?.length ?? 0) - 1;
 const ayatOf = (surah: number) => {
   let n = 0;
   while (pagesOfWords.has(`${surah}:${n + 1}`)) n++;
@@ -171,6 +202,8 @@ const ayatOf = (surah: number) => {
 };
 
 await mkdir(OUT, { recursive: true });
+// Every words file is written afresh, so none is left from a reciter gone.
+await rm(WORDS, { recursive: true, force: true });
 
 for (const reciter of reciters) {
   const pages: [number, number, number][][] = Array.from(
@@ -179,6 +212,16 @@ for (const reciter of reciters) {
   );
   const ayat: number[][] = [];
   const files: (FileStamp | undefined)[] = [];
+  const tally = {
+    full: 0,
+    malformed: 0,
+    clamped: 0,
+    trimmed: 0,
+    emptied: 0,
+    repeats: 0,
+    gaps: 0,
+    stray: 0,
+  };
   let urlTemplate = '';
 
   const add = (page: number, surah: number, from: number, to: number) => {
@@ -206,6 +249,7 @@ for (const reciter of reciters) {
       }),
     );
 
+  await mkdir(`${WORDS}/${reciter.id}`, { recursive: true });
   for (let n = 1; n <= 114; n++) {
     const timings = audioFiles[n - 1].verse_timings;
     const where = `${reciter.id}: surah ${n}`;
@@ -213,6 +257,9 @@ for (const reciter of reciters) {
       throw new Error(`${where} has ${timings.length} ayat, not ${ayatOf(n)}`);
 
     const spans: Span[] = [];
+    const words: number[][] = [];
+    const partial: number[] = [];
+    let heard = -Infinity;
     timings.forEach((v, i) => {
       const key = `${n}:${i + 1}`;
       const from = v.timestamp_from;
@@ -231,8 +278,52 @@ for (const reciter of reciters) {
       if (new Set(wordPages).size !== 1)
         throw new Error(`${key} runs over a page break`);
       add(wordPages[0], n, from, to);
+
+      const count = wordsOf(key);
+      const clean = cleanSegments(
+        key,
+        v.segments,
+        { from, to, words: count },
+        heard,
+      );
+      if (clean.words.length) heard = clean.words[clean.words.length - 1][2];
+      if (coversAll(clean.words, count)) tally.full++;
+      else partial.push(i + 1);
+      tally.malformed += clean.malformed;
+      tally.clamped += clean.clamped;
+      tally.trimmed += clean.trimmed;
+      tally.emptied += clean.emptied;
+      clean.words.forEach(([word, start], j) => {
+        const before = clean.words[j - 1];
+        if (!before) return;
+        if (word <= before[0]) tally.repeats++;
+        if (start - before[2] > 300) tally.gaps++;
+      });
+      // Words a second or more outside their own ayah: either they or the
+      // ayah's times are wrong there, and nothing here can tell which.
+      if (
+        Array.isArray(v.segments) &&
+        (v.segments as unknown[]).some(
+          (s) =>
+            Array.isArray(s) &&
+            s.length === 3 &&
+            (Number(s[1]) < from - 1000 || Number(s[2]) > to + 1000),
+        )
+      )
+        tally.stray++;
+      words.push(encodeAyahWords([from, to], clean.words));
     });
+
     ayat.push(encodeSpans(spans));
+    await writeFile(
+      `${WORDS}/${reciter.id}/${n}.json`,
+      JSON.stringify({
+        source: `Quran.com recitation ${reciter.qdc}, word segments from ${API}/${reciter.qdc}/audio_files?chapter=${n}&segments=true, cleaned by scripts/build-timings.ts.`,
+        surah: n,
+        partial,
+        ayat: words,
+      }),
+    );
   }
 
   const empty = pages.findIndex((list) => list.length === 0);
@@ -250,7 +341,13 @@ for (const reciter of reciters) {
     }),
   );
   const total = pages.flat().reduce((s, [, a, b]) => s + (b - a), 0);
+  const ayatCount = ayat.reduce((s, a) => s + a.length / 2, 0);
   console.log(
-    `${reciter.id}: ${(total / 3_600_000).toFixed(1)} h over ${pageCount} pages`,
+    `${reciter.id}: ${(total / 3_600_000).toFixed(1)} h over ${pageCount} pages; ` +
+      `every word timed in ${tally.full} of ${ayatCount} ayat; ` +
+      `${tally.malformed} malformed, ${tally.clamped} cut to their ayah, ` +
+      `${tally.trimmed} overlapping, ${tally.emptied} left empty, ` +
+      `${tally.repeats} repeats, ${tally.gaps} gaps over 300ms, ` +
+      `${tally.stray} ayat with words over a second outside them`,
   );
 }

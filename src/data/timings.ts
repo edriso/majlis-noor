@@ -1,14 +1,24 @@
-/* When a reciter recites each page and each ayah of his surah recordings.
-   Built by scripts/build-timings.ts from Quran.com's per-ayah timestamps,
-   one small file per reciter (src/data/timings/<id>.json), loaded only
-   when a halaqa is timed by that reciter or listens to him: the address of
-   his surah files, the stretch of each page (`pages`) and of each ayah
-   (`ayat`, read through `ayahTimes()`). The script's header documents
-   every field.
+/* When a reciter recites each page, each ayah and each word of his surah
+   recordings. Built by scripts/build-timings.ts from Quran.com's per-ayah
+   and per-word timestamps; its header documents every field.
+
+   - src/data/timings/<id>.json, one small file per reciter, loaded only
+     when a halaqa is timed by that reciter or listens to him: the address
+     of his surah files, the stretch of each page (`pages`) and of each
+     ayah (`ayat`, read through `ayahTimes()`).
+   - public/words/<id>/<surah>.json, his words in one surah, fetched only
+     when a recitation is followed word by word (`loadWords()`).
 
    Every time is in milliseconds from the start of the surah's file. */
 
-import { decodeSpans, surahFile, type FileStamp, type Span } from './audio';
+import {
+  decodeAyahWords,
+  decodeSpans,
+  surahFile,
+  type FileStamp,
+  type Span,
+  type WordsFile,
+} from './audio';
 import { PAGE_COUNT } from './mushaf';
 
 /** [surah, fromMs, toMs]: a stretch of the reciter's recording of that surah. */
@@ -191,3 +201,84 @@ export function ayahAt(t: Timings, surah: number, ms: number): number | null {
   const n = startedBy(spans, ([from]) => from, ms);
   return n > 0 && ms < spans[n - 1][1] ? n : null;
 }
+
+/** A word heard in a surah's recording: its ayah, its number in that ayah
+    as the print counts them (from 1; the end-of-ayah marker is never one),
+    and when. */
+export type WordTime = { ayah: number; word: number; from: number; to: number };
+
+/** A reciter's words in one surah. */
+export type SurahWords = {
+  surah: number;
+  /** Per ayah, index ayah - 1: its stretch, its words in the order heard,
+      and whether every one of its words is among them. Where not, the
+      ayah is to be followed as a whole. */
+  ayat: { from: number; to: number; full: boolean; words: WordTime[] }[];
+  /** Every word of the surah in the order heard, none overlapping another.
+      A reciter who goes back to take up an earlier word again is heard
+      reciting it twice, so a word may appear more than once. */
+  timeline: WordTime[];
+};
+
+/** A words file as the app uses it. */
+export function readWords(file: WordsFile): SurahWords {
+  if (!Array.isArray(file?.ayat) || !Array.isArray(file.partial))
+    throw new Error('not a words file');
+  const partial = new Set(file.partial);
+  const ayat = file.ayat.map((entry, i) => {
+    const { span, words } = decodeAyahWords(entry);
+    return {
+      from: span[0],
+      to: span[1],
+      full: !partial.has(i + 1),
+      words: words.map(([word, from, to]) => ({ ayah: i + 1, word, from, to })),
+    };
+  });
+  const timeline = ayat.flatMap((a) => a.words).sort((a, b) => a.from - b.from);
+  return { surah: file.surah, ayat, timeline };
+}
+
+const words = new Map<string, Promise<SurahWords>>();
+
+/** A reciter's words in one surah, fetched from the app's own origin
+    once, and again only if that failed. */
+export function loadWords(reciter: string, surah: number): Promise<SurahWords> {
+  if (!modules[`./timings/${reciter}.json`])
+    return Promise.reject(new Error(`no timings for ${reciter}`));
+  if (!Number.isInteger(surah) || surah < 1 || surah > 114)
+    return Promise.reject(new RangeError(`not a surah: ${surah}`));
+  const key = `${reciter}/${surah}`;
+  let pending = words.get(key);
+  if (!pending) {
+    const url = `${import.meta.env.BASE_URL}words/${key}.json`;
+    pending = fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`${url}: ${res.status}`);
+        return res.json() as Promise<WordsFile>;
+      })
+      .then((file) => {
+        if (file?.surah !== surah)
+          throw new Error(`${url} is not surah ${surah}`);
+        return readWords(file);
+      });
+    // A failed load (offline, a deploy in progress) is forgotten so the
+    // next attempt tries again instead of failing from the cache.
+    pending.catch(() => words.delete(key));
+    words.set(key, pending);
+  }
+  return pending;
+}
+
+/** The word being recited `ms` into the surah's file, or null between
+    words. Found by time, never by number, so a word taken up again is
+    found again where it is heard again. */
+export function wordAt(w: SurahWords, ms: number): WordTime | null {
+  const n = startedBy(w.timeline, (x) => x.from, ms);
+  const word = w.timeline[n - 1];
+  return word && ms < word.to ? word : null;
+}
+
+/** Whether every word of an ayah is timed; if not, the app marks the ayah
+    as a whole while it is recited. */
+export const wordsCovered = (w: SurahWords, ayah: number) =>
+  w.ayat[ayah - 1]?.full ?? false;
