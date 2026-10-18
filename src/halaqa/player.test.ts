@@ -99,6 +99,7 @@ describe('the player', () => {
   it('waits for a tap when the browser refuses sound', async () => {
     media.refuse = 'NotAllowedError';
     player.play('turn', queue);
+    media.load();
     await flush();
     expect(player.getState().status).toBe('blocked');
     media.refuse = null;
@@ -110,6 +111,7 @@ describe('the player', () => {
   it('starts a held-back recitation on the next tap anywhere', async () => {
     media.refuse = 'NotAllowedError';
     player.play('turn', queue);
+    media.load();
     await flush();
     expect(player.getState().status).toBe('blocked');
     media.refuse = null;
@@ -121,11 +123,13 @@ describe('the player', () => {
   it('starts a held-back recitation on a tap after sound was unlocked', async () => {
     // The first tap of the sitting unlocked the element...
     player.prime();
+    media.load();
     await flush();
     // ...and still a browser may refuse a turn that starts on its own,
     // after the tab was in the background for a while, say.
     media.refuse = 'NotAllowedError';
     player.play('turn', queue);
+    media.load();
     await flush();
     expect(player.getState().status).toBe('blocked');
     media.refuse = null;
@@ -213,5 +217,71 @@ describe('the player', () => {
     player.play('turn', queue);
     media.emit('error');
     expect(player.getState().status).toBe('error');
+  });
+
+  it('reports a recording the browser cannot play', async () => {
+    media.refuse = 'NotSupportedError';
+    player.play('turn', queue);
+    await flush();
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'error' });
+  });
+
+  it('tries a failed recording again from where it stopped', async () => {
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    media.at(40);
+    // The connection drops, or the file turns out damaged, mid-stretch.
+    media.emit('error');
+    expect(player.getState().status).toBe('error');
+    player.resume();
+    // Fetched afresh: an element that failed will not play its file again.
+    expect(media.readyState).toBe(0);
+    expect(media.src).toBe(fileA);
+    media.load();
+    expect(media.currentTime).toBe(40);
+    await flush();
+    expect(player.getState()).toMatchObject({
+      status: 'playing',
+      page: 49,
+      played: 30_000,
+    });
+  });
+
+  it('tries a recording that never loaded again from where it was to start', async () => {
+    player.play('turn', queue, { start: 50 });
+    media.emit('error');
+    player.resume();
+    media.load();
+    expect(media.currentTime).toBe(70);
+  });
+
+  it('gives up on a recording that stops arriving, and not before', async () => {
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    media.at(20);
+    media.emit('waiting');
+    expect(player.getState().status).toBe('loading');
+    await vi.advanceTimersByTimeAsync(15_000);
+    // A little more of the file arrives: slow, not dead.
+    media.emit('progress');
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(player.getState().status).toBe('loading');
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(player.getState().status).toBe('error');
+  });
+
+  it('gives up on a first load that never answers', async () => {
+    player.play('turn', queue);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'error' });
+  });
+
+  it('does not count a pause as a stall', async () => {
+    player.play('turn', queue);
+    player.pause();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(player.getState().status).toBe('paused');
   });
 });

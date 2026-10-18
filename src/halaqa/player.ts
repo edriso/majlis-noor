@@ -77,6 +77,13 @@ const SEAMLESS_MS = 3000;
 /** How far back an overlap can reach and still be one. Further back is the
     same page again, as «استمع» repeating it is, which must seek. */
 const OVERLAP_MS = 10_000;
+/** How long a recording may load with nothing arriving before it counts
+    as failed. A browser announces data as it comes, several times a
+    second, so this long without a byte is a connection that is gone; a
+    slow one keeps resetting it. Without it a turn whose connection died
+    mid-stretch would say «جارٍ تحميل التلاوة» for ever, and never offer
+    to try again. */
+const STALL_MS = 20_000;
 
 export class Player {
   private media: Media | null = null;
@@ -89,6 +96,9 @@ export class Player {
   /** A position to seek to once the recording's length is known. */
   private pendingSeek: number | null = null;
   private stopTimer: ReturnType<typeof setTimeout> | undefined;
+  private stallTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Where in the recording it was when it failed, to try again from. */
+  private failedAt: number | null = null;
   private primed = false;
   private rate = 1;
   private meta: Meta | undefined;
@@ -154,11 +164,13 @@ export class Player {
     this.load(first);
   }
 
-  /** Carries on from where it paused, or tries again after a refusal. */
+  /** Carries on from where it paused, or tries again after a refusal or
+      a failure. */
   resume() {
     const media = this.element();
     if (!this.queue.length) return;
-    if (this.state.status === 'error') return this.load(this.at);
+    if (this.state.status === 'error')
+      return this.load(this.at, true, this.failedAt ?? undefined, true);
     this.set({ status: 'loading' });
     this.start(media);
   }
@@ -233,8 +245,41 @@ export class Player {
 
   private set(patch: Partial<PlayerState>) {
     this.state = { ...this.state, ...patch };
+    if (patch.status) this.watch();
     for (const listener of this.listeners) listener();
     if (patch.status && this.session) setPlaybackState(patch.status);
+  }
+
+  /** Waits for a loading recording, and gives up on it if nothing arrives
+      for too long (see STALL_MS). Called on every change of status and
+      every arrival of data; only `loading` is watched. */
+  private watch() {
+    clearTimeout(this.stallTimer);
+    this.stallTimer = undefined;
+    if (this.state.status !== 'loading') return;
+    this.stallTimer = setTimeout(() => {
+      if (this.state.status === 'loading' && this.queue.length) this.fail();
+    }, STALL_MS);
+  }
+
+  /** The recording would not play: says so, and remembers where it was,
+      so that trying again carries on from there. */
+  private fail() {
+    this.clearTimer();
+    this.failedAt = this.recordingMs() ?? null;
+    this.set({ status: 'error' });
+  }
+
+  /** Milliseconds into the recording of the stretch now playing: where
+      the element is, or where it is about to be once a new file loads. */
+  private recordingMs() {
+    const segment = this.queue[this.at];
+    if (!segment) return undefined;
+    const ms =
+      this.pendingSeek !== null
+        ? this.pendingSeek * 1000
+        : (this.media?.currentTime ?? 0) * 1000;
+    return Math.min(Math.max(ms, segment.from), segment.to);
   }
 
   private element(): Media {
@@ -273,34 +318,44 @@ export class Player {
       if (this.queue.length && this.state.status === 'playing')
         this.set({ status: 'loading' });
     });
+    // More of the file has arrived: a slow connection, not a dead one.
+    media.addEventListener('progress', () => this.watch());
     media.addEventListener('loadedmetadata', () => {
       if (this.pendingSeek === null) return;
       media.currentTime = this.pendingSeek;
       this.pendingSeek = null;
     });
     media.addEventListener('error', () => {
-      if (!this.queue.length) return;
-      this.clearTimer();
-      this.set({ status: 'error' });
+      if (this.queue.length) this.fail();
     });
     this.media = media;
     return media;
   }
 
-  private load(i: number, autoplay = true) {
+  /**
+   * Plays segment `i`, from its start or from `ms` into the recording.
+   * `fresh` fetches the file again even if it is the one loaded: an
+   * element that failed on a file will not play it again until it does.
+   */
+  private load(i: number, autoplay = true, ms?: number, fresh = false) {
     const media = this.element();
     const segment = this.queue[i];
+    const from = ms ?? segment.from;
     this.at = i;
+    this.failedAt = null;
     this.clearTimer();
-    this.set({ played: this.playedBefore(i) });
-    const from = segment.from / 1000;
-    if (sameFile(media.src, segment.url) && media.readyState >= 1) {
+    this.set({
+      played:
+        this.playedBefore(i) +
+        Math.min(Math.max(from - segment.from, 0), segment.to - segment.from),
+    });
+    if (!fresh && sameFile(media.src, segment.url) && media.readyState >= 1) {
       this.pendingSeek = null;
-      media.currentTime = from;
+      media.currentTime = from / 1000;
     } else {
       // Until the new file's metadata is in, its position cannot be set,
       // and the element still reports the old file's.
-      this.pendingSeek = from;
+      this.pendingSeek = from / 1000;
       media.src = segment.url;
     }
     if (autoplay) {
@@ -322,7 +377,8 @@ export class Player {
         const name = error instanceof Error ? error.name : '';
         // A play cut short by a pause or a new source is not a failure.
         if (name === 'AbortError') return;
-        this.set({ status: name === 'NotAllowedError' ? 'blocked' : 'error' });
+        if (name === 'NotAllowedError') this.set({ status: 'blocked' });
+        else this.fail();
       },
     );
   }
