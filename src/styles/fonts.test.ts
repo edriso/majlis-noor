@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
@@ -148,13 +148,9 @@ const covers = (font: Set<number>, text: string) =>
     .filter((c) => !font.has(c.codePointAt(0)!))
     .map((c) => `U+${c.codePointAt(0)!.toString(16).toUpperCase()}`);
 
-/** Every page's file, wherever the pages are kept: generated into
-    src/data/pages, or served from public/pages. */
+/** Every page's file, as the app serves it from public/pages. */
 const pageTexts = () => {
-  const dir = ['src/data/pages', 'public/pages']
-    .map((d) => join(root, d))
-    .find((d) => existsSync(join(d, '1.json')));
-  if (!dir) throw new Error('no Mushaf pages found');
+  const dir = join(root, 'public/pages');
   const files = readdirSync(dir).filter((f) => /^\d+\.json$/.test(f));
   expect(files).toHaveLength(604);
   return files.flatMap((f) =>

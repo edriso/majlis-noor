@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PAGE_COUNT, surahs, type Page } from './mushaf';
@@ -39,16 +39,12 @@ const timings = import.meta.glob<Timings>('./timings/*.json', {
 });
 const load = (id: string) => timings[`./timings/${id}.json`];
 
-/* The pages are read from disk rather than imported, from whichever of the
-   two places they are kept in (they are moving to public/), as the build
-   script reads them. */
+/* The pages are read from disk, where the app serves them from, as the
+   build script reads them. */
 const read = <T>(...path: string[]) =>
   JSON.parse(readFileSync(join(process.cwd(), ...path), 'utf8')) as T;
-const pagesDir = ['src/data/pages', 'public/pages'].find((dir) =>
-  existsSync(join(process.cwd(), dir, '1.json')),
-)!;
 const pages = Array.from({ length: PAGE_COUNT }, (_, i) =>
-  read<Page>(pagesDir, `${i + 1}.json`),
+  read<Page>('public/pages', `${i + 1}.json`),
 );
 const page = (n: number) => pages[n - 1];
 

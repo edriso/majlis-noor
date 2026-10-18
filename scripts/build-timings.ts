@@ -89,8 +89,7 @@ const CACHE = '.cache/quran-com/audio';
 const HEADS = '.cache/quranicaudio';
 const OUT = 'src/data/timings';
 const WORDS = 'public/words';
-// The pages are moving from src/data to public; read whichever is there.
-const PAGES = existsSync('src/data/pages') ? 'src/data/pages' : 'public/pages';
+const PAGES = 'public/pages';
 const offline = process.argv.includes('--offline');
 // A few at a time: quick, without hammering a free host.
 const AT_ONCE = 8;
