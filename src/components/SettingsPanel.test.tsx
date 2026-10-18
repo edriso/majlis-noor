@@ -18,6 +18,7 @@ const open = () => {
   const session = reduce(initialState, {
     type: 'start',
     config: defaultConfig,
+    at: 0,
   }).session!;
   render(
     <SettingsPanel
