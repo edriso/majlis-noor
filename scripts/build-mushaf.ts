@@ -102,6 +102,33 @@ for (let p = 1; p <= PAGES; p++) {
     for (const word of verse.words) words.set(word.id, { ...word, verse });
 }
 
+/* An ayah's end-of-ayah mark comes after its last word. The API puts one
+   mark before them: 84:21's (word 23997) on line 13 of page 589, while
+   «عَلَيْهِمُ ٱلْقُرْءَانُ لَا يَسْجُدُونَ ۩» are on line 14, which the print
+   ends with that mark. Its glyph, U+FCC1, falls between those of
+   «يَسْجُدُونَ ۩» and of the «بَلِ» after them, and a page font numbers its
+   glyphs in reading order. So a mark the API sets on an earlier line than
+   its ayah's last word is moved to that word's line, and the pages below
+   are checked to run in glyph order, which catches any other. */
+const lastWord = new Map<string, ApiWord>();
+for (const w of words.values())
+  if (
+    w.char_type_name !== 'end' &&
+    w.position > (lastWord.get(w.verse.verse_key)?.position ?? 0)
+  )
+    lastWord.set(w.verse.verse_key, w);
+for (const w of words.values()) {
+  if (w.char_type_name !== 'end') continue;
+  const last = lastWord.get(w.verse.verse_key)!;
+  if (
+    w.page_number < last.page_number ||
+    (w.page_number === last.page_number && w.line_number < last.line_number)
+  ) {
+    w.page_number = last.page_number;
+    w.line_number = last.line_number;
+  }
+}
+
 type Line =
   | { t: 'surah'; s: number }
   | { t: 'basmala' }
@@ -194,6 +221,19 @@ for (let p = 1; p <= PAGES; p++) {
   );
   const unique = [...new Set(keys)];
   for (const l of lines) if (l.t === 'surah') surahStart.set(l.s, p);
+  // A page font numbers its glyphs in reading order, so codes that do not
+  // rise along the page mean a word is on the wrong line. (A hizb quarter's
+  // ۞ is written with a space between its glyphs.)
+  const codes = lines.flatMap((l) =>
+    l.t === 'text'
+      ? l.w.flatMap(([c]) =>
+          Array.from(c.replaceAll(' ', ''), (g) => g.codePointAt(0)!),
+        )
+      : [],
+  );
+  const behind = codes.findIndex((c, i) => i > 0 && c <= codes[i - 1]);
+  if (behind > 0)
+    throw new Error(`page ${p}: glyph ${behind + 1} is out of reading order`);
   // The Madani print ends every page on a whole ayah, so every page begins
   // a new one; the index relies on that.
   if (unique[0] === order.at(-1))

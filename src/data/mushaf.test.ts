@@ -53,9 +53,11 @@ const keysOf = (p: Page) => [
 /** Every verse key in the Mushaf in reading order: index i is ayah i + 1. */
 const order = pages.flatMap(keysOf);
 
-/** SHA-256 of the 604 page files read in order, as built on 2026-10-04. */
+/** SHA-256 of the 604 page files read in order, as built on 2026-10-04 and
+    rebuilt on 2026-10-18 with 84:21's end-of-ayah mark moved from line 13
+    of page 589 to its place after «يَسْجُدُونَ ۩» on line 14. */
 const PAGES_SHA256 =
-  '376544220476eb2927a65559afcad10b24727c50481cdbf5049ebf835b8cafa4';
+  'f7801618b62d81198b9f423f455268a59f66ac48d262e422196ccfa535137725';
 
 describe('the Mushaf', () => {
   it('has exactly 604 pages', () => {
@@ -72,6 +74,31 @@ describe('the Mushaf', () => {
     const digest = createHash('sha256');
     for (const text of raw) digest.update(text);
     expect(digest.digest('hex')).toBe(PAGES_SHA256);
+  });
+
+  it('keeps every glyph in reading order, so no word is on the wrong line', () => {
+    // A page font numbers its glyphs in reading order (a hizb quarter's ۞ is
+    // written with a space between its glyphs).
+    for (const p of pages) {
+      const codes = p.lines.flatMap((l) =>
+        l.t === 'text'
+          ? l.w.flatMap(([c]) =>
+              Array.from(c.replaceAll(' ', ''), (g) => g.codePointAt(0)!),
+            )
+          : [],
+      );
+      const behind = codes.findIndex((c, i) => i > 0 && c <= codes[i - 1]);
+      expect(behind, `page ${p.page}`).toBe(-1);
+    }
+  });
+
+  it('ends 84:21 with its mark on line 14 of page 589, as the print does', () => {
+    // The API puts this one mark on line 13, before the ayah's last words;
+    // scripts/build-mushaf.ts moves it.
+    const [l13, l14] = [12, 13].map((i) => pages[588].lines[i]);
+    if (l13.t !== 'text' || l14.t !== 'text') throw new Error('not text');
+    expect(l13.x.endsWith('وَإِذَا قُرِئَ')).toBe(true);
+    expect(l14.x).toContain('يَسْجُدُونَ ۩ ﴿٢١﴾ بَلِ');
   });
 
   it('sets every page on 15 lines, and the opening two on 8', () => {
