@@ -7,6 +7,9 @@
    or more segments; a page holding the end of one surah and the start of
    the next is two.
 
+   A third, an ayah heard alone, plays over them (`over`): what was playing
+   waits, whole, and carries on from the same place when the ayah ends.
+
    One element for everything, because a phone lets a page play sound only
    from an element that has already played once in answer to a tap. `prime()`
    plays a moment of silence on it from the first tap, so a reciter whose
@@ -40,7 +43,12 @@ export type PlayerState = {
   /** Milliseconds played and in all, over the whole queue. */
   played: number;
   total: number;
+  /** The recitation waiting under this one, which plays over it (see
+      `play`), as it stood when it began to wait. */
+  waiting: Waiting | null;
 };
+
+export type Waiting = Omit<PlayerState, 'waiting'>;
 
 /** Where a recitation is in its recording (see `Player.position()`). */
 export type Position = {
@@ -77,6 +85,19 @@ const IDLE: PlayerState = {
   page: 0,
   played: 0,
   total: 0,
+  waiting: null,
+};
+
+/** A recitation set aside under another, kept whole to be put back. */
+type Held = {
+  state: Waiting;
+  queue: Segment[];
+  at: number;
+  /** Where in the recording it stood, to carry on from. */
+  ms: number;
+  onPage?: (page: number) => void;
+  onDone?: () => void;
+  meta?: Meta;
 };
 
 /** Two stretches of the same recording this close are played as one. The
@@ -113,6 +134,12 @@ export class Player {
   private stallTimer: ReturnType<typeof setTimeout> | undefined;
   /** Where in the recording it was when it failed, to try again from. */
   private failedAt: number | null = null;
+  /** The element failed, and plays nothing more until its file is fetched
+      again, even the file it already has. */
+  private broken = false;
+  /** What plays now plays over another recitation, and what waits. */
+  private over = false;
+  private under: Held | null = null;
   private primed = false;
   private rate = 1;
   private meta: Meta | undefined;
@@ -145,6 +172,12 @@ export class Player {
    * Plays `queue` from its first segment on `start` (or its first), replacing
    * whatever was playing. `onPage` hears each new page as the recitation
    * reaches it, and `onDone` the end of the queue.
+   *
+   * With `over`, what was playing is not replaced but waits (`waiting`), as
+   * it stood: when this queue ends or is stopped, it is put back at the
+   * same place in its recording, reciting again if it was, paused if it
+   * was paused, failed if it had failed. Played over something itself
+   * played over another, it replaces that one, and the first still waits.
    */
   play(
     key: string,
@@ -154,8 +187,12 @@ export class Player {
       onPage?: (page: number) => void;
       onDone?: () => void;
       meta?: Meta;
+      over?: boolean;
     } = {},
   ) {
+    if (options.over) this.hold();
+    else this.under = null;
+    this.over = !!options.over;
     this.clearTimer();
     this.queue = queue;
     this.onPage = options.onPage;
@@ -171,6 +208,7 @@ export class Player {
       page: queue[first]?.page ?? 0,
       played: this.playedBefore(first),
       total,
+      waiting: this.under?.state ?? null,
     });
     if (queue.length === 0) return this.finish();
     this.meta = options.meta;
@@ -215,7 +253,7 @@ export class Player {
     const media = this.element();
     if (!this.queue.length) return;
     if (this.state.status === 'error')
-      return this.load(this.at, true, this.failedAt ?? undefined, true);
+      return this.load(this.at, true, this.failedAt ?? undefined);
     this.set({ status: 'loading' });
     this.start(media);
   }
@@ -227,12 +265,22 @@ export class Player {
     this.set({ status: 'paused' });
   }
 
-  /** Stops, if what is playing is `key`'s (or anything, with no key). */
+  /** Stops, if what is playing is `key`'s (or anything, with no key). What
+      waited under it carries on. A recitation waiting under another is
+      `key`'s too: stopped, it is dropped, and never comes back. */
   stop(key?: string) {
-    if (key !== undefined && key !== this.state.key) return;
+    if (key !== undefined && key !== this.state.key) {
+      if (this.under?.state.key === key) {
+        this.under = null;
+        this.set({ waiting: null });
+      }
+      return;
+    }
+    if (key === undefined) this.under = null;
     this.clearTimer();
     this.queue = [];
     this.onPage = this.onDone = undefined;
+    if (this.release()) return;
     this.media?.pause();
     this.set(IDLE);
   }
@@ -312,7 +360,52 @@ export class Player {
   private fail() {
     this.clearTimer();
     this.failedAt = this.recordingMs() ?? null;
+    this.broken = true;
     this.set({ status: 'error' });
+  }
+
+  /** Sets aside what is playing, for what is about to play over it. */
+  private hold() {
+    if (this.over || !this.queue.length) return;
+    const { waiting: _, ...state } = this.state;
+    const ms = this.recordingMs() ?? 0;
+    this.under = {
+      state,
+      queue: this.queue,
+      at: this.at,
+      ms: state.status === 'error' ? (this.failedAt ?? ms) : ms,
+      onPage: this.onPage,
+      onDone: this.onDone,
+      meta: this.meta,
+    };
+  }
+
+  /** Puts back what waited under the queue that has just ended or been
+      stopped, and says whether there was anything. */
+  private release() {
+    const held = this.under;
+    this.under = null;
+    this.over = false;
+    if (!held) return false;
+    const { status } = held.state;
+    const sounding = status === 'playing' || status === 'loading';
+    this.queue = held.queue;
+    this.onPage = held.onPage;
+    this.onDone = held.onDone;
+    this.meta = held.meta;
+    if (!sounding) this.media?.pause();
+    this.set({
+      ...held.state,
+      status: sounding ? 'loading' : status,
+      waiting: null,
+    });
+    if (this.session) setMediaSession(this.meta, this.artwork, this);
+    if (status === 'error') {
+      // As it was: the next press tries again from where it failed.
+      this.at = held.at;
+      this.failedAt = held.ms;
+    } else this.load(held.at, sounding, held.ms);
+    return true;
   }
 
   /** Milliseconds into the recording of the stretch now playing: where
@@ -379,12 +472,8 @@ export class Player {
     return media;
   }
 
-  /**
-   * Plays segment `i`, from its start or from `ms` into the recording.
-   * `fresh` fetches the file again even if it is the one loaded: an
-   * element that failed on a file will not play it again until it does.
-   */
-  private load(i: number, autoplay = true, ms?: number, fresh = false) {
+  /** Plays segment `i`, from its start or from `ms` into the recording. */
+  private load(i: number, autoplay = true, ms?: number) {
     const media = this.element();
     const segment = this.queue[i];
     const from = ms ?? segment.from;
@@ -396,13 +485,20 @@ export class Player {
         this.playedBefore(i) +
         Math.min(Math.max(from - segment.from, 0), segment.to - segment.from),
     });
-    if (!fresh && sameFile(media.src, segment.url) && media.readyState >= 1) {
+    if (
+      !this.broken &&
+      sameFile(media.src, segment.url) &&
+      media.readyState >= 1
+    ) {
       this.pendingSeek = null;
       media.currentTime = from / 1000;
     } else {
       // Until the new file's metadata is in, its position cannot be set,
-      // and the element still reports the old file's.
+      // and the element still reports the old file's. An element that
+      // failed will not play even the file it has until it fetches it
+      // again.
       this.pendingSeek = from / 1000;
+      this.broken = false;
       media.src = segment.url;
     }
     if (autoplay) {
@@ -477,11 +573,13 @@ export class Player {
   }
 
   private finish() {
-    this.media?.pause();
     const done = this.onDone;
     this.queue = [];
     this.onPage = this.onDone = undefined;
-    this.set({ status: 'ended', played: this.state.total });
+    if (!this.release()) {
+      this.media?.pause();
+      this.set({ status: 'ended', played: this.state.total });
+    }
     done?.();
   }
 

@@ -385,6 +385,181 @@ describe('the player', () => {
   });
 });
 
+describe('playing over a recitation', () => {
+  // Al-Baqarah 2:255, in the same recording as the turn.
+  const ayah: Segment = { url: fileA, from: 20_000, to: 25_000, page: 49 };
+  const status = () => player.getState().status;
+
+  /** A turn reciting page 49, 40 seconds into al-Baqarah. */
+  const turnAt40 = async (options: Parameters<Player['play']>[2] = {}) => {
+    player.play('turn', queue, options);
+    media.load();
+    await flush();
+    media.at(40);
+  };
+
+  it('holds the turn, and carries it on from the same place', async () => {
+    const pages: number[] = [];
+    await turnAt40({ onPage: (p) => pages.push(p) });
+    player.play('ayah', [ayah], { over: true });
+    expect(player.getState()).toMatchObject({
+      key: 'ayah',
+      status: 'loading',
+      waiting: { key: 'turn', status: 'playing', page: 49, played: 30_000 },
+    });
+    expect(media.currentTime).toBe(20);
+    await flush();
+    expect(status()).toBe('playing');
+    media.at(25);
+    expect(player.getState()).toMatchObject({
+      key: 'turn',
+      status: 'loading',
+      page: 49,
+      played: 30_000,
+      waiting: null,
+    });
+    expect(media.currentTime).toBe(40);
+    await flush();
+    expect(status()).toBe('playing');
+    // Still the turn it was, with its own callbacks.
+    media.at(70);
+    expect(pages).toEqual([50]);
+  });
+
+  it('loads the turn’s recording back when the ayah was in another', async () => {
+    player.play('turn', [queue[2]]);
+    media.load();
+    await flush();
+    media.at(12);
+    player.play('ayah', [ayah], { over: true });
+    expect(media.src).toBe(fileA);
+    media.load();
+    expect(media.currentTime).toBe(20);
+    await flush();
+    media.at(25);
+    expect(media.src).toBe(fileB);
+    media.load();
+    expect(media.currentTime).toBe(12);
+    await flush();
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'playing' });
+  });
+
+  it('leaves a turn the reader paused paused, at its place', async () => {
+    await turnAt40();
+    player.pause();
+    player.play('ayah', [ayah], { over: true });
+    await flush();
+    media.at(25);
+    await flush();
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'paused' });
+    expect(media.paused).toBe(true);
+    expect(media.currentTime).toBe(40);
+    player.resume();
+    await flush();
+    expect(status()).toBe('playing');
+    expect(media.currentTime).toBe(40);
+  });
+
+  it('carries the turn on when the ayah is stopped half way', async () => {
+    await turnAt40();
+    player.play('ayah', [ayah], { over: true });
+    await flush();
+    media.at(22);
+    player.stop('ayah');
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'loading' });
+    expect(media.currentTime).toBe(40);
+    await flush();
+    expect(status()).toBe('playing');
+  });
+
+  it('drops a turn that moved on while it waited', async () => {
+    const done = vi.fn();
+    await turnAt40({ onDone: done });
+    player.play('ayah', [ayah], { over: true });
+    await flush();
+    // «تخطَّ» while the ayah plays: the turn's hook stops its recitation.
+    player.stop('turn');
+    expect(player.getState()).toMatchObject({ key: 'ayah', waiting: null });
+    media.at(25);
+    expect(player.getState()).toMatchObject({ key: 'ayah', status: 'ended' });
+    expect(done).not.toHaveBeenCalled();
+  });
+
+  it('keeps the turn waiting when one ayah replaces another', async () => {
+    await turnAt40();
+    player.play('ayah:1', [ayah], { over: true });
+    await flush();
+    player.play('ayah:2', [ayah, ayah], { over: true });
+    expect(player.getState()).toMatchObject({
+      key: 'ayah:2',
+      waiting: { key: 'turn' },
+    });
+    await flush();
+    media.at(25);
+    await flush();
+    media.at(25);
+    expect(player.getState()).toMatchObject({ key: 'turn', waiting: null });
+    expect(media.currentTime).toBe(40);
+  });
+
+  it('lets a new recitation replace both', async () => {
+    await turnAt40();
+    player.play('ayah', [ayah], { over: true });
+    player.play('next turn', [queue[2]]);
+    expect(player.getState()).toMatchObject({
+      key: 'next turn',
+      waiting: null,
+    });
+  });
+
+  it('plays over nothing as a recitation of its own', async () => {
+    const done = vi.fn();
+    player.play('ayah', [ayah], { over: true, onDone: done });
+    media.load();
+    await flush();
+    media.at(25);
+    expect(done).toHaveBeenCalledOnce();
+    expect(player.getState()).toMatchObject({ key: 'ayah', status: 'ended' });
+  });
+
+  it('leaves the turn to carry on after an ayah that failed', async () => {
+    await turnAt40();
+    player.play('ayah', [ayah], { over: true });
+    media.emit('error');
+    expect(player.getState()).toMatchObject({
+      key: 'ayah',
+      status: 'error',
+      waiting: { key: 'turn' },
+    });
+    player.stop('ayah');
+    // The element failed on this file, so it is fetched afresh.
+    expect(media.readyState).toBe(0);
+    expect(media.src).toBe(fileA);
+    media.load();
+    expect(media.currentTime).toBe(40);
+    await flush();
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'playing' });
+  });
+
+  it('keeps a failed turn failed, to try again from where it failed', async () => {
+    await turnAt40();
+    media.emit('error');
+    player.play('ayah', [ayah], { over: true });
+    expect(player.getState().waiting).toMatchObject({ status: 'error' });
+    // Fetched afresh, after the failure.
+    expect(media.readyState).toBe(0);
+    media.load();
+    await flush();
+    media.at(25);
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'error' });
+    // The file has just played, so trying again only seeks.
+    player.resume();
+    expect(media.currentTime).toBe(40);
+    await flush();
+    expect(player.getState()).toMatchObject({ key: 'turn', status: 'playing' });
+  });
+});
+
 describe('the lock screen', () => {
   type Session = {
     metadata: { title: string } | null;
@@ -441,6 +616,20 @@ describe('the lock screen', () => {
     media.load();
     await flush();
     expect(player.getState().status).toBe('playing');
+    expect(session).toMatchObject({ playbackState: 'playing', metadata: meta });
+  });
+
+  it('shows the turn again when an ayah played over it ends', async () => {
+    player.play('turn', queue, { meta });
+    media.load();
+    await flush();
+    const ayahMeta = { title: 'البقرة ٢٥٥', artist: 'الحصري' };
+    player.play('ayah', [{ url: fileA, from: 20_000, to: 25_000, page: 49 }], {
+      over: true,
+      meta: ayahMeta,
+    });
+    expect(session.metadata).toMatchObject(ayahMeta);
+    player.stop('ayah');
     expect(session).toMatchObject({ playbackState: 'playing', metadata: meta });
   });
 });
