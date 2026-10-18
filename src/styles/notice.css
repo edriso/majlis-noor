@@ -1,0 +1,35 @@
+/* A new version waiting (UpdateNotice.tsx): one quiet line on the start
+   screen, the width of its column, with a button that does not compete
+   with the screen's own gold one. */
+
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  width: min(560px, calc(100% - 2 * var(--space-4)));
+  margin: max(var(--space-4), env(safe-area-inset-top)) auto 0;
+  padding: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+/* Gold words in a gold rim, a pair the contrast test measures on the
+   surface, rather than a second gold fill. */
+.update-notice-button {
+  min-height: var(--target);
+  padding-inline: var(--space-4);
+  border-color: var(--gold-line);
+  background: transparent;
+  color: var(--gold);
+  font-size: var(--text-sm);
+}
+.update-notice-button:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}

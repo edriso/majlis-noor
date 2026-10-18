@@ -69,3 +69,11 @@
   flex: none;
   color: var(--muted);
 }
+
+/* An icon's colour set on the icon itself is not taken over with forced
+   colours, and the muted grey would stay; the system's text colour it is. */
+@media (forced-colors: active) {
+  .summary-row > svg {
+    color: CanvasText;
+  }
+}
