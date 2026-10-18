@@ -30,13 +30,18 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Stilled, not shortened. A transition of 0.01ms on every property still
+   runs, so a script that reads the layout straight after a change reads
+   the old value, and an animation that ends unseen (a toast fading out)
+   played in 0.01ms is never seen at all. With none, everything is at once
+   where it ends up, and every element keeps its own resting style. In the
+   first layer, whose `!important` outranks every later layer's. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
