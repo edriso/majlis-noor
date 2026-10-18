@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { BASMALA_GLYPHS } from '@/mushaf/MushafPage';
 import {
   juzOfPage,
   juzStarts,
+  loadedPage,
+  loadPage,
   PAGE_COUNT,
   rubLabel,
   surahOfPage,
@@ -10,18 +14,20 @@ import {
   type Page,
 } from './mushaf';
 
-const files = import.meta.glob<Page>('./pages/*.json', {
-  eager: true,
-  import: 'default',
-});
+// The pages are served from public/, so they are read here as the files
+// they are, exactly as the browser will fetch them. (A path, not a URL:
+// jsdom's URL is not one Node's file functions accept.)
+const dir = join(import.meta.dirname, '../../public/pages');
+const files = readdirSync(dir);
 const pages: Page[] = Array.from(
   { length: PAGE_COUNT },
-  (_, i) => files[`./pages/${i + 1}.json`],
+  (_, i) =>
+    JSON.parse(readFileSync(join(dir, `${i + 1}.json`), 'utf8')) as Page,
 );
 
 describe('the Mushaf', () => {
   it('has exactly 604 pages', () => {
-    expect(Object.keys(files)).toHaveLength(PAGE_COUNT);
+    expect(files).toHaveLength(PAGE_COUNT);
     expect(pages.map((p) => p.page)).toEqual(
       Array.from({ length: PAGE_COUNT }, (_, i) => i + 1),
     );
@@ -101,5 +107,42 @@ describe('the Mushaf', () => {
     expect(rubLabel(2)).toBe('ربع الحزب ١');
     expect(rubLabel(7)).toBe('نصف الحزب ٢');
     expect(rubLabel(240)).toBe('ثلاثة أرباع الحزب ٦٠');
+  });
+});
+
+describe('loading a page', () => {
+  it('fetches each page once, sharing a request still on its way', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    const first = loadPage(77);
+    expect(loadPage(77)).toBe(first);
+    const page = await first;
+    expect(page.page).toBe(77);
+    expect(loadedPage(77)).toBe(page);
+    expect(loadPage(77)).toBe(first);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // The address is the site's base followed by the page's own file.
+    expect(fetch.mock.calls[0][0]).toBe(
+      `${import.meta.env.BASE_URL}pages/77.json`,
+    );
+    fetch.mockRestore();
+  });
+
+  it('forgets a failed load, so the next attempt tries again', async () => {
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new TypeError('offline'));
+    await expect(loadPage(78)).rejects.toThrow('offline');
+    expect(loadedPage(78)).toBeUndefined();
+    expect((await loadPage(78)).page).toBe(78);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    fetch.mockRestore();
+  });
+
+  it('refuses an answer that is not the page', async () => {
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('', { status: 404 }));
+    await expect(loadPage(79)).rejects.toThrow('page 79: 404');
+    fetch.mockRestore();
   });
 });

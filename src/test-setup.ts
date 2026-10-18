@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
@@ -42,3 +44,32 @@ Object.assign(HTMLMediaElement.prototype, {
   pause: () => {},
   load: () => {},
 });
+
+/* The Mushaf's pages are files in public/pages, which the app fetches by
+   address and which no server serves here. Those addresses, and only those,
+   are answered from disk; every other request goes where it went before. */
+const networkFetch = globalThis.fetch;
+const pageFile = (input: RequestInfo | URL) => {
+  try {
+    const href = input instanceof Request ? input.url : String(input);
+    const path = new URL(href, window.location.href).pathname;
+    return /\/pages\/(\d+)\.json$/.exec(path)?.[1];
+  } catch {
+    return undefined;
+  }
+};
+globalThis.fetch = async (input, init) => {
+  const n = pageFile(input);
+  if (n === undefined) return networkFetch(input, init);
+  try {
+    const body = await readFile(
+      join(import.meta.dirname, `../public/pages/${n}.json`),
+      'utf8',
+    );
+    return new Response(body, {
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch {
+    return new Response('', { status: 404 });
+  }
+};

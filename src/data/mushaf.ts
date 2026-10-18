@@ -2,8 +2,9 @@
 
    `mushaf.json` is the small index every screen needs without opening a page:
    the 114 surahs and, per page, its first surah, juz and hizb quarter. The
-   pages themselves are one JSON file each, loaded when they are about to be
-   read. Both are built by scripts/build-mushaf.ts and committed. */
+   pages themselves are one JSON file each in public/pages, fetched when they
+   are about to be read. Both are built by scripts/build-mushaf.ts and
+   committed. */
 
 import index from './mushaf.json';
 import { arabic } from './arabic';
@@ -77,28 +78,37 @@ export function rubLabel(rub: number) {
 /** «سورة البقرة». */
 export const surahTitle = (n: number) => `سورة ${surah(n).name}`;
 
-const pageModules = import.meta.glob<{ default: Page }>('./pages/*.json');
-
 const cache = new Map<number, Promise<Page>>();
 const loaded = new Map<number, Page>();
 
 /** A page already loaded, to draw without waiting a frame for its promise. */
 export const loadedPage = (p: number) => loaded.get(p);
 
+/* The pages are plain files in public/pages, fetched by address rather than
+   bundled: a map of 604 chunk imports was a sizeable part of the main
+   script, and a file whose address never changes is simple for the service
+   worker to keep. The address goes through BASE_URL, since the site may be
+   served from a sub-path. */
+async function fetchPage(n: number): Promise<Page> {
+  const res = await fetch(`${import.meta.env.BASE_URL}pages/${n}.json`);
+  if (!res.ok) throw new Error(`page ${n}: ${res.status}`);
+  return (await res.json()) as Page;
+}
+
 /**
  * One page, loaded once and kept: a halaqa moves forward a page or two at a
- * time and steps back as often, so nothing is ever loaded twice.
+ * time and steps back as often, so nothing is ever loaded twice. A page
+ * asked for again while on its way shares the same request.
  */
 export function loadPage(p: number): Promise<Page> {
   const n = clampPage(p);
   let pending = cache.get(n);
   if (!pending) {
-    const load = pageModules[`./pages/${n}.json`];
-    pending = load().then((m) => {
-      loaded.set(n, m.default);
-      return m.default;
+    pending = fetchPage(n).then((page) => {
+      loaded.set(n, page);
+      return page;
     });
-    // A failed load (offline, a deploy replacing the chunk) is forgotten so
+    // A failed load (offline before the page was ever kept) is forgotten so
     // the next attempt tries again instead of failing from the cache.
     pending.catch(() => cache.delete(n));
     cache.set(n, pending);

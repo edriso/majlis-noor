@@ -5,12 +5,14 @@
 
    What it writes:
 
-     src/data/pages/1.json … 604.json  one file per Mushaf page: its 15 lines,
-                                       each a surah header, a basmala, or the
-                                       glyph codes of the words on that line
-     src/data/mushaf.json              the index every screen needs without
-                                       loading a page: the 114 surahs, and the
-                                       juz, hizb quarter and surah of each page
+     public/pages/1.json … 604.json  one file per Mushaf page: its 15 lines,
+                                     each a surah header, a basmala, or the
+                                     glyph codes of the words on that line;
+                                     served as they are and fetched by the
+                                     app when a page is about to be read
+     src/data/mushaf.json            the index every screen needs without
+                                     loading a page: the 114 surahs, and the
+                                     juz, hizb quarter and surah of each page
 
    The layout is the King Fahd Complex Madani Mushaf (1421H print), the one
    whose page fonts Quran.com serves as "v2". Each page has its own font, and
@@ -29,6 +31,7 @@ import { existsSync } from 'node:fs';
 const API = 'https://api.quran.com/api/v4';
 const CACHE = '.cache/quran-com';
 const OUT = 'src/data';
+const PAGES_OUT = 'public/pages';
 const PAGES = 604;
 const offline = process.argv.includes('--offline');
 
@@ -73,7 +76,7 @@ const pageUrl = (p: number) =>
   `${API}/verses/by_page/${p}?words=true&word_fields=code_v1,code_v2,line_number,page_number,text_uthmani,v1_page,v2_page,line_v2&per_page=all&fields=juz_number,hizb_number,rub_el_hizb_number,sajdah_number,text_uthmani`;
 
 await mkdir(`${CACHE}/pages`, { recursive: true });
-await mkdir(`${OUT}/pages`, { recursive: true });
+await mkdir(PAGES_OUT, { recursive: true });
 
 const { chapters } = await cached<{ chapters: ApiChapter[] }>(
   'chapters.json',
@@ -193,7 +196,7 @@ for (let p = 1; p <= PAGES; p++) {
 
   pageMeta.push([surahs[0], first.juz_number, first.rub_el_hizb_number]);
   await writeFile(
-    `${OUT}/pages/${p}.json`,
+    `${PAGES_OUT}/${p}.json`,
     JSON.stringify({
       page: p,
       surahs,
@@ -218,4 +221,4 @@ const index = {
   pages: pageMeta,
 };
 await writeFile(`${OUT}/mushaf.json`, JSON.stringify(index));
-console.log(`wrote ${PAGES} pages and ${OUT}/mushaf.json`);
+console.log(`wrote ${PAGES} pages to ${PAGES_OUT} and ${OUT}/mushaf.json`);
