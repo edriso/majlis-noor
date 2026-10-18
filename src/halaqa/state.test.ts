@@ -1054,9 +1054,27 @@ describe('a saved halaqa', () => {
     expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
+  it('keeps following the word, and follows the ayah until asked', () => {
+    expect(sanitizeState({}).prefs.follow).toBe('ayah');
+    const s = reduce(initialState, {
+      type: 'prefs',
+      prefs: { follow: 'word' },
+    });
+    expect(sanitizeState(JSON.parse(JSON.stringify(s))).prefs.follow).toBe(
+      'word',
+    );
+  });
+
   it('is repaired, never trusted', () => {
     const s = sanitizeState({
-      prefs: { theme: 'neon', view: 7, speed: 3, listenRepeat: 0, cue: 'x' },
+      prefs: {
+        theme: 'neon',
+        view: 7,
+        speed: 3,
+        listenRepeat: 0,
+        follow: 'letter',
+        cue: 'x',
+      },
       config: { readers: 'x', pagesPerTurn: 9, startPage: 9000 },
       session: { turn: -3, anchor: { turn: 5, page: 0 }, config: {} },
     });
@@ -1065,6 +1083,7 @@ describe('a saved halaqa', () => {
       photos: 'show',
       speed: 1,
       listenRepeat: 1,
+      follow: 'ayah',
       cue: 'chime',
     });
     expect(s.config.size).toBe(1);

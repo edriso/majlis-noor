@@ -54,6 +54,9 @@ export type Speed = 0.75 | 1 | 1.25;
 /** Whether a soft tone marks a turn that passes on its own, when its time
     runs out or a reciter finishes, since nobody touched the screen. */
 export type Cue = 'chime' | 'none';
+/** What the page marks while a sheikh recites: the ayah he is on, or the
+    word, where his timings hold every word of that ayah. */
+export type Follow = 'ayah' | 'word';
 
 /** Eight seats: a family, a class, or a few readers and a sheikh. More
     would crowd the circle on a phone, and a bigger gathering has its own
@@ -126,6 +129,7 @@ export type Prefs = {
   speed: Speed;
   /** How many times «استمع» recites the page. */
   listenRepeat: 1 | 2 | 3;
+  follow: Follow;
   cue: Cue;
 };
 
@@ -183,6 +187,7 @@ export const defaultPrefs: Prefs = {
   photos: 'show',
   speed: 1,
   listenRepeat: 1,
+  follow: 'ayah',
   cue: 'chime',
 };
 
@@ -862,6 +867,7 @@ export function sanitizeState(raw: unknown): State {
     photos: oneOf(p.photos, photoModes, 'show'),
     speed: oneOf(p.speed, [0.75, 1, 1.25] as const, 1),
     listenRepeat: oneOf(p.listenRepeat, [1, 2, 3] as const, 1),
+    follow: oneOf(p.follow, ['ayah', 'word'] as const, 'ayah'),
     cue: oneOf(p.cue, ['chime', 'none'] as const, 'chime'),
   };
   const config = sanitizeConfig(r.config);
