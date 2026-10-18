@@ -17,13 +17,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مجلس نور" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- The interface fonts are the app's own (src/styles/fonts.css). Only
+         the two the first screen cannot do without are fetched ahead of the
+         stylesheet: Reem Kufi, which draws the boot screen, and Plex's
+         regular weight, the body's. Fonts are fetched in CORS mode, so the
+         preload is too, or the browser would fetch each twice. -->
+    <link rel="preload" href="%BASE_URL%fonts/reem-kufi/ReemKufi-Arabic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="%BASE_URL%fonts/ibm-plex-sans-arabic/IBMPlexSansArabic-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://static.qurancdn.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;600&display=swap"
-    />
     <title>مجلس نور، حلقة قرآن أينما كنتم</title>
     <meta
       name="description"

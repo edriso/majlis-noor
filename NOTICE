@@ -106,11 +106,46 @@ initial instead.
 In the app, «عن مجلس نور» in the settings links to this file.
 
 
-The interface fonts, which are not redistributed
-------------------------------------------------
-IBM Plex Sans Arabic, Reem Kufi, Amiri and Amiri Quran are all under the SIL
-Open Font License and none of them is in this repository: index.html links
-them from Google Fonts and the browser fetches them.
+The interface fonts
+-------------------
+public/fonts/<family>/, declared in src/styles/fonts.css and served from
+the app's own origin. All four are under the SIL Open Font License,
+Version 1.1, and are redistributed with it: each folder holds its family's
+OFL.txt as the upstream release ships it, copyright line included.
+
+    ibm-plex-sans-arabic/
+      IBM Plex Sans Arabic 1.005, from IBM's package @ibm/plex-sans-arabic
+      1.1.0 (https://github.com/IBM/plex). Copyright 2017 IBM Corp., with
+      Reserved Font Name "Plex". The Regular, Medium and SemiBold woff2
+      files exactly as IBM ships them, unmodified, since a modified version
+      may not carry the reserved name.
+
+    reem-kufi/
+      Reem Kufi 2.000, from the v2.0 release of
+      https://github.com/aliftype/reem-kufi. Copyright 2015-2022 The Reem
+      Kufi Project Authors, with Reserved Font Name "Josefin Sans" (the
+      source of its Latin, which is not shipped). ReemKufi-Arabic.woff2 is
+      the variable ReemKufi.ttf subset to Arabic letters, marks, digits and
+      punctuation and converted to woff2; it keeps its own name, which is
+      not the reserved one.
+
+    amiri/
+      Amiri 1.003, from the 1.003 release of
+      https://github.com/aliftype/amiri. Copyright 2010-2022 The Amiri
+      Project Authors; no Reserved Font Name. Amiri-Regular-Arabic.woff2
+      and Amiri-Bold-Arabic.woff2 are Amiri-Regular.ttf and Amiri-Bold.ttf
+      subset to Arabic letters, marks, digits and punctuation and converted
+      to woff2.
+
+    amiri-quran/
+      Amiri Quran 1.003, from the same release and under the same terms.
+      AmiriQuran.woff2 is AmiriQuran.ttf converted to woff2 and nothing
+      more: it sets the Quran's text when a page font cannot load, so it is
+      never subset, and src/styles/fonts.test.ts checks that it draws every
+      character of the 604 pages.
+
+Subsets and conversions were made with fontTools, keeping every layout
+feature and every name record.
 
 
 If you bring in a new dataset, font, photograph or audio source, add it here
