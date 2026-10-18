@@ -341,6 +341,19 @@ export function readFamilies(root: Element = document.documentElement) {
   };
 }
 
+/**
+ * A colour as the canvas writes it back ('#rrggbb', or 'rgba(r, g, b, a)'
+ * when translucent) with nothing of it showing. A light fading to
+ * transparent black greys as it goes, which shows on the day theme.
+ */
+export function clear(colour: string) {
+  if (/^#[0-9a-f]{6}$/i.test(colour)) return `${colour}00`;
+  return colour.replace(
+    /^rgba?\(([^,]+),([^,]+),([^,)]+).*$/,
+    'rgba($1,$2,$3, 0)',
+  );
+}
+
 /** The diamond of the Mushaf's surah headers, in a box `size` wide. */
 function diamond(
   ctx: CanvasRenderingContext2D,
@@ -436,7 +449,7 @@ export function drawCard(
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
   const light = ctx.createRadialGradient(CX, -200, 0, CX, -200, 1000);
   light.addColorStop(0, p.lamp);
-  light.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  light.addColorStop(1, clear(p.lamp));
   ctx.fillStyle = light;
   ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 

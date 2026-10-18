@@ -11,6 +11,7 @@ import {
 import {
   balancedLines,
   CARD_HEIGHT,
+  clear,
   CONTENT,
   facesOf,
   FAMILIES,
@@ -194,5 +195,12 @@ describe('the fonts a picture needs', () => {
       ].sort(),
     );
     expect(faces.get(`600 16px ${FAMILIES.brand}`)).toBe('ختام المجلسمجلس نور');
+  });
+});
+
+describe('the light over the ground', () => {
+  it('fades to its own colour, not to black', () => {
+    expect(clear('rgba(255, 252, 244, 0.4)')).toBe('rgba(255, 252, 244, 0)');
+    expect(clear('#fbf6e8')).toBe('#fbf6e800');
   });
 });
