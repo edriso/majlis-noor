@@ -122,9 +122,11 @@ const decoded = new WeakMap<Timings, Span[][]>();
     starts and ends no earlier than the one before (the build checks it),
     though one may start a little before the last has ended. */
 export function ayahTimes(t: Timings, surah: number): readonly Span[] {
+  const deltas = t.ayat[surah - 1];
+  if (!deltas) return [];
   let surahs = decoded.get(t);
   if (!surahs) decoded.set(t, (surahs = []));
-  return (surahs[surah - 1] ??= decodeSpans(t.ayat[surah - 1] ?? []));
+  return (surahs[surah - 1] ??= decodeSpans(deltas));
 }
 
 /** A run of ayat of one surah, as the stretch of its file to play. */

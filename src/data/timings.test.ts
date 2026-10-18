@@ -355,6 +355,9 @@ describe('ayah times', () => {
     // Where two overlap, the one just begun is the one recited.
     expect(ayahAt(fake, 2, 2995)).toBe(3);
     expect(ayahAt(fake, 4, 0)).toBeNull();
+    expect(ayahAt(fake, 0, 600)).toBeNull();
+    expect(ayahTimes(fake, 0)).toEqual([]);
+    expect(ayahTimes(fake, 1)).toBe(ayahTimes(fake, 1)); // decoded once
   });
 
   it('finds every ayah of a real recording at its own start and middle', () => {
