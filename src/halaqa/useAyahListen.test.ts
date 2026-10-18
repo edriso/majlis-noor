@@ -106,6 +106,18 @@ describe('an ayah alone', () => {
     expect(turn.result.current.status).toBe('playing');
   });
 
+  it('stops an ayah asked for in the same moment', async () => {
+    const turn = await turnAt40();
+    const { result } = renderHook(() => useAyahListen());
+    act(() => {
+      result.current.play('2:6', ayah);
+      result.current.stop();
+    });
+    expect(result.current.status).toBe('idle');
+    await settle();
+    expect(turn.result.current.status).toBe('playing');
+  });
+
   it('stops when the page or the turn it belongs to changes', async () => {
     const turn = await turnAt40();
     const { result, rerender } = renderHook(

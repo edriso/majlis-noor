@@ -80,9 +80,12 @@ export function useAyahListen(scope = '') {
       });
       setMine({ key, id, scope });
     },
-    /** Stops it; what waited carries on. */
+    /** Stops it; what waited carries on. Read from the token rather than
+        from what was drawn, so an ayah asked for a moment ago, before the
+        screen caught up, is stopped too. */
     stop: () => {
-      if (current) player.stop(current.key);
+      const key = live.current.key;
+      if (key) player.stop(key);
     },
     /** Pauses it if it is sounding, and says whether it was. */
     pause: () => {
