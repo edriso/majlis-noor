@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="ar" dir="rtl" data-theme="green">
+<html lang="ar" dir="rtl" data-theme="%THEME%">
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0c2019" />
+    <meta name="theme-color" content="%THEME_COLOR%" />
     <!-- Every path goes through %BASE_URL%, which Vite fills in per build:
          the site lives under a project path on GitHub Pages, and a
          hand-written absolute path would look for its files at the domain
@@ -42,14 +42,11 @@
     <meta name="twitter:image" content="%SHARE_CARD%" />
     <style>
       /* Painted before the bundle loads, in the theme the reader chose, so a
-         return visit never flashes the wrong colour. */
-      html { background: #0c2019; }
-      html[data-theme='burgundy'] { background: #2a0f14; }
-      html[data-theme='blue'] { background: #0d1729; }
-      html[data-theme='sand'] { background: #f3eadb; }
-      html[data-theme='sand'] .boot { color: #7c5714; }
+         return visit never flashes the wrong colour. Each theme's ground and
+         gold are written in at build time from src/styles/themes.ts. */
+      %THEME_GROUNDS%
       body { margin: 0; }
-      .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; color: #d9b469; font: 600 28px/1.5 'Reem Kufi', system-ui, sans-serif; }
+      .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; color: var(--boot-gold); font: 600 28px/1.5 'Reem Kufi', system-ui, sans-serif; }
     </style>
     <script>
       try {
@@ -61,12 +58,8 @@
             'null'
         );
         var theme = saved && saved.prefs && saved.prefs.theme;
-        var colors = {
-          burgundy: '#2a0f14',
-          green: '#0c2019',
-          blue: '#0d1729',
-          sand: '#f3eadb'
-        };
+        // Each theme's ground, written in from src/styles/themes.ts.
+        var colors = %THEME_COLORS%;
         if (colors[theme]) {
           document.documentElement.dataset.theme = theme;
           document.querySelector('meta[name="theme-color"]').setAttribute('content', colors[theme]);

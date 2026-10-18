@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { themeHtml } from './src/styles/themes.ts';
 
 /* The site is served from a project path on GitHub Pages and could be served
    from a domain root or a mirror, so nothing may assume where it lives. The
@@ -32,6 +33,14 @@ export default defineConfig({
           );
         return html.replaceAll(TOKEN, shareCard);
       },
+    },
+    {
+      /* The boot screen is painted before the bundle loads, so index.html
+         cannot import the theme colours; it is given them here, from the
+         same map the app reads. First, before Vite reads the inline style
+         as CSS, which a token is not. */
+      name: 'theme-colours',
+      transformIndexHtml: { order: 'pre', handler: themeHtml },
     },
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },

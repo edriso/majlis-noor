@@ -9,17 +9,8 @@ import {
   isComplete,
   type Prefs,
   type State,
-  type Theme,
 } from './halaqa/state';
-
-/** The colour the browser's own chrome takes on a phone, per theme. Kept in
-    step with `--bg` in styles/tokens.css and with index.html. */
-export const THEME_COLOR: Record<Theme, string> = {
-  burgundy: '#2a0f14',
-  green: '#0c2019',
-  blue: '#0d1729',
-  sand: '#f3eadb',
-};
+import { THEMES } from './styles/themes';
 
 /**
  * Two screens and no router. The app always opens on the start screen, which
@@ -39,9 +30,10 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // The colour a phone paints its own bars in follows the ground.
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', THEME_COLOR[theme]);
+      ?.setAttribute('content', THEMES[theme].ground);
   }, [theme]);
 
   // The press that opens a halaqa is the one a phone needs to let a

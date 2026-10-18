@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { THEMES } from './themes';
 
 /* Recomputes the contrast table at the head of tokens.css from the colours
    it actually declares, in every theme, so a colour changed for looks cannot
@@ -26,12 +27,10 @@ const block = (selector: string) => {
 };
 
 const root = block(':root {');
-const themes = {
-  burgundy: block(":root[data-theme='burgundy']"),
-  green: block(":root[data-theme='green']"),
-  blue: block(":root[data-theme='blue']"),
-  sand: block(":root[data-theme='sand']"),
-};
+// Every theme the app offers, so a new one is measured as soon as it exists.
+const themes = Object.fromEntries(
+  Object.keys(THEMES).map((t) => [t, block(`:root[data-theme='${t}']`)]),
+);
 
 const luminance = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => {

@@ -103,24 +103,13 @@
   font-size: 14px;
 }
 
+/* Each dot's colour is its own theme's, set inline from styles/themes.ts. */
 .swatch {
   display: inline-block;
   width: 14px;
   height: 14px;
   border-radius: 999px;
   box-shadow: 0 0 0 1px var(--control-border);
-}
-.swatch[data-swatch='burgundy'] {
-  background: #6b1f2c;
-}
-.swatch[data-swatch='green'] {
-  background: #1d5a43;
-}
-.swatch[data-swatch='blue'] {
-  background: #233f73;
-}
-.swatch[data-swatch='sand'] {
-  background: #eadcc0;
 }
 
 @media (max-width: 759px) {

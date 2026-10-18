@@ -1,5 +1,6 @@
 import { chime, wakeChime } from '@/halaqa/chime';
 import type { Cue, Photos, Prefs, Speed, Theme } from '@/halaqa/state';
+import { THEMES as COLOURS } from '@/styles/themes';
 import { Choice } from './Choice';
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -33,7 +34,7 @@ export function AppearanceFields({
             <>
               <span
                 className="swatch"
-                data-swatch={t.value}
+                style={{ background: COLOURS[t.value].swatch }}
                 aria-hidden="true"
               />
               {t.label}
