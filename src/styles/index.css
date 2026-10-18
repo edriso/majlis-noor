@@ -22,6 +22,7 @@
 @import url('./sheet.css') layer(components);
 @import url('./place-picker.css') layer(components);
 @import url('./notice.css') layer(components);
+@import url('./close.css') layer(components);
 
 @import url('./setup.css') layer(screens);
 @import url('./settings.css') layer(screens);

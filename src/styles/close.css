@@ -1,0 +1,154 @@
+/* «ختام المجلس», the close of a sitting (CloseCard.tsx): the card on the
+   theme's ground, as the picture saved from it is, its title in the
+   brand's Kufi, gold kept for the title, the count and the one main
+   action, and the supplication quieter than the rest. */
+
+/* The card's sheet is the card: the ground and its light rather than the
+   raised surface other sheets stand on, and a title set like the app's
+   name, centred, with an empty box on its right as wide as «إغلاق» on its
+   left. Chosen from inside, since Sheet takes no class of its own. */
+.sheet:has(> .sheet-body > .close-card) {
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    ellipse 90% 45% at 50% -10%,
+    var(--lamp),
+    transparent 70%
+  );
+}
+.sheet:has(> .sheet-body > .close-card) .sheet-header {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.sheet:has(> .sheet-body > .close-card) .sheet-header::after {
+  content: '';
+  order: -1;
+  flex: none;
+  width: var(--target);
+}
+.sheet:has(> .sheet-body > .close-card) .sheet-title {
+  color: var(--gold);
+  font-family: var(--font-brand);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  text-align: center;
+}
+.sheet:has(> .sheet-body > .close-card) .sheet-body {
+  padding-top: var(--space-4);
+}
+
+.close-card {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* The face: a double rule like the Mushaf's frame, the second drawn as an
+   inset ring, everything centred inside it. */
+.close-face {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 0 0 0 5px var(--bg),
+    inset 0 0 0 6px var(--gold-line);
+  text-align: center;
+  line-height: var(--leading-tight);
+}
+.close-face p {
+  margin: 0;
+}
+
+.close-dates,
+.close-read {
+  display: grid;
+  gap: var(--space-1);
+}
+.close-day {
+  font-weight: 500;
+}
+.close-day-other {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.close-read {
+  font-weight: 500;
+}
+.close-amount {
+  color: var(--gold);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.close-present-label {
+  color: var(--muted);
+}
+
+/* Said phrase by phrase, a line to each where there is room, in the
+   naskh of the Mushaf's own headings. */
+.close-supplication {
+  color: var(--muted);
+  font-family: var(--font-naskh);
+  font-size: var(--text-lg);
+  line-height: var(--leading-prose);
+}
+
+.close-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  color: var(--gold);
+  font-family: var(--font-brand);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.close-ornament {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(220px, 70%);
+  margin-block: var(--space-1);
+}
+.close-ornament::before,
+.close-ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gold-line);
+}
+.close-ornament svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.6;
+}
+
+.close-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+.close-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.close-actions-row .button {
+  padding-inline: var(--space-3);
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--fg);
+  font-weight: 500;
+}
+.close-actions-row .button:hover {
+  background: var(--hover);
+}
+.close-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  text-align: center;
+}
