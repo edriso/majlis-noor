@@ -1,7 +1,8 @@
 import { chime, wakeChime } from '@/halaqa/chime';
-import type { Cue, Photos, Prefs, Speed, Theme } from '@/halaqa/state';
+import type { Photos, Prefs, Speed, Theme } from '@/halaqa/state';
 import { THEMES as COLOURS } from '@/styles/themes';
 import { Choice } from './Choice';
+import { Switch } from './Switch';
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'green', label: 'أخضر' },
@@ -11,7 +12,7 @@ const THEMES: { value: Theme; label: string }[] = [
 ];
 
 /**
- * How the app looks: its colour, and how the reciters' photographs appear.
+ * How the app looks: its colour, and how the sheikhs' photographs appear.
  * The same fields in the settings of a halaqa and behind the gear on the
  * start screen, where the photographs are first seen.
  */
@@ -24,27 +25,30 @@ export function AppearanceFields({
 }) {
   return (
     <>
-      <Choice<Theme>
-        legend="اللون"
-        value={prefs.theme}
-        onChange={(theme) => onChange({ theme })}
-        options={THEMES.map((t) => ({
-          value: t.value,
-          label: (
-            <>
-              <span
-                className="swatch"
-                style={{ background: COLOURS[t.value].swatch }}
-                aria-hidden="true"
-              />
-              {t.label}
-            </>
-          ),
-        }))}
-      />
+      {/* Four colours, two to a row where four do not fit. */}
+      <div className="theme-choice">
+        <Choice<Theme>
+          legend="اللون"
+          value={prefs.theme}
+          onChange={(theme) => onChange({ theme })}
+          options={THEMES.map((t) => ({
+            value: t.value,
+            label: (
+              <>
+                <span
+                  className="swatch"
+                  style={{ background: COLOURS[t.value].swatch }}
+                  aria-hidden="true"
+                />
+                {t.label}
+              </>
+            ),
+          }))}
+        />
+      </div>
       <div className="field">
         <Choice<Photos>
-          legend="صور القرّاء"
+          legend="صور المشايخ"
           value={prefs.photos}
           onChange={(photos) => onChange({ photos })}
           options={[
@@ -55,7 +59,7 @@ export function AppearanceFields({
         />
         <p className="field-note">
           إن مُوِّهت لم تُعرف الوجوه، وإن أُخفيت لم تُحمَّل أصلًا، ويظهر مكانها الحرف الأول
-          من اسم القارئ.
+          من اسم الشيخ.
         </p>
       </div>
     </>
@@ -64,8 +68,9 @@ export function AppearanceFields({
 
 /**
  * How recitations sound: their speed, how many times «استمع» recites the
- * page, and the tone for a turn that passes on its own. Choosing the tone
- * plays it, so it is heard before it is kept.
+ * page, and the tone for a turn that passes on its own, which is on or
+ * off and so a switch. Turning the tone on plays it, so it is heard as it
+ * is kept.
  */
 export function SoundFields({
   prefs,
@@ -101,26 +106,18 @@ export function SoundFields({
           { value: 3, label: 'ثلاثًا' },
         ]}
       />
-      <div className="field">
-        <Choice<Cue>
-          legend="تنبيه انتقال الدور"
-          value={prefs.cue}
-          onChange={(cue) => {
-            onChange({ cue });
-            if (cue === 'chime') {
-              wakeChime();
-              chime();
-            }
-          }}
-          options={[
-            { value: 'chime', label: 'نغمة خفيفة' },
-            { value: 'none', label: 'بلا تنبيه' },
-          ]}
-        />
-        <p className="field-note">
-          حين ينتقل الدور وحده: بانتهاء التوقيت، أو بانتهاء تلاوة الشيخ.
-        </p>
-      </div>
+      <Switch
+        label="نغمة عند انتقال الدور"
+        hint="حين ينتقل الدور وحده: بانتهاء التوقيت، أو بانتهاء تلاوة الشيخ."
+        checked={prefs.cue === 'chime'}
+        onChange={(on) => {
+          onChange({ cue: on ? 'chime' : 'none' });
+          if (on) {
+            wakeChime();
+            chime();
+          }
+        }}
+      />
     </>
   );
 }

@@ -42,6 +42,22 @@
   font-size: var(--text-sm);
 }
 
+/* The four colours, two to a row in a sheet as narrow as a phone, where
+   a row of pills would leave one alone on a second line. */
+.theme-choice {
+  container-type: inline-size;
+}
+.theme-choice .choice-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-radius: var(--radius-md);
+}
+@container (min-width: 440px) {
+  .theme-choice .choice-options {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 /* Each dot's colour is its own theme's, set inline from styles/themes.ts. */
 .swatch {
   display: inline-block;
