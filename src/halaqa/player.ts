@@ -42,6 +42,17 @@ export type PlayerState = {
   total: number;
 };
 
+/** Where a recitation is in its recording (see `Player.position()`). */
+export type Position = {
+  /** The key of the recitation, as in `PlayerState`. */
+  key: string;
+  /** The recording playing, and the page its stretch recites. */
+  url: string;
+  page: number;
+  /** Milliseconds into the recording: the file's own time. */
+  ms: number;
+};
+
 export type Meta = { title: string; artist: string; artwork?: string };
 
 /** The part of an audio element the player uses. */
@@ -165,6 +176,37 @@ export class Player {
     this.meta = options.meta;
     if (this.session) setMediaSession(this.meta, this.artwork, this);
     this.load(first);
+  }
+
+  /**
+   * Where the recitation is in its recording, for marking the ayah, or the
+   * word, being recited: the stretch playing and the milliseconds into its
+   * file. Null unless it is reciting (playing, or waiting for more of the
+   * file mid-stretch), and while a new file loads, since the element still
+   * reports the old file's time until then.
+   *
+   * The time is the file's own at any speed. `currentTime` is a place in
+   * the recording, and at 1.25 the element only reaches each place sooner;
+   * timings name places in the recording, so the two compare as they are.
+   * Only a span on the clock, as the stop timer's, is divided by the rate.
+   *
+   * Kept inside the stretch: at its end the element can read a little past
+   * it before the player moves on, which is the ayah after the stretch,
+   * not one being recited.
+   */
+  position(): Position | null {
+    const media = this.media;
+    const segment = this.queue[this.at];
+    const { key, status } = this.state;
+    if (!media || !segment || this.pendingSeek !== null) return null;
+    if (status !== 'playing' && status !== 'loading') return null;
+    const ms = media.currentTime * 1000;
+    return {
+      key,
+      url: segment.url,
+      page: segment.page,
+      ms: Math.max(segment.from, Math.min(ms, segment.to - 1)),
+    };
   }
 
   /** Carries on from where it paused, or tries again after a refusal or

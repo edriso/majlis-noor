@@ -226,6 +226,62 @@ describe('the player', () => {
     expect(done).toHaveBeenCalledOnce();
   });
 
+  it('says where it is in the recording, and in which stretch', async () => {
+    expect(player.position()).toBeNull();
+    player.play('turn', queue);
+    // The element still knows only the old file's time.
+    expect(player.position()).toBeNull();
+    media.load();
+    await flush();
+    media.currentTime = 12.345;
+    expect(player.position()).toEqual({
+      key: 'turn',
+      url: fileA,
+      page: 49,
+      ms: 12_345,
+    });
+    media.at(70);
+    media.currentTime = 71;
+    expect(player.position()).toMatchObject({ page: 50, ms: 71_000 });
+  });
+
+  it('says where it is in the recording’s own time, at any speed', async () => {
+    player.setRate(1.25);
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    // Forty seconds into the file, which at 1.25 took 32 on the clock:
+    // the timings name places in the file, so the file's time is wanted.
+    media.currentTime = 40;
+    expect(player.position()?.ms).toBe(40_000);
+  });
+
+  it('keeps the position inside the stretch playing', async () => {
+    player.play('listen', [queue[0], queue[0]]);
+    media.load();
+    await flush();
+    // A moment past the end, before the player seeks back: still the
+    // stretch's last ayah, not the one after it.
+    media.currentTime = 70.01;
+    expect(player.position()?.ms).toBe(69_999);
+  });
+
+  it('gives no position unless it is reciting', async () => {
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    media.currentTime = 20;
+    player.pause();
+    expect(player.position()).toBeNull();
+    player.resume();
+    expect(player.position()).toMatchObject({ ms: 20_000 });
+    // Waiting for more of the file, still in the same place.
+    media.emit('waiting');
+    expect(player.position()).toMatchObject({ ms: 20_000 });
+    player.stop();
+    expect(player.position()).toBeNull();
+  });
+
   it('notices a pause it did not make', async () => {
     player.play('turn', queue);
     media.load();

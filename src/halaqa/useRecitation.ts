@@ -145,6 +145,9 @@ export function useReciterTurn({
         : 'loading';
 
   return {
+    /** What his recitation plays under, for `usePlaybackPosition`; empty
+        on a reader's turn. */
+    key,
     status,
     /** His recitation will not play: neither his timings nor his
         recording would load, or the connection died and stayed dead.
@@ -255,6 +258,8 @@ export function useListen({
   };
 
   return {
+    /** What it plays under, for `usePlaybackPosition`. */
+    key,
     status,
     pause,
     resume,

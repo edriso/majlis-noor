@@ -111,6 +111,14 @@ describe('a reciter’s turn', () => {
     expect(result.current).toMatchObject({ status: 'loading', failed: false });
   });
 
+  it('names his recitation for following its position', async () => {
+    const { result } = turn(timings);
+    act(() => main.load());
+    await settle();
+    expect(result.current.key).toBe('turn:1:husary');
+    expect(player.getState().key).toBe(result.current.key);
+  });
+
   it('lets the screen offer to skip when his timings would not load', () => {
     const { result } = turn(null);
     expect(result.current).toMatchObject({ status: 'error', failed: true });
