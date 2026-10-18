@@ -2,7 +2,12 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { arabic } from '@/data/arabic';
 import { surahOfPage } from '@/data/mushaf';
 import { reciterById } from '@/data/reciters';
-import { loadTimings, recitationOf, type Timings } from '@/data/timings';
+import {
+  loadTimings,
+  pageTimed,
+  recitationOf,
+  type Timings,
+} from '@/data/timings';
 import { wakeChime } from './chime';
 import { Player, type Meta, type PlayerStatus } from './player';
 
@@ -125,6 +130,11 @@ export function useReciterTurn({
   const t = reciter ? timings[reciter] : undefined;
   const key = reciter ? `turn:${turnKey}:${reciter}` : '';
   const pagesKey = pages.join(',');
+  // A page whose recording is not the one his timings were made from is
+  // not recited at all, and neither is the turn that holds it: played,
+  // it could be the wrong ayat, and left out, the circle would race past
+  // it with nobody reciting it. The turn waits, failed, for «تخطَّ».
+  const untimed = !!t && pages.some((p) => !pageTimed(t, p));
 
   // The latest callbacks and page, read when the recitation starts and as
   // it goes, without making either restart it.
@@ -134,7 +144,7 @@ export function useReciterTurn({
   });
 
   useEffect(() => {
-    if (!reciter || !t) return;
+    if (!reciter || !t || untimed) return;
     const start = latest.current.page;
     player.play(key, recitationOf(t, pagesKey.split(',').map(Number)), {
       start,
@@ -143,7 +153,7 @@ export function useReciterTurn({
       meta: metaFor(reciter, start),
     });
     return () => player.stop(key);
-  }, [key, reciter, t, pagesKey]);
+  }, [key, reciter, t, pagesKey, untimed]);
 
   const mine = key !== '' && state.key === key;
   // An ayah heard alone plays over the turn, which waits as it stood.
@@ -161,7 +171,7 @@ export function useReciterTurn({
 
   const status: PlayerStatus = !reciter
     ? 'idle'
-    : t === null
+    : t === null || untimed
       ? 'error'
       : waiting
         ? waiting.status === 'error'
@@ -177,8 +187,9 @@ export function useReciterTurn({
     key,
     status,
     /** His recitation will not play: neither his timings nor his
-        recording would load, or the connection died and stayed dead.
-        The turn waits; the screen offers «تخطَّ» beside trying again. */
+        recording would load, the connection died and stayed dead, or his
+        timings do not fit his recording of a page in the turn. The turn
+        waits; the screen offers «تخطَّ» beside trying again. */
     failed: status === 'error',
     /** Time left in the turn, once its recitation is known. */
     left: own ? Math.max(0, own.total - own.played) / rate : null,
@@ -187,6 +198,7 @@ export function useReciterTurn({
         again after a failure. */
     toggle: () => {
       if (t === null) onRetry();
+      else if (untimed) return;
       else if (waiting) takeBack(key);
       else if (status === 'playing' || status === 'loading') player.pause();
       else if (mine) player.resume();
@@ -261,6 +273,9 @@ export function useListen({
     const go = (t: Timings) => {
       settle(null);
       if (!current()) return;
+      // His recording of this page is not the one his timings fit, so it
+      // is not played at all, and the button says it cannot be.
+      if (!pageTimed(t, page)) return setPending({ key, status: 'error' });
       const once = recitationOf(t, [page]);
       player.play(key, Array.from({ length: repeat }, () => once).flat(), {
         meta: metaFor(reciter, page),

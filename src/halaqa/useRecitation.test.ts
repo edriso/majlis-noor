@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Timings } from '@/data/timings';
 import { FakeMedia } from './fakeMedia';
-import { player, useReciterTurn, useSample } from './useRecitation';
+import { player, useListen, useReciterTurn, useSample } from './useRecitation';
 
 // Every element the app makes is a fake one, in the order it makes them:
 // the halaqa's player's first (made below), then the samples'.
@@ -125,5 +125,49 @@ describe('a reciter’s turn', () => {
   it('lets the screen offer to skip when his timings would not load', () => {
     const { result } = turn(null);
     expect(result.current).toMatchObject({ status: 'error', failed: true });
+  });
+
+  it('recites nothing on a page his recording does not fit, and waits', async () => {
+    // As al-Sudais's an-Nisa, whose file is 99 s shorter than its timings:
+    // played, it would be the wrong ayat; skipped, the circle would race on.
+    const onDone = vi.fn();
+    const { result } = renderHook(() =>
+      useReciterTurn({
+        reciter: 'husary',
+        turnKey: '2',
+        pages: [1, 2],
+        page: 1,
+        timings: { husary: { ...timings, untimed: [2] } },
+        rate: 1,
+        onPage: () => {},
+        onDone,
+        onRetry: () => {},
+      }),
+    );
+    await settle();
+    expect(result.current).toMatchObject({ status: 'error', failed: true });
+    expect(player.getState().key).not.toBe(result.current.key);
+    act(() => result.current.toggle());
+    await settle();
+    expect(player.getState().key).not.toBe(result.current.key);
+    expect(onDone).not.toHaveBeenCalled();
+  });
+});
+
+describe('«استمع»', () => {
+  it('says it cannot be heard on a page his recording does not fit', async () => {
+    const { result } = renderHook(() =>
+      useListen({
+        reciter: 'husary',
+        turnKey: '1',
+        page: 2,
+        timings: { husary: { ...timings, untimed: [2] } },
+        repeat: 1,
+      }),
+    );
+    act(() => result.current.toggle());
+    await settle();
+    expect(result.current.status).toBe('error');
+    expect(player.getState().key).not.toBe(result.current.key);
   });
 });

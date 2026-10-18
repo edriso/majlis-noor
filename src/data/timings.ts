@@ -9,7 +9,14 @@
    - public/words/<id>/<surah>.json, his words in one surah, fetched only
      when a recitation is followed word by word (`loadWords()`).
 
-   Every time is in milliseconds from the start of the surah's file. */
+   Every time is in milliseconds from the start of the surah's file.
+
+   Some surah files on the host are not the recordings their timings were
+   made from, or have an ayah misplaced in them, and the build lists them
+   in `untimed`. Nothing of them is ever played: the stretches to play
+   (`pageStretches`, `recitationOf`, `ayatRecitation`) leave them out, and
+   `isTimed`, `pageTimed` and `ayatTimed` say so, for a caller to tell the
+   reader rather than play the wrong ayat. */
 
 import {
   decodeAyahWords,
@@ -65,20 +72,47 @@ export function loadTimings(reciter: string): Promise<Timings> {
   return pending;
 }
 
-export const pageStretches = (t: Timings, page: number): Stretch[] =>
-  t.pages[page - 1] ?? [];
+/** Whether a surah's timings fit the file the host serves, so that its
+    recording may be played by them. */
+export const isTimed = (t: Timings, surah: number) =>
+  !t.untimed?.includes(surah);
 
-/** Milliseconds the reciter takes over a page. */
+/** Whether every surah with text on a page is timed. */
+export const pageTimed = (t: Timings, page: number) =>
+  (t.pages[page - 1] ?? []).every(([surah]) => isTimed(t, surah));
+
+/** The stretches of the recording that recite a page, or none if the page
+    is not timed: half a page would leave a hole in it, and the other half
+    may be the wrong ayat. */
+export const pageStretches = (t: Timings, page: number): Stretch[] =>
+  pageTimed(t, page) ? (t.pages[page - 1] ?? []) : [];
+
+/** A page's stretches added up, timed or not. */
+const stretchesLength = (t: Timings, page: number) =>
+  (t.pages[page - 1] ?? []).reduce((sum, [, from, to]) => sum + (to - from), 0);
+
+/**
+ * Milliseconds the reciter takes over a page, which times a reader's turn.
+ *
+ * A page he is not timed on is given his average page, or its own
+ * stretches where they are longer. Nothing of it is played, so the number
+ * only sets a clock for a reader, which may run long (the reader says
+ * «تمّ») but should not cut him off; and the stretches of such a page can
+ * be a quarter of what it takes (Abdul Basit's pages 9 and 29), while his
+ * average page is never under four fifths of it.
+ */
 export const pageDuration = (t: Timings, page: number) =>
-  pageStretches(t, page).reduce((sum, [, from, to]) => sum + (to - from), 0);
+  pageTimed(t, page)
+    ? stretchesLength(t, page)
+    : Math.max(stretchesLength(t, page), averagePage(t));
 
 /** Milliseconds over several pages, as a turn of more than one page is. */
 export const pagesDuration = (t: Timings, pages: readonly number[]) =>
   pages.reduce((sum, p) => sum + pageDuration(t, p), 0);
 
-/** The reciter's average page, for the picker: «نحو ١:٤٠ للصفحة». */
+/** The reciter's average page over his whole recording, as timed. */
 export const averagePage = (t: Timings) =>
-  t.pages.reduce((s, _, i) => s + pageDuration(t, i + 1), 0) / PAGE_COUNT;
+  t.pages.reduce((s, _, i) => s + stretchesLength(t, i + 1), 0) / PAGE_COUNT;
 
 export const surahAudioUrl = (t: Timings, surah: number) =>
   surahFile(t.audio, surah);
@@ -152,9 +186,20 @@ function timedAyah(t: Timings, ref: AyahRef) {
   return [surah, ayah] as const;
 }
 
+/** Whether every surah the ayat from `first` to `last` run through is
+    timed. */
+export function ayatTimed(t: Timings, first: AyahRef, last: AyahRef = first) {
+  const [s1] = timedAyah(t, first);
+  const [s2] = timedAyah(t, last);
+  for (let surah = s1; surah <= s2; surah++)
+    if (!isTimed(t, surah)) return false;
+  return true;
+}
+
 /** A reciter's recitation of the ayat from `first` to `last`, both
     included, as the stretches to play in order: one per surah file the run
-    touches. None if `last` comes before `first`. */
+    touches. None if `last` comes before `first`, and none if the run is
+    not timed (`ayatTimed`): it is heard whole or not at all. */
 export function ayatRecitation(
   t: Timings,
   first: AyahRef,
@@ -162,6 +207,7 @@ export function ayatRecitation(
 ): AyatSegment[] {
   const [s1, a1] = timedAyah(t, first);
   const [s2, a2] = timedAyah(t, last);
+  if (!ayatTimed(t, first, last)) return [];
   const segments: AyatSegment[] = [];
   for (let surah = s1; surah <= s2; surah++) {
     const spans = ayahTimes(t, surah);
@@ -181,9 +227,21 @@ export function ayatRecitation(
 }
 
 /** Milliseconds the reciter takes over the ayat from `first` to `last`,
-    both included: how a reader's turn of those ayat is timed. */
-export const ayatDuration = (t: Timings, first: AyahRef, last = first) =>
-  ayatRecitation(t, first, last).reduce((sum, s) => sum + (s.to - s.from), 0);
+    both included: how a reader's turn of those ayat is timed. Null where
+    the run is not timed: an ayah runs from one word to a page, so unlike a
+    page it has no average to stand in for it, and the timings' own may be
+    an eighth of the truth (Abdul Basit's 2:61). */
+export const ayatDuration = (
+  t: Timings,
+  first: AyahRef,
+  last = first,
+): number | null =>
+  ayatTimed(t, first, last)
+    ? ayatRecitation(t, first, last).reduce(
+        (sum, s) => sum + (s.to - s.from),
+        0,
+      )
+    : null;
 
 /** Binary search: how many items of `list` start at or before `ms`, for a
     list whose starts never go back. */
@@ -200,8 +258,9 @@ function startedBy<T>(list: readonly T[], start: (x: T) => number, ms: number) {
 
 /** The ayah being recited `ms` into a surah's file: the last one to have
     started by then, unless it has already ended. Null before the first,
-    after the last, and in a pause between two. */
+    after the last, in a pause between two, and in a surah not timed. */
 export function ayahAt(t: Timings, surah: number, ms: number): number | null {
+  if (!isTimed(t, surah)) return null;
   const spans = ayahTimes(t, surah);
   const n = startedBy(spans, ([from]) => from, ms);
   return n > 0 && ms < spans[n - 1][1] ? n : null;

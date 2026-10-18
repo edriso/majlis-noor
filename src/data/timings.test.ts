@@ -27,11 +27,16 @@ import {
   ayahTimes,
   ayatDuration,
   ayatRecitation,
+  ayatTimed,
   averagePage,
+  isTimed,
   loadWords,
   pageDuration,
   pagesDuration,
+  pageStretches,
+  pageTimed,
   readWords,
+  recitationOf,
   surahAudioUrl,
   wordAt,
   wordsCovered,
@@ -152,15 +157,26 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
     // A page holding the end of one surah and the start of the next has a
     // stretch of each surah's file, as its ayat do.
     for (let p = 1; p <= PAGE_COUNT; p++) {
-      const ayat = ayatOfPage[p - 1];
-      const run = ayatRecitation(t, ayat[0], ayat[ayat.length - 1]);
+      const ayat = ayatOfPage[p - 1].map((key) => key.split(':').map(Number));
+      const bySurah = Map.groupBy(ayat, ([surah]) => surah);
       expect(
-        run.map((s) => [s.surah, s.from, s.to]),
+        [...bySurah].map(([surah, run]) => [
+          surah,
+          ayahTimes(t, surah)[run[0][1] - 1][0],
+          ayahTimes(t, surah)[run[run.length - 1][1] - 1][1],
+        ]),
         `page ${p}`,
       ).toEqual(t.pages[p - 1]);
-      expect(ayatDuration(t, ayat[0], ayat[ayat.length - 1])).toBe(
-        pagesDuration(t, [p]),
-      );
+      // And the same through the helpers, where the page may be played.
+      const [first, last] = [ayatOfPage[p - 1][0], ayatOfPage[p - 1].at(-1)!];
+      const run = ayatRecitation(t, first, last);
+      if (!pageTimed(t, p)) {
+        expect(run, `page ${p}`).toEqual([]);
+        expect(ayatDuration(t, first, last), `page ${p}`).toBeNull();
+        continue;
+      }
+      expect(run.map((s) => [s.surah, s.from, s.to])).toEqual(t.pages[p - 1]);
+      expect(ayatDuration(t, first, last)).toBe(pagesDuration(t, [p]));
     }
   });
 
@@ -278,6 +294,11 @@ it('bands the paces the way a halaqa speaks of them', () => {
 });
 
 describe('surah files that do not fit their timings', () => {
+  const range = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const stretched = (t: Timings, page: number) =>
+    t.pages[page - 1].reduce((sum, [, from, to]) => sum + (to - from), 0);
+
   it('are the ones measured on 2026-10-18', () => {
     expect(
       Object.fromEntries(reciters.map((r) => [r.id, load(r.id).untimed])),
@@ -294,6 +315,69 @@ describe('surah files that do not fit their timings', () => {
       sudais: [3, 4, 5, 28, 29],
       shuraim: [],
     });
+  });
+
+  it('are never played, page by page', () => {
+    // Abdul Basit's al-Baqarah plays 17 minutes longer than the file timed.
+    const t = load('abdulbasit');
+    expect([isTimed(t, 1), isTimed(t, 2), isTimed(t, 3)]).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    // Al-Baqarah has pages 2 to 49 to itself, and only those.
+    expect(range(1, 50).filter((p) => !pageTimed(t, p))).toEqual(range(2, 49));
+    expect(pageStretches(t, 2)).toEqual([]);
+    expect(recitationOf(t, [1, 2, 49, 50]).map((s) => s.page)).toEqual([1, 50]);
+  });
+
+  it('take with them a page they share with a surah that is timed', () => {
+    // Al-Dosari's al-Layl ends on the page where ad-Duha begins.
+    const t = load('dosari');
+    const shared = pages.filter(
+      (p) => p.surahs.includes(92) && p.surahs.length > 1,
+    );
+    expect(shared.length).toBeGreaterThan(0);
+    for (const { page: p, surahs: on } of shared) {
+      expect(on.some((s) => isTimed(t, s))).toBe(true);
+      expect(pageTimed(t, p)).toBe(false);
+      expect(recitationOf(t, [p])).toEqual([]);
+    }
+  });
+
+  it('time a reader by the average page where their own falls short', () => {
+    const t = load('abdulbasit');
+    // Page 9's ayat (2:58 to 2:61) are timed at about ten seconds each, a
+    // quarter of what the page takes; a reader's clock is not cut to it.
+    expect(stretched(t, 9)).toBeLessThan(averagePage(t) / 2);
+    expect(pageDuration(t, 9)).toBe(averagePage(t));
+    // Where an untimed page's own stretches are longer, they stand.
+    const long = range(2, 49).find((p) => stretched(t, p) > averagePage(t))!;
+    expect(pageDuration(t, long)).toBe(stretched(t, long));
+    // A timed page keeps its own, short or long.
+    expect(pageDuration(t, 50)).toBe(stretched(t, 50));
+    expect(pagesDuration(t, [9, 50])).toBe(averagePage(t) + stretched(t, 50));
+  });
+
+  it('are never played, ayah by ayah', () => {
+    // Al-Sudais's an-Nisa ends 99 s before its timings do.
+    const t = load('sudais');
+    expect(ayatTimed(t, '4:1')).toBe(false);
+    expect(ayatRecitation(t, '4:1')).toEqual([]);
+    expect(ayatDuration(t, '4:1', '4:5')).toBeNull();
+    // A run that crosses into one is not heard in part either.
+    expect(ayatTimed(t, '2:286', '3:1')).toBe(false);
+    expect(ayatRecitation(t, '2:280', '3:2')).toEqual([]);
+    expect(ayatDuration(t, '2:280', '3:2')).toBeNull();
+    // Al-Baqarah is timed, and plays.
+    expect(ayatTimed(t, '2:280', '2:286')).toBe(true);
+    expect(ayatRecitation(t, '2:280', '2:286')).toHaveLength(1);
+    expect(ayatDuration(t, '2:280', '2:286')).toBeGreaterThan(0);
+    // And nothing is marked as recited in it.
+    const [from, to] = ayahTimes(t, 4)[0];
+    expect(ayahAt(t, 4, (from + to) / 2)).toBeNull();
+    const [from2, to2] = ayahTimes(t, 2)[0];
+    expect(ayahAt(t, 2, (from2 + to2) / 2)).toBe(1);
   });
 });
 
