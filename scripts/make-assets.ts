@@ -6,8 +6,9 @@
    apple-touch-icon.png and og.png. Uses the Chrome installed on the machine
    and macOS's `sips`
    (CHROME=/path/to/chrome to point elsewhere), so the repository carries no
-   browser dependency for a job done once. The fonts come from Google Fonts,
-   as they do in the app. */
+   browser dependency for a job done once. The fonts are the app's own, from
+   public/fonts, so the pictures are drawn in exactly the letters the app
+   shows and nothing is fetched. */
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,8 +23,15 @@ const mark = readFileSync('public/favicon.svg', 'utf8')
   .replace(/<rect[^>]*\/>/, '')
   .replace('<svg ', '<svg width="100%" height="100%" ');
 
-const fonts =
-  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@600&family=IBM+Plex+Sans+Arabic:wght@500&display=block">';
+/* Each face is written into the page as data: a page opened from a file is
+   an origin of its own, and Chrome refuses it a font from another file.
+   `block`, so nothing is drawn in a stand-in while the font is read. */
+const face = (family: string, weight: string, file: string) =>
+  `@font-face { font-family: '${family}'; font-weight: ${weight}; font-display: block; src: url(data:font/woff2;base64,${readFileSync(join('public/fonts', file)).toString('base64')}) format('woff2'); }`;
+const fonts = `<style>
+  ${face('Reem Kufi', '400 700', 'reem-kufi/ReemKufi-Arabic.woff2')}
+  ${face('IBM Plex Sans Arabic', '500', 'ibm-plex-sans-arabic/IBMPlexSansArabic-Medium.woff2')}
+</style>`;
 
 const ground = `
   background:
