@@ -57,6 +57,11 @@ export type Cue = 'chime' | 'none';
 /** What the page marks while a sheikh recites: the ayah he is on, or the
     word, where his timings hold every word of that ayah. */
 export type Follow = 'ayah' | 'word';
+/** How large the Mushaf page is drawn: whole in the screen, or as wide as
+    the screen and scrolled down, for a reader who needs it larger than a
+    whole page allows (WCAG 1.4.4: zooming the browser barely enlarges a
+    page that is fitted to the window). */
+export type PageSize = 'fit' | 'width';
 
 /** Eight seats: a family, a class, or a few readers and a sheikh. More
     would crowd the circle on a phone, and a bigger gathering has its own
@@ -131,6 +136,7 @@ export type Prefs = {
   listenRepeat: 1 | 2 | 3;
   follow: Follow;
   cue: Cue;
+  pageSize: PageSize;
 };
 
 export type Session = {
@@ -189,6 +195,7 @@ export const defaultPrefs: Prefs = {
   listenRepeat: 1,
   follow: 'ayah',
   cue: 'chime',
+  pageSize: 'fit',
 };
 
 export const initialState: State = {
@@ -869,6 +876,7 @@ export function sanitizeState(raw: unknown): State {
     listenRepeat: oneOf(p.listenRepeat, [1, 2, 3] as const, 1),
     follow: oneOf(p.follow, ['ayah', 'word'] as const, 'ayah'),
     cue: oneOf(p.cue, ['chime', 'none'] as const, 'chime'),
+    pageSize: oneOf(p.pageSize, ['fit', 'width'] as const, 'fit'),
   };
   const config = sanitizeConfig(r.config);
   let session: Session | null = null;

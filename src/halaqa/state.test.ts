@@ -1051,6 +1051,7 @@ describe('a saved halaqa', () => {
     });
     s = finish(s, 3);
     s = reduce(s, { type: 'nextPage' });
+    s = reduce(s, { type: 'prefs', prefs: { pageSize: 'width' } });
     expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
@@ -1065,6 +1066,12 @@ describe('a saved halaqa', () => {
     );
   });
 
+  it('draws the page whole for a reader who never chose its size', () => {
+    // Saved before the size could be chosen.
+    const s = sanitizeState({ prefs: { theme: 'blue', speed: 1.25 } });
+    expect(s.prefs).toMatchObject({ theme: 'blue', pageSize: 'fit' });
+  });
+
   it('is repaired, never trusted', () => {
     const s = sanitizeState({
       prefs: {
@@ -1074,6 +1081,7 @@ describe('a saved halaqa', () => {
         listenRepeat: 0,
         follow: 'letter',
         cue: 'x',
+        pageSize: 'huge',
       },
       config: { readers: 'x', pagesPerTurn: 9, startPage: 9000 },
       session: { turn: -3, anchor: { turn: 5, page: 0 }, config: {} },
@@ -1085,6 +1093,7 @@ describe('a saved halaqa', () => {
       listenRepeat: 1,
       follow: 'ayah',
       cue: 'chime',
+      pageSize: 'fit',
     });
     expect(s.config.size).toBe(1);
     expect(s.config.unit).toBe('page');
