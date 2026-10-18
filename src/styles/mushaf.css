@@ -247,6 +247,26 @@
   text-wrap: balance;
 }
 
+/* The page's data could not load: the frame says so, at the size of the
+   lines it stands in for. */
+.mushaf-missing {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5cqi;
+  height: 144cqi;
+  padding-inline: 4cqi;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: clamp(14px, 4.4cqi, 20px);
+  line-height: 1.5;
+  text-align: center;
+}
+.mushaf-missing p {
+  margin: 0;
+  text-wrap: balance;
+}
+
 .mushaf-retry {
   flex: none;
   min-width: 44px;

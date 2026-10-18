@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPage, type Page } from '@/data/mushaf';
 import { loadPageFont } from './fonts';
-import { FONT_NOTE, fitLines, MushafPage } from './MushafPage';
+import { FONT_NOTE, fitLines, MushafPage, PAGE_MISSING } from './MushafPage';
 
 vi.mock('@/data/mushaf', async (actual) => ({
   ...(await actual<typeof import('@/data/mushaf')>()),
@@ -44,6 +44,44 @@ const retry = () => screen.getByRole('button', { name: 'أعد المحاولة'
 beforeEach(() => {
   vi.mocked(loadPage).mockReset().mockResolvedValue(page77);
   vi.mocked(loadPageFont).mockReset().mockResolvedValue(undefined);
+});
+
+describe('a page whose data cannot load', () => {
+  beforeEach(() => {
+    vi.mocked(loadPage).mockRejectedValue(new Error('offline'));
+  });
+
+  it('says why, politely, and is no longer busy', async () => {
+    render(<MushafPage page={77} />);
+    expect(article().getAttribute('aria-busy')).toBe('true');
+    await screen.findByRole('button', { name: 'أعد المحاولة' });
+    expect(article().getAttribute('aria-busy')).toBe('false');
+    const live = article().querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toBe(PAGE_MISSING);
+    // Seen on the page, and heard once, from the live region.
+    expect(screen.getByText(PAGE_MISSING, { selector: 'p[aria-hidden]' }));
+  });
+
+  it('asks for the page again, and draws it when it comes', async () => {
+    const user = userEvent.setup();
+    const second = later<Page>();
+    vi.mocked(loadPage)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValueOnce(second.promise);
+    render(<MushafPage page={77} />);
+    await user.click(await screen.findByRole('button', { name: /أعد/ }));
+
+    expect(loadPage).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole('button', { name: 'جارٍ المحاولة…' }).ariaDisabled,
+    ).toBe('true');
+    // Emptied, so that a second failure is said again.
+    expect(article().querySelector('[aria-live]')?.textContent).toBe('');
+
+    await act(async () => second.resolve(page77));
+    expect(screen.queryByText(PAGE_MISSING)).toBeNull();
+    expect(article().querySelectorAll('.mushaf-text')).toHaveLength(2);
+  });
 });
 
 describe('a page whose font cannot load', () => {

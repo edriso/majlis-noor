@@ -24,6 +24,8 @@ export const BASMALA_GLYPHS = ['ﱁ', 'ﱂ', 'ﱃ', 'ﱄ'];
 const BASMALA_TEXT = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
 
 export const FONT_NOTE = 'تعذّر تحميل خطّ الصفحة، والنص معروض بخطّ بديل';
+export const PAGE_MISSING =
+  'هذه الصفحة غير محفوظة على جهازك بعد، وتحتاج إلى اتصال';
 const RETRY = 'أعد المحاولة';
 const RETRYING = 'جارٍ المحاولة…';
 
@@ -39,7 +41,8 @@ const RETRYING = 'جارٍ المحاولة…';
  *
  * When the page's font cannot load, its text is drawn in a Quran font on the
  * same lines, each line made smaller if it would not fit, and a note at the
- * foot says so and offers to try again.
+ * foot says so and offers to try again. When its data cannot load, the page
+ * says that instead of a skeleton that never ends.
  */
 export function MushafPage({
   page,
@@ -53,6 +56,7 @@ export function MushafPage({
   const name = surahOfPage(page).name;
   const juz = juzOfPage(page);
   const ready = state.status === 'ready' ? state : null;
+  const missing = state.status === 'error' ? state : null;
   const fallback = ready?.font === 'text';
   const sajdah = ready?.page.sajdah?.length;
   const linesRef = useRef<HTMLDivElement>(null);
@@ -65,7 +69,7 @@ export function MushafPage({
       data-opening={opening || undefined}
       data-fallback={fallback || undefined}
       aria-label={`الصفحة ${arabic(page)}، سورة ${name}، الجزء ${arabic(juz)}`}
-      aria-busy={!ready}
+      aria-busy={state.status === 'loading'}
       lang="ar"
     >
       <header className="mushaf-running-head" aria-hidden="true">
@@ -101,6 +105,12 @@ export function MushafPage({
               <MushafLine key={i} line={line} />
             ))}
           </div>
+        ) : missing ? (
+          <div className="mushaf-missing">
+            {/* Said by the status below, so a screen reader hears it once. */}
+            <p aria-hidden="true">{PAGE_MISSING}</p>
+            <RetryButton retrying={missing.retrying} onClick={missing.retry} />
+          </div>
         ) : (
           <div className="mushaf-lines mushaf-skeleton" aria-hidden="true">
             {Array.from({ length: opening ? 8 : 15 }, (_, i) => (
@@ -128,6 +138,13 @@ export function MushafPage({
           <span>{arabic(page)}</span>
         </footer>
       )}
+
+      {/* Polite, and not a status: the reading screen's one status is whose
+          turn it is. Empty while a retry is under way, so that each failure
+          is said again. */}
+      <p className="visually-hidden" aria-live="polite" aria-atomic="true">
+        {missing && !missing.retrying ? PAGE_MISSING : ''}
+      </p>
 
       {ready && sajdah ? (
         <p className="visually-hidden">في هذه الصفحة سجدة تلاوة.</p>
