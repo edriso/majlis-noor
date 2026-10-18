@@ -31,12 +31,12 @@
 }
 .sheet-dialog[data-closing] {
   background-color: rgb(var(--shadow-rgb) / 0);
-  backdrop-filter: blur(0);
+  backdrop-filter: none;
 }
 @starting-style {
   .sheet-dialog[open] {
     background-color: rgb(var(--shadow-rgb) / 0);
-    backdrop-filter: blur(0);
+    backdrop-filter: none;
   }
 }
 
