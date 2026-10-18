@@ -1,12 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   defaultConfig,
   defaultPrefs,
   initialState,
   reduce,
+  type Action,
 } from '@/halaqa/state';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -14,7 +16,7 @@ import { SettingsPanel } from './SettingsPanel';
    build was given (VITE_REPO_URL, from the Pages workflow), and to nothing
    when it was given none: a wrong address is worse than no link. */
 
-const open = () => {
+const open = (dispatch: (action: Action) => void = () => {}) => {
   const session = reduce(initialState, {
     type: 'start',
     config: defaultConfig,
@@ -26,10 +28,36 @@ const open = () => {
       onOpenChange={() => {}}
       session={session}
       prefs={defaultPrefs}
-      dispatch={() => {}}
+      dispatch={dispatch}
     />,
   );
 };
+
+describe('ending the sitting', () => {
+  it('asks once, and keeps the sitting if the answer is no', async () => {
+    const user = userEvent.setup();
+    const dispatch = vi.fn();
+    open(dispatch);
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    expect(dispatch).not.toHaveBeenCalled();
+    // A second Enter keeps the sitting.
+    const cancel = screen.getByRole('button', { name: 'تراجع' });
+    expect(document.activeElement).toBe(cancel);
+    expect(cancel.getAttribute('aria-describedby')).toBeTruthy();
+    expect(
+      document.getElementById(cancel.getAttribute('aria-describedby')!)
+        ?.textContent,
+    ).toMatch(/^أتنهون المجلس؟/);
+    await user.keyboard('{Enter}');
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'إنهاء المجلس' }),
+    );
+    await user.keyboard('{Enter}');
+    await user.click(screen.getByRole('button', { name: 'نعم، أنهوا المجلس' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'end' });
+  });
+});
 
 const link = (name: string) => screen.queryByRole('link', { name });
 
