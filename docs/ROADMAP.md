@@ -131,19 +131,19 @@ Taken by the maintainer on 2026-10-18.
 
 Small fixes, first, because every later phase builds on them.
 
-- [ ] **0.1 The fallback page never clips.** In text mode
+- [x] **0.1 The fallback page never clips.** In text mode
   (`[data-font='text']`, `mushaf.css:112-121`) each line is `nowrap` with
   `overflow: hidden`. Fit each line to its width instead (measure once,
   scale the line's font size down, never up), and show a quiet note under
   the page, «تعذّر تحميل خطّ الصفحة، والنص معروض بخطّ بديل», with a retry.
   Test: the layout check (see *Quality*) blocks the font host and fails if
   any line's `scrollWidth` exceeds its `clientWidth`.
-- [ ] **0.2 Offline from the first visit.** Vite writes the list of built
+- [x] **0.2 Offline from the first visit.** Vite writes the list of built
   assets into the service worker at build time (a few lines in
   `vite.config.ts`), and `install` caches them, the page data and the
   timings: the whole Mushaf's text and every reciter's timings come to
   under 1 MB gzipped. Recordings stay uncached.
-- [ ] **0.3 A page that cannot load says so.** `usePage.ts` swallows the
+- [x] **0.3 A page that cannot load says so.** `usePage.ts` swallows the
   error and leaves the skeleton up with `aria-busy` forever. Show «هذه
   الصفحة غير محفوظة على جهازك بعد» with a retry.
 - [ ] **0.4 Ending keeps the place.** `end` writes the current page into
@@ -187,7 +187,7 @@ the last pages read, after one online visit.
 
 Fewer hosts, fewer packages, nothing render-blocking.
 
-- [ ] **1.1 Self-host the interface fonts.** All four are under the SIL
+- [x] **1.1 Self-host the interface fonts.** All four are under the SIL
   Open Font License, taken from their upstream releases, as woff2 in
   `public/fonts`, each family's `OFL.txt` beside it and an entry in NOTICE:
   - IBM Plex Sans Arabic from [IBM/plex](https://github.com/IBM/plex)
@@ -220,7 +220,7 @@ Fewer hosts, fewer packages, nothing render-blocking.
   the deploy workflow can download the fonts, check each against a
   committed list of SHA-256 hashes, and put them in the built site without
   ever committing them to git.
-- [ ] **1.3 A native dialog.** `Sheet.tsx` is the only use of Base UI, and
+- [x] **1.3 A native dialog.** `Sheet.tsx` is the only use of Base UI, and
   Base UI is 9 packages and about 53 KB of the bundle. A `<dialog>` opened
   with `showModal()` (every browser since Safari 15.4 and Firefox 98) gives
   the top layer, an inert page and Escape. It needs, by hand:
@@ -237,10 +237,10 @@ Fewer hosts, fewer packages, nothing render-blocking.
 
   The key handler's `[role="dialog"]` test becomes `dialog[open]`; jsdom
   has no `showModal`, so `test-setup.ts` stubs it.
-- [ ] **1.4 Our own icons.** Twenty-three lucide icons become small
+- [x] **1.4 Our own icons.** Twenty-three lucide icons become small
   components in `src/components/icons.tsx`; lucide's ISC notice goes in
   NOTICE.
-- [ ] **1.5 Page data off the main bundle.** The 604-entry
+- [x] **1.5 Page data off the main bundle.** The 604-entry
   `import.meta.glob` map is about 36 KB of the main script. Write the pages
   to `public/pages/<n>.json` and fetch them by address, which also makes
   0.2's list simpler.
@@ -248,7 +248,7 @@ Fewer hosts, fewer packages, nothing render-blocking.
   app's own origin, the audio host and, until 1.2 is done, the page fonts'
   host, and nothing else. It enforces this phase and documents it in one
   line.
-- [ ] **1.7 Watch the one host left.** QuranicAudio is a Quran
+- [x] **1.7 Watch the one host left.** QuranicAudio is a Quran
   Foundation project with open CORS and range requests, and there is no
   byte-identical mirror. Its files are replaced in place (al-Husary's carry
   dates from 2023 to 2025), and a timing is only right for the file it was
@@ -345,7 +345,7 @@ carries its verse key (`"17:105"`), and the Madani Mushaf ends every page
 on a whole ayah. The timing source already returns per-ayah and per-word
 times; `build-timings.ts` reads them and keeps only page stretches.
 
-- [ ] **3.1 The data.** `mushaf.json` gains, derived from the
+- [x] **3.1 The data.** `mushaf.json` gains, derived from the
   pages and checked against them by the test, the first ayah of each page
   (604 numbers) and of each quarter-hizb (240). The quarters come from the
   ۞ in the print itself: the committed text holds 199 of them, every one at
