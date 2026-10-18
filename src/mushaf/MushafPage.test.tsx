@@ -1,9 +1,24 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadPage, type Page } from '@/data/mushaf';
+import { ayahIndex, loadPage, type Page } from '@/data/mushaf';
 import { loadPageFont } from './fonts';
-import { FONT_NOTE, fitLines, MushafPage, PAGE_MISSING } from './MushafPage';
+import {
+  ayahButtonLabel,
+  FONT_NOTE,
+  fitLines,
+  MushafPage,
+  PAGE_MISSING,
+  type MushafPageProps,
+} from './MushafPage';
 
 vi.mock('@/data/mushaf', async (actual) => ({
   ...(await actual<typeof import('@/data/mushaf')>()),
@@ -237,5 +252,145 @@ describe('fitLines', () => {
     natural = 320;
     fitLines([el], [probe]);
     expect(el.style.getPropertyValue('--fit')).toBe('');
+  });
+});
+
+describe('a page with its ayat marked and tappable', () => {
+  // Page 1 as it is: al-Fatihah, ayat 1 to 7 through the whole Mushaf.
+  const page1 = JSON.parse(
+    readFileSync(
+      join(import.meta.dirname, '../../public/pages/1.json'),
+      'utf8',
+    ),
+  ) as Page;
+  beforeEach(() => {
+    vi.mocked(loadPage).mockResolvedValue(page1);
+  });
+
+  const drawn = async (props: Partial<MushafPageProps> = {}) => {
+    const view = render(<MushafPage page={1} {...props} />);
+    await waitFor(() =>
+      expect(article().querySelector('[data-font="glyphs"]')).not.toBeNull(),
+    );
+    return view;
+  };
+  const word = (ayah: number, n: number | null) =>
+    article().querySelector<HTMLElement>(
+      n === null
+        ? `[data-ayah="${ayah}"]:not([data-word])`
+        : `[data-ayah="${ayah}"][data-word="${n}"]`,
+    )!;
+  const marked = (mark: string) =>
+    [...article().querySelectorAll<HTMLElement>(`[data-${mark}]`)].map(
+      (el) => `${el.dataset.ayah}:${el.dataset.word ?? 'end'}`,
+    );
+
+  it('underlines every word of the turn’s ayat, their markers too', async () => {
+    await drawn({ turn: { from: 3, to: 5 } });
+    expect(marked('turn')).toEqual([
+      '3:1',
+      '3:2',
+      '3:end',
+      '4:1',
+      '4:2',
+      '4:3',
+      '4:end',
+    ]);
+  });
+
+  it('lays the recitation’s wash on an ayah, or on one word of it', async () => {
+    const view = await drawn({ recited: { ayah: 6, word: null } });
+    expect(marked('recite')).toEqual(['6:1', '6:2', '6:3', '6:end']);
+    view.rerender(<MushafPage page={1} recited={{ ayah: 6, word: 2 }} />);
+    expect(marked('recite')).toEqual(['6:2']);
+    view.rerender(<MushafPage page={1} />);
+    expect(marked('recite')).toEqual([]);
+  });
+
+  it('marks the chosen ayah', async () => {
+    await drawn({ selected: 2 });
+    expect(marked('selected')).toEqual(['2:1', '2:2', '2:3', '2:4', '2:end']);
+  });
+
+  it('touches only the line the recited word moves along', async () => {
+    const view = await drawn({ recited: { ayah: 5, word: 1 } });
+    const lines = [...article().querySelectorAll('.mushaf-words')];
+    const before = lines.map((l) => l.innerHTML);
+    // Al-Fatihah 5 is on line 5, with the start of 6: nothing else moves.
+    const watch = new MutationObserver(() => {});
+    watch.observe(article(), { subtree: true, attributes: true });
+    view.rerender(<MushafPage page={1} recited={{ ayah: 5, word: 2 }} />);
+    const changed = new Set(
+      watch
+        .takeRecords()
+        .map((r) => (r.target as Element).closest('.mushaf-line')),
+    );
+    watch.disconnect();
+    expect(changed.size).toBe(1);
+    expect(
+      lines.map((l) => l.innerHTML).filter((h, i) => h !== before[i]),
+    ).toHaveLength(1);
+  });
+
+  it('keeps the glyphs from screen readers, and each line’s text first', async () => {
+    await drawn({ onAyahTap: () => {} });
+    for (const glyph of article().querySelectorAll('.mushaf-words > span'))
+      expect(glyph.getAttribute('aria-hidden')).toBe('true');
+    const line = article().querySelectorAll('.mushaf-line')[1];
+    expect(line.firstElementChild?.className).toBe('mushaf-text');
+  });
+
+  it('makes each marker a button named by its ayah, which reports it', async () => {
+    const user = userEvent.setup();
+    const onAyahTap = vi.fn();
+    await drawn({ onAyahTap });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(7);
+    expect(buttons[6].getAttribute('aria-label')).toBe(
+      'الآية ٧ من سورة الفاتحة — استمع إليها',
+    );
+    expect(ayahButtonLabel(ayahIndex(3, 7))).toBe(
+      'الآية ٧ من سورة آل عمران — استمع إليها',
+    );
+    buttons[2].focus();
+    await user.keyboard('{Enter}');
+    expect(onAyahTap).toHaveBeenLastCalledWith(3, null);
+  });
+
+  it('draws no buttons when nothing listens for a tap', async () => {
+    await drawn();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('reports a tapped word: its ayah and which word of it', async () => {
+    const user = userEvent.setup();
+    const onAyahTap = vi.fn();
+    await drawn({ onAyahTap });
+    await user.click(word(5, 3));
+    expect(onAyahTap).toHaveBeenLastCalledWith(5, 3);
+    await user.click(word(7, null));
+    expect(onAyahTap).toHaveBeenLastCalledWith(7, null);
+  });
+
+  it('takes a finger that moved for a swipe, not a tap', async () => {
+    const onAyahTap = vi.fn();
+    await drawn({ onAyahTap });
+    const target = word(5, 2);
+    const press = (x: number, y: number) =>
+      fireEvent.pointerDown(target, {
+        isPrimary: true,
+        clientX: x,
+        clientY: y,
+      });
+    const lift = (x: number, y: number) =>
+      fireEvent.click(target, { detail: 1, clientX: x, clientY: y });
+    press(100, 100);
+    lift(140, 102); // sideways: the page turning
+    press(100, 100);
+    lift(100, 130); // a drag down the page
+    expect(onAyahTap).not.toHaveBeenCalled();
+    press(100, 100);
+    lift(103, 104); // a finger's wobble
+    expect(onAyahTap).toHaveBeenCalledWith(5, 2);
   });
 });

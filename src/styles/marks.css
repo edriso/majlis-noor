@@ -1,0 +1,113 @@
+/* Marks on the Mushaf page: the turn's ayat underlined, the ayah or word
+   being recited on a wash, an ayah chosen with a tap outlined, and the
+   end-of-ayah markers that are buttons.
+
+   None of them may move a glyph. Each word is a flex item of its justified
+   line (mushaf.css), and a mark is drawn by an absolutely placed
+   pseudo-element behind it, which takes no room, so a page with marks is
+   the same page as one without, glyph for glyph. Sizes are in em, the
+   glyphs' own size, so the marks scale with the page. The glyph's box is
+   one em tall, centred in a line 1.74em high (9.6cqi over 5.52cqi), and
+   its ink reaches past the box both ways, the marks over the letters and
+   the tails and kasras under them. */
+
+.mushaf-words > [data-ayah] {
+  /* Its own stacking context, so a mark drawn behind the glyph is still in
+     front of the paper. Neither moves it. */
+  position: relative;
+  z-index: 0;
+}
+.mushaf-words > [data-ayah]::before,
+.mushaf-words > [data-ayah]::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* The wash behind a word recited, and the outline of a chosen ayah: a soft
+   pill a little larger than the glyph's box, enough to hold most of its
+   ink. It fades in and out, so a mark that leads the voice by a moment
+   arrives rather than snaps; reduced motion stills it (reset.css). */
+.mushaf-words > [data-ayah]::before {
+  inset: -0.3em -0.08em;
+  border-radius: 0.36em;
+  background-color: transparent;
+  transition:
+    background-color var(--duration-short) var(--ease),
+    box-shadow var(--duration-short) var(--ease);
+}
+/* A chosen ayah lies on a tint of the turn's colour, quieter than the
+   recitation's wash, which wins where both fall. A ring round each word
+   was tried and drew a chain of boxes that crowded the line. */
+.mushaf-words > [data-selected]::before {
+  background-color: color-mix(in srgb, var(--mark-turn) 20%, transparent);
+}
+.mushaf-words > [data-recite]::before {
+  background-color: var(--mark-recite);
+}
+
+/* The turn's underline: under each word of its ayat, low in the gap
+   between this line and the next, where only the deepest tails reach.
+   Lines are justified edge to edge, so a band behind the turn would leave
+   gaps that move from line to line; a line under each word reads as one
+   rule broken only where the words are. */
+.mushaf-words > [data-ayah]::after {
+  inset-inline: 0.04em;
+  bottom: -0.4em;
+  height: 0.055em;
+  border-radius: 0.055em;
+  background-color: transparent;
+}
+.mushaf-words > [data-turn]::after {
+  background-color: var(--mark-turn);
+}
+
+/* An end-of-ayah marker that plays its ayah. It must lay out exactly as
+   the glyph did when it was a span: no padding, border, background or
+   font of a button's own, only the line's. */
+.mushaf-words > button {
+  all: unset;
+  display: inline-block;
+  position: relative;
+  z-index: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.mushaf-words > button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* The system draws everything in its own few colours and drops tints. It
+   also lays a plate of its page colour behind every run of text, which
+   would cover the underline below a line and the outline round a word;
+   so the words draw themselves, in the system's text colour, with no
+   plate. The wash becomes the system's colour for marked text, under the
+   system's colour for text on it, and is ringed so it shows even where
+   that colour is close to the page's; a chosen ayah is ringed in the
+   colour of a selection, never tinted alone. */
+@media (forced-colors: active) {
+  .mushaf-words > [data-ayah] {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+  .mushaf-words > [data-ayah]::before,
+  .mushaf-words > [data-ayah]::after {
+    forced-color-adjust: none;
+  }
+  .mushaf-words > [data-recite] {
+    color: MarkText;
+  }
+  .mushaf-words > [data-selected]::before {
+    background-color: transparent;
+    box-shadow: 0 0 0 0.06em Highlight;
+  }
+  .mushaf-words > [data-recite]::before {
+    background-color: Mark;
+    box-shadow: 0 0 0 0.06em CanvasText;
+  }
+  .mushaf-words > button:focus-visible {
+    outline-color: Highlight;
+  }
+}

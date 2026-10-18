@@ -27,6 +27,7 @@
 @import url('./setup.css') layer(screens);
 @import url('./settings.css') layer(screens);
 @import url('./mushaf.css') layer(screens);
+@import url('./marks.css') layer(screens);
 @import url('./reading.css') layer(screens);
 
 @import url('./utilities.css') layer(utilities);

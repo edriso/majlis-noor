@@ -4,14 +4,19 @@ import {
   rubLabel,
   surah,
   surahOfPage,
+  verseOf,
+  type AyahRange,
   type Line,
 } from '@/data/mushaf';
 import { loadPageFont, pageFontFamily } from './fonts';
 import { usePage } from './usePage';
+import { ayatOfLine, pageWords, type GlyphWord } from './words';
 import {
+  memo,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -29,6 +34,39 @@ export const PAGE_MISSING =
 const RETRY = 'أعد المحاولة';
 const RETRYING = 'جارٍ المحاولة…';
 
+/** What is being recited: an ayah, by its number through the whole Mushaf,
+    and the word of it being heard, or null to mark the ayah whole. */
+export type Recited = { ayah: number; word: number | null };
+
+/** The name of an ayah's end-of-ayah marker, which plays it. */
+export const ayahButtonLabel = (ayah: number) => {
+  const v = verseOf(ayah);
+  return `الآية ${arabic(v.ayah)} من سورة ${surah(v.surah).name} — استمع إليها`;
+};
+
+export type MushafPageProps = {
+  page: number;
+  prefetch?: readonly number[];
+  /** The turn's ayat, each word underlined. */
+  turn?: AyahRange | null;
+  /** The ayah, or the word, being recited, which lies on a wash. */
+  recited?: Recited | null;
+  /** The ayah chosen with a tap, outlined. */
+  selected?: number | null;
+  /** A tap on a word, or a press of an ayah's marker, gives its ayah and
+      which word of it (null for the marker). Given, each marker is a
+      button, so the keyboard and screen readers reach every ayah too.
+      Keep it the same function from one drawing to the next, or the page
+      is drawn again for nothing. */
+  onAyahTap?: (ayah: number, word: number | null) => void;
+};
+
+/* How far a pointer may move between pressing and lifting and still be a
+   tap. A swipe sideways turns the page, so it is given less room that way;
+   a vertical drag scrolls the stage, which the browser takes over anyway. */
+const TAP_SLOP_X = 6;
+const TAP_SLOP_Y = 10;
+
 /**
  * One page of the Madani Mushaf, laid out on its fifteen lines (eight on the
  * opening two pages) exactly as printed: the surah name at the top right,
@@ -43,14 +81,21 @@ const RETRYING = 'جارٍ المحاولة…';
  * same lines, each line made smaller if it would not fit, and a note at the
  * foot says so and offers to try again. When its data cannot load, the page
  * says that instead of a skeleton that never ends.
+ *
+ * Marks (the turn, the recitation, a chosen ayah) are drawn around and
+ * behind the glyphs (see marks.css) and never move one. The word being
+ * recited changes a few times a second, so the page is drawn again only
+ * when a prop changes by value, and of its lines only those whose marks
+ * changed: one or two.
  */
-export function MushafPage({
+export const MushafPage = memo(function MushafPage({
   page,
   prefetch,
-}: {
-  page: number;
-  prefetch?: readonly number[];
-}) {
+  turn,
+  recited,
+  selected,
+  onAyahTap,
+}: MushafPageProps) {
   const state = usePage(page, prefetch);
   const opening = page <= 2;
   const name = surahOfPage(page).name;
@@ -62,6 +107,10 @@ export function MushafPage({
   const linesRef = useRef<HTMLDivElement>(null);
   const noteId = useId();
   useFittedLines(linesRef, fallback ? ready.page : null);
+  const drawn = ready?.page;
+  const words = useMemo(() => (drawn ? pageWords(drawn) : []), [drawn]);
+  const lineAyat = useMemo(() => words.map(ayatOfLine), [words]);
+  useTap(linesRef, ready && ready.font, onAyahTap);
 
   return (
     <article
@@ -101,9 +150,27 @@ export function MushafPage({
                 : undefined
             }
           >
-            {ready.page.lines.map((line, i) => (
-              <MushafLine key={i} line={line} />
-            ))}
+            {ready.page.lines.map((line, i) => {
+              // Each line hears only of the marks on its own ayat, so a
+              // mark that moves draws again only the lines it leaves and
+              // reaches.
+              const on = (ayah: number | null | undefined) =>
+                ayah != null && lineAyat[i].includes(ayah);
+              const reciting = on(recited?.ayah);
+              return (
+                <MushafLine
+                  key={i}
+                  line={line}
+                  words={words[i]}
+                  turnFrom={turn?.from ?? 0}
+                  turnTo={turn?.to ?? 0}
+                  reciteAyah={reciting ? recited!.ayah : null}
+                  reciteWord={reciting ? recited!.word : null}
+                  selected={on(selected) ? selected! : null}
+                  buttons={!!onAyahTap}
+                />
+              );
+            })}
             {fallback ? <Probes lines={ready.page.lines} /> : null}
           </div>
         ) : missing ? (
@@ -152,6 +219,71 @@ export function MushafPage({
       ) : null}
     </article>
   );
+}, sameProps);
+
+/** Whether two sets of props draw the same page: ranges and marks by value,
+    since a caller works them out afresh each time it is drawn. */
+function sameProps(a: MushafPageProps, b: MushafPageProps) {
+  return (
+    a.page === b.page &&
+    a.prefetch === b.prefetch &&
+    (a.turn?.from ?? 0) === (b.turn?.from ?? 0) &&
+    (a.turn?.to ?? 0) === (b.turn?.to ?? 0) &&
+    (a.recited?.ayah ?? null) === (b.recited?.ayah ?? null) &&
+    (a.recited?.word ?? null) === (b.recited?.word ?? null) &&
+    (a.selected ?? null) === (b.selected ?? null) &&
+    a.onAyahTap === b.onAyahTap
+  );
+}
+
+/**
+ * A tap on a word, or a press of a marker, told to `onAyahTap`, from one
+ * listener on the lines rather than one on every word. The lines are not a
+ * control, only where the words' clicks meet: the keyboard's way in is the
+ * markers, which are buttons, and their clicks come here too.
+ *
+ * A finger that moved is a swipe, or the start of one, and is not a tap:
+ * the click a pointer ends with is measured against where it pressed. A
+ * click from the keyboard, or from a screen reader, has no press before it
+ * and always counts.
+ *
+ * `drawn` changes whenever the lines are drawn afresh (the page arrives,
+ * or its font), since the listeners belong to the element.
+ */
+function useTap(
+  lines: RefObject<HTMLDivElement | null>,
+  drawn: unknown,
+  onAyahTap: MushafPageProps['onAyahTap'],
+) {
+  useEffect(() => {
+    const box = lines.current;
+    if (!box || !drawn || !onAyahTap) return;
+    let pressed: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => {
+      pressed = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
+    };
+    const click = (e: MouseEvent) => {
+      const from = pressed;
+      pressed = null;
+      const target = (e.target as Element).closest<HTMLElement>('[data-ayah]');
+      if (!target || !box.contains(target)) return;
+      if (
+        e.detail > 0 &&
+        from &&
+        (Math.abs(e.clientX - from.x) > TAP_SLOP_X ||
+          Math.abs(e.clientY - from.y) > TAP_SLOP_Y)
+      )
+        return;
+      const { ayah, word } = target.dataset;
+      onAyahTap(Number(ayah), word ? Number(word) : null);
+    };
+    box.addEventListener('pointerdown', down);
+    box.addEventListener('click', click);
+    return () => {
+      box.removeEventListener('pointerdown', down);
+      box.removeEventListener('click', click);
+    };
+  }, [lines, drawn, onAyahTap]);
 }
 
 function RetryButton({
@@ -252,22 +384,78 @@ function Probes({ lines }: { lines: readonly Line[] }) {
   );
 }
 
-function MushafLine({ line }: { line: Line }) {
+/**
+ * One line: its glyphs, each carrying its ayah and word and the marks on
+ * them, and its text. Its props are plain values, so it is drawn again only
+ * when a mark on it changes.
+ */
+const MushafLine = memo(function MushafLine({
+  line,
+  words,
+  turnFrom,
+  turnTo,
+  reciteAyah,
+  reciteWord,
+  selected,
+  buttons,
+}: {
+  line: Line;
+  words: readonly GlyphWord[];
+  /** The turn's ayat, `turnTo` not included. */
+  turnFrom: number;
+  turnTo: number;
+  /** The ayah recited, if it is on this line, and its word, or null for
+      the whole ayah. */
+  reciteAyah: number | null;
+  reciteWord: number | null;
+  selected: number | null;
+  /** Whether each marker is a button. */
+  buttons: boolean;
+}) {
   if (line.t === 'surah') return <SurahHeader n={line.s} />;
   if (line.t === 'basmala') return <Basmala />;
   return (
     <div className="mushaf-line">
-      <span className="mushaf-words" aria-hidden="true">
-        {line.w.map(([code], i) => (
-          <span key={i}>{code}</span>
-        ))}
-      </span>
       {/* The glyphs are private-use code points that mean nothing to a screen
-          reader or to the font fallback; this is the same line as text. */}
+          reader or to the font fallback; this is the same line as text.
+          Before the glyphs, so a screen reader reads a line and then the
+          buttons of the ayat it ends; out of the flow in glyph mode and
+          alone in it in text mode, so where it sits moves nothing. */}
       <span className="mushaf-text">{line.x}</span>
+      <span className="mushaf-words">
+        {line.w.map(([code], i) => {
+          const { ayah, word } = words[i];
+          const marks = {
+            'data-ayah': ayah,
+            'data-word': word ?? undefined,
+            'data-turn': (ayah >= turnFrom && ayah < turnTo) || undefined,
+            'data-recite':
+              (ayah === reciteAyah &&
+                (reciteWord === null || reciteWord === word)) ||
+              undefined,
+            'data-selected': ayah === selected || undefined,
+          };
+          // The marker lays out exactly as the glyph alone did (marks.css):
+          // a button only by what it does and how it is named.
+          return word === null && buttons ? (
+            <button
+              key={i}
+              type="button"
+              {...marks}
+              aria-label={ayahButtonLabel(ayah)}
+            >
+              {code}
+            </button>
+          ) : (
+            <span key={i} {...marks} aria-hidden="true">
+              {code}
+            </span>
+          );
+        })}
+      </span>
     </div>
   );
-}
+});
 
 function SurahHeader({ n }: { n: number }) {
   const s = surah(n);
