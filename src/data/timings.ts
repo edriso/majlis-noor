@@ -15,7 +15,7 @@ import {
   decodeAyahWords,
   decodeSpans,
   surahFile,
-  type FileStamp,
+  type FileRecord,
   type Span,
   type WordsFile,
 } from './audio';
@@ -40,7 +40,7 @@ export type Timings = {
   /** Each surah file as the host served it when these timings were made,
       index surah - 1, which scripts/check-audio.ts compares with what it
       serves now. */
-  files: FileStamp[];
+  files: FileRecord[];
   /** Each surah's ayat in a compact form, index surah - 1; read them
       through `ayahTimes()`. */
   ayat: number[][];

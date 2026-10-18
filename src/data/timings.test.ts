@@ -13,6 +13,7 @@ import {
   fileChange,
   stampOf,
   surahFile,
+  type FileRecord,
   type Span,
   type WordsFile,
 } from './audio';
@@ -144,11 +145,14 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
     }
   });
 
-  it('records the length and date of every surah file it was timed from', () => {
+  it('records the length, date and duration of every surah file', () => {
     expect(t.files).toHaveLength(114);
-    for (const [bytes, modified] of t.files) {
+    for (const [bytes, modified, ms, apiMs] of t.files) {
       expect(Number.isInteger(bytes) && bytes > 10_000).toBe(true);
       expect(modified).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+      // Al-Shuraim's al-Kawthar is the shortest, at 9.2 s.
+      expect(Number.isInteger(ms) && ms > 9_000).toBe(true);
+      expect(Number.isInteger(apiMs) && apiMs > 9_000).toBe(true);
     }
   });
 
@@ -560,15 +564,19 @@ describe('the files the timings were made from', () => {
   });
 
   it('says how a file changed, and nothing if it did not', () => {
-    const timed: [number, string] = [386026, '2023-01-06T01:08:47Z'];
-    expect(fileChange(timed, [386026, '2023-01-06T01:08:47Z'])).toBeNull();
-    expect(fileChange(timed, [390000, '2023-01-06T01:08:47Z'])).toBe(
+    const date = '2023-01-06T01:08:47Z';
+    const timed: FileRecord = [386026, date, 48_000, 48_000];
+    expect(fileChange(timed, [386026, date, 48_000])).toBeNull();
+    expect(fileChange(timed, [390000, date, 48_000])).toBe(
       'length 386026 is now 390000',
     );
-    expect(fileChange(timed, [386026, '2026-09-08T01:47:18Z'])).toBe(
+    expect(fileChange(timed, [386026, '2026-09-08T01:47:18Z', 48_000])).toBe(
       'last modified 2023-01-06T01:08:47Z is now 2026-09-08T01:47:18Z',
     );
-    expect(fileChange(timed, [1, '2026-09-08T01:47:18Z'])).toContain(', ');
+    expect(fileChange(timed, [386026, date, 39_100])).toBe(
+      'it played 48.0 s and now plays 39.1 s',
+    );
+    expect(fileChange(timed, [1, '2026-09-08T01:47:18Z', 1])).toContain(', ');
     expect(fileChange(timed, null)).toBe('served without a length or a date');
   });
 });

@@ -214,9 +214,21 @@ export function decodeAyahWords(entry: readonly number[]): {
     `last-modified` as an ISO date to the second. */
 export type FileStamp = [bytes: number, modified: string];
 
+/** A surah file as its reciter's timings record it: its stamp, how long
+    it plays in milliseconds (measured from its own frames, see
+    scripts/mp3.ts), and how long the API says the file it timed plays
+    (its `duration`, cut to whole seconds for every reciter but
+    al-Shuraim). */
+export type FileRecord = [
+  bytes: number,
+  modified: string,
+  ms: number,
+  apiMs: number,
+];
+
 /**
  * The stamp of a file from the host's answer to a HEAD request (the whole
- * length in `content-length`) or to a request for its first byte (the
+ * length in `content-length`) or to a request for its first bytes (the
  * whole length after the slash of `content-range`). Null if either is
  * missing, which a file that is served properly never is.
  */
@@ -236,17 +248,23 @@ export function stampOf(
   ];
 }
 
-/** How the file served today differs from the one timed, or null if it
-    is the same file. */
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
+/** How the file served today differs from the one recorded, or null if
+    it is the same file: the same length, date and duration. */
 export function fileChange(
-  timed: FileStamp,
-  served: FileStamp | null,
+  recorded: FileRecord,
+  served: [bytes: number, modified: string, ms: number] | null,
 ): string | null {
   if (!served) return 'served without a length or a date';
   const changes = [];
-  if (served[0] !== timed[0])
-    changes.push(`length ${timed[0]} is now ${served[0]}`);
-  if (served[1] !== timed[1])
-    changes.push(`last modified ${timed[1]} is now ${served[1]}`);
+  if (served[0] !== recorded[0])
+    changes.push(`length ${recorded[0]} is now ${served[0]}`);
+  if (served[1] !== recorded[1])
+    changes.push(`last modified ${recorded[1]} is now ${served[1]}`);
+  if (served[2] !== recorded[2])
+    changes.push(
+      `it played ${seconds(recorded[2])} and now plays ${seconds(served[2])}`,
+    );
   return changes.length ? changes.join(', ') : null;
 }

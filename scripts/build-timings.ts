@@ -9,21 +9,23 @@
 
    The source is Quran.com's per-surah recordings with per-ayah and
    per-word timestamps, asked for as its own site asks (`segments=true`;
-   without it the API leaves the timestamps out), and the audio host's own
-   answer to a HEAD request for each surah file. Both are cached under
-   .cache/; delete a file there to fetch it again.
+   without it the API leaves the timestamps out), the audio host's own
+   answer to a HEAD request for each surah file, and how long each file
+   plays, read from its first frames (scripts/mp3.ts). All three are
+   cached under .cache/; delete a file there to ask again.
 
    Writes src/data/timings/<reciter>.json:
 
      audio    the address of every surah file, as a template (see
               src/data/audio.ts), written only if it gives back the API's
               own address for every one of the 114 surahs
-     files    files[s - 1] = [bytes, lastModified]: surah s's file as the
-              host served it when the timings were built, its length and
-              its `last-modified` as an ISO date. A timing is only right for
-              the file it was made from, and the host replaces files in
-              place, so `npm run check:audio` compares these with what it
-              serves now.
+     files    files[s - 1] = [bytes, lastModified, ms, apiMs]: surah s's
+              file as the host served it when the timings were built, its
+              length, its `last-modified` as an ISO date, how long it plays,
+              and how long the API says the file it timed plays. A timing is
+              only right for the file it was made from, and the host
+              replaces files in place, so `npm run check:audio` compares
+              these with what it serves now.
      ayat     ayat[s - 1] = [gap, length, gap, length, …], one pair per ayah
               of surah s in order: where the ayah starts in the surah file,
               counted from where the ayah before it ended (the first from
@@ -79,10 +81,12 @@ import {
   encodeSpans,
   stampOf,
   surahFile,
+  type FileRecord,
   type FileStamp,
   type Span,
 } from '../src/data/audio.ts';
 import { reciters } from '../src/data/reciters.ts';
+import { fetchAgain, measureMp3, rangeReader, type Measure } from './mp3.ts';
 
 const API = 'https://api.qurancdn.com/api/qdc/audio/reciters';
 const CACHE = '.cache/quran-com/audio';
@@ -100,9 +104,15 @@ type VerseTiming = {
   timestamp_to: number;
   segments?: unknown;
 };
-type AudioFile = { audio_url: string; verse_timings: VerseTiming[] };
+type AudioFile = {
+  audio_url: string;
+  /** Milliseconds, in whole seconds, of the file the API timed. */
+  duration: number;
+  verse_timings: VerseTiming[];
+};
 type PageLine = { t: string; w?: [string, string][] };
 type Head = { url: string; status: number; headers: Record<string, string> };
+type Measured = { url: string; stamp: FileStamp; measure: Measure };
 
 async function chapter(qdc: number, n: number): Promise<AudioFile> {
   const path = `${CACHE}/${qdc}/${n}.json`;
@@ -110,7 +120,7 @@ async function chapter(qdc: number, n: number): Promise<AudioFile> {
     if (offline)
       throw new Error(`${path} is not cached and --offline was given`);
     const url = `${API}/${qdc}/audio_files?chapter=${n}&segments=true`;
-    const res = await fetch(url);
+    const res = await fetchAgain(url);
     if (!res.ok) throw new Error(`${url}: ${res.status}`);
     await mkdir(`${CACHE}/${qdc}`, { recursive: true });
     await writeFile(path, await res.text());
@@ -137,7 +147,7 @@ async function stamp(qdc: number, n: number, url: string): Promise<FileStamp> {
       throw new Error(
         `${path} is not cached for ${url} and --offline was given`,
       );
-    const res = await fetch(url, { method: 'HEAD' });
+    const res = await fetchAgain(url, { method: 'HEAD' });
     const headers: Record<string, string> = {};
     for (const name of ['content-length', 'content-type', 'last-modified']) {
       const value = res.headers.get(name);
@@ -158,6 +168,35 @@ async function stamp(qdc: number, n: number, url: string): Promise<FileStamp> {
       `${url} answered ${status} ${type}; delete ${path} to ask again`,
     );
   return found;
+}
+
+/** How long a surah file plays, read from its frames and cached with the
+    stamp of the file it was read from: a file replaced since is read
+    again. */
+async function duration(
+  qdc: number,
+  n: number,
+  url: string,
+  stamp: FileStamp,
+): Promise<Measure> {
+  const path = `${HEADS}/${qdc}/${n}.mp3.json`;
+  const cached = existsSync(path)
+    ? (JSON.parse(await readFile(path, 'utf8')) as Measured)
+    : undefined;
+  if (
+    cached?.url === url &&
+    cached.stamp[0] === stamp[0] &&
+    cached.stamp[1] === stamp[1]
+  )
+    return cached.measure;
+  if (offline)
+    throw new Error(
+      `${path} is not cached for this file and --offline was given`,
+    );
+  const measure = await measureMp3(rangeReader(url), stamp[0]);
+  await mkdir(`${HEADS}/${qdc}`, { recursive: true });
+  await writeFile(path, JSON.stringify({ url, stamp, measure }));
+  return measure;
 }
 
 /** Surah 1's address with its number made a placeholder: the one surah
@@ -210,7 +249,7 @@ for (const reciter of reciters) {
     () => [],
   );
   const ayat: number[][] = [];
-  const files: (FileStamp | undefined)[] = [];
+  const files: FileRecord[] = [];
   const tally = {
     full: 0,
     malformed: 0,
@@ -244,7 +283,10 @@ for (const reciter of reciters) {
   for (let i = 0; i < 114; i += AT_ONCE)
     await Promise.all(
       audioFiles.slice(i, i + AT_ONCE).map(async (file, j) => {
-        files[i + j] = await stamp(reciter.qdc, i + j + 1, file.audio_url);
+        const n = i + j + 1;
+        const found = await stamp(reciter.qdc, n, file.audio_url);
+        const { ms } = await duration(reciter.qdc, n, file.audio_url, found);
+        files[n - 1] = [...found, ms, file.duration];
       }),
     );
 
@@ -298,18 +340,19 @@ for (const reciter of reciters) {
         if (word <= before[0]) tally.repeats++;
         if (start - before[2] > 300) tally.gaps++;
       });
-      // Words a second or more outside their own ayah: either they or the
-      // ayah's times are wrong there, and nothing here can tell which.
-      if (
-        Array.isArray(v.segments) &&
-        (v.segments as unknown[]).some(
-          (s) =>
-            Array.isArray(s) &&
-            s.length === 3 &&
-            (Number(s[1]) < from - 1000 || Number(s[2]) > to + 1000),
+      // How far the API's own words for the ayah reach outside it. Over a
+      // second, either they or the ayah's times are wrong there, and
+      // nothing here can tell which.
+      let stray = 0;
+      for (const s of Array.isArray(v.segments) ? v.segments : [])
+        if (
+          Array.isArray(s) &&
+          s.length === 3 &&
+          s.every((x) => typeof x === 'number' && Number.isFinite(x)) &&
+          s[2] >= s[1]
         )
-      )
-        tally.stray++;
+          stray = Math.max(stray, from - s[1], s[2] - to);
+      if (stray > 1000) tally.stray++;
       words.push(encodeAyahWords([from, to], clean.words));
     });
 
