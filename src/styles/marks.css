@@ -111,3 +111,71 @@
     outline-color: Highlight;
   }
 }
+
+/* ---------- The ayah bar ---------- */
+
+/* One ayah chosen on the page, docked above the action bar: its name and
+   the sheikh reciting it. A card of its own, so it reads as something
+   that came up and goes away, never as part of the page. */
+.ayah-bar {
+  display: grid;
+  gap: var(--space-2);
+  width: min(100%, 560px);
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--fg);
+  box-shadow: 0 12px 30px rgb(var(--shadow-rgb) / 0.3);
+}
+.ayah-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.ayah-bar-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+.ayah-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ayah-bar-actions:empty {
+  display: none;
+}
+.ayah-bar-button {
+  min-height: var(--target);
+  padding: 6px 16px;
+  gap: var(--space-2);
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--fg);
+}
+.ayah-bar-button:hover {
+  background: var(--hover);
+}
+.ayah-bar-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+/* Kept in the tree when empty, since a live region that appears with its
+   words in it may not be read out; it only gives back the gap. */
+.ayah-bar-note:empty {
+  margin-top: calc(-1 * var(--space-2));
+}
+.ayah-bar-spin {
+  animation: ayah-bar-spin 1s linear infinite;
+}
+@keyframes ayah-bar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
