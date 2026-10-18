@@ -1,7 +1,10 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
+import { injectPrecache, precacheManifest } from './scripts/precache.ts';
 import { themeHtml } from './src/styles/themes.ts';
 
 /* The site is served from a project path on GitHub Pages and could be served
@@ -19,6 +22,29 @@ const shareCard = siteUrl
   ? new URL('og.png', siteUrl.endsWith('/') ? siteUrl : `${siteUrl}/`).href
   : `${base}og.png`;
 const TOKEN = '%SHARE_CARD%';
+
+/* The service worker installs every file the app needs to open and read
+   offline, so it must be told which files a build made. Once the site is
+   written out, public files included, the list is written into the built
+   sw.js (see scripts/precache.ts); a worker with no placeholder for it
+   fails the build. */
+const precache = (): Plugin => {
+  let outDir = '';
+  return {
+    name: 'precache-list',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    writeBundle() {
+      const sw = join(outDir, 'sw.js');
+      writeFileSync(
+        sw,
+        injectPrecache(readFileSync(sw, 'utf8'), precacheManifest(outDir)),
+      );
+    },
+  };
+};
 
 export default defineConfig({
   base,
@@ -42,6 +68,7 @@ export default defineConfig({
       name: 'theme-colours',
       transformIndexHtml: { order: 'pre', handler: themeHtml },
     },
+    precache(),
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
