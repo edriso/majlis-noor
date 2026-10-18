@@ -126,6 +126,7 @@ export function HalaqaCircle({
             className="halaqa-seat"
             data-kind={member.kind}
             data-active={isActive || undefined}
+            data-next={(n > 1 && i === next && !isActive) || undefined}
             data-done={done || undefined}
             data-skipped={state === 'skipped' || undefined}
             data-top={Math.sin(rad) < -0.5 || undefined}

@@ -1,20 +1,20 @@
 /* The circle (HalaqaCircle.tsx), in its own view (CircleView.tsx): every
-   seat in reading order, the one reading lit in gold. */
+   seat in reading order, the one reading lit in gold, for one to eight. */
 
 /* The circle's room: the circle as large as it fits, with the names
-   around it and where the halaqa is under it. */
+   around it, and under it what the sitting has read and «عدّل الحلقة». */
 .circle-view {
   container-type: size;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 20px;
+  gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
-  padding-block: 8px;
+  padding-block: var(--space-2);
 }
 .circle-view .halaqa-circle {
-  --circle-size: max(220px, min(540px, 100cqw - 110px, 100cqh - 250px));
+  --circle-size: max(220px, min(640px, 100cqw - 110px, 100cqh - 210px));
 }
 
 .halaqa-circle {
@@ -28,15 +28,23 @@
   margin: 0 auto;
   transition: width 420ms var(--ease);
 }
-/* A seat on the upper arc of a circle of three or four carries its name
-   above it, out of the box; this is the room for it. */
-.halaqa-circle[data-readers='3'],
-.halaqa-circle[data-readers='4'] {
+/* A seat on the upper arc carries its name above it, out of the box; this
+   is the room for it. */
+.halaqa-circle:has(.halaqa-seat[data-top]) {
   margin-top: 60px;
 }
-/* A lone reader sits at the foot of the circle, with the name below it. */
+/* A lone reader sits at the foot of the circle, with the name below it,
+   and so, nearly, do the lowest seats of a large circle. */
 .halaqa-circle[data-readers='1'] {
   margin-bottom: 64px;
+}
+.halaqa-circle:is(
+  [data-readers='5'],
+  [data-readers='6'],
+  [data-readers='7'],
+  [data-readers='8']
+) {
+  margin-bottom: var(--space-5);
 }
 .halaqa-ring {
   position: absolute;
@@ -78,7 +86,7 @@
 }
 .halaqa-center-label {
   color: var(--muted);
-  font-size: clamp(12px, 3.6cqi, 16px);
+  font-size: clamp(var(--text-xs), 3.6cqi, var(--text-lg));
 }
 .halaqa-center-page {
   color: var(--fg);
@@ -90,18 +98,40 @@
 /* Seats, names and marks are measured in the circle's own width (cqi), so
    a circle drawn across a room has seats to match. */
 .halaqa-seat {
-  --seat-size: clamp(46px, 15cqi, 80px);
+  --seat-size: clamp(46px, 15cqi, 88px);
+  --seat-width: clamp(100px, 32cqi, 190px);
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: clamp(100px, 32cqi, 170px);
+  width: var(--seat-width);
   /* The avatar's centre, not the box's, sits on the ring. */
   transform: translate(-50%, calc(var(--seat-size) / -2));
   text-align: center;
   line-height: 1.35;
 }
+/* More seats are closer together round the same ring: smaller faces, and
+   names no wider than the room between two seats. */
+:is([data-readers='5'], [data-readers='6']) > .halaqa-seat {
+  --seat-size: clamp(42px, 13cqi, 80px);
+  --seat-width: clamp(84px, 28cqi, 170px);
+}
+:is([data-readers='7'], [data-readers='8']) > .halaqa-seat {
+  --seat-size: clamp(40px, 12cqi, 72px);
+  --seat-width: clamp(76px, 24cqi, 150px);
+}
+/* From seven seats on a small circle (a phone), only who reads now and who
+   reads next keep their names under their faces; the rest show their
+   face, and their names are in the figure's caption for a screen reader. */
+@container (max-width: 460px) {
+  :is([data-readers='7'], [data-readers='8'])
+    > .halaqa-seat:not([data-active], [data-next])
+    :is(.seat-name, .seat-status) {
+    display: none;
+  }
+}
+
 /* A seat on the upper arc carries its name above it, out of the circle,
    where the page number in the middle would otherwise collide with it. */
 .halaqa-seat[data-top] {
@@ -146,7 +176,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: clamp(14px, 4.4cqi, 19px);
+  font-size: clamp(var(--text-sm), 4.4cqi, var(--text-lg));
   font-weight: 500;
 }
 .seat-status {
@@ -154,7 +184,14 @@
   align-items: center;
   gap: 5px;
   color: var(--muted);
-  font-size: clamp(12px, 3.4cqi, 14px);
+  font-size: clamp(var(--text-xs), 3.4cqi, var(--text-md));
+}
+/* Passed over in a round by a jump made after their turn: a broken ring,
+   as a gap in the round, with «لم يقرأها» under the name. */
+.halaqa-seat[data-skipped] .seat-avatar {
+  box-shadow: none;
+  outline: 1.5px dashed var(--control-border);
+  outline-offset: 2px;
 }
 /* Three bars that move while a reciter can be heard. */
 .seat-sound {
@@ -227,46 +264,44 @@
   transition: stroke-dashoffset 260ms linear;
 }
 
-/* ---------- Where the circle is ---------- */
+/* ---------- Under the circle ---------- */
 
 .sitting {
   display: grid;
-  gap: 8px;
-  width: min(100%, 300px);
-  margin: 4px auto 0;
-}
-.sitting-label {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-.sitting-bar {
-  display: block;
-  width: 100%;
-  height: 3px;
-  appearance: none;
-  border: 0;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--line);
-  color: var(--gold);
-}
-.sitting-bar::-webkit-progress-bar {
-  background: var(--line);
-}
-.sitting-bar::-webkit-progress-value {
-  background: var(--gold);
-  transition: width 500ms var(--ease);
-}
-.sitting-bar::-moz-progress-bar {
-  background: var(--gold);
+  justify-items: center;
+  gap: var(--space-2);
 }
 .sitting-note {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
   text-align: center;
+}
+.sitting-edit {
+  min-height: var(--target);
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--fg);
+  font-weight: 500;
+}
+.sitting-edit:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}
+
+/* With forced colours the gold is gone: who reads now keeps a ring of the
+   system's highlight, and the travelling mark and the time draw in it. */
+@media (forced-colors: active) {
+  .halaqa-seat[data-active] .seat-avatar {
+    outline: 3px solid Highlight;
+    outline-offset: 3px;
+  }
+  .halaqa-mark-arc,
+  .seat-progress circle {
+    stroke: Highlight;
+  }
+  .halaqa-seat[data-active] .seat-status {
+    color: Highlight;
+  }
 }
