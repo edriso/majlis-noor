@@ -305,13 +305,13 @@ export function useListen({
 }
 
 /** The halaqa's recitation a sample paused, to carry on when it stops. */
-let held: string | null = null;
+let pausedForSample: string | null = null;
 
 /** Carries the halaqa's recitation on, if a sample paused it and it is
     still the same recitation, still paused. */
-function releaseHeld() {
-  const was = held;
-  held = null;
+function resumeAfterSample() {
+  const was = pausedForSample;
+  pausedForSample = null;
   const now = player.getState();
   if (was && now.key === was && now.status === 'paused') player.resume();
 }
@@ -343,7 +343,7 @@ export function useSample(timings: Record<string, Timings | null>) {
   useEffect(
     () => () => {
       sampler.stop();
-      releaseHeld();
+      resumeAfterSample();
     },
     [],
   );
@@ -351,7 +351,7 @@ export function useSample(timings: Record<string, Timings | null>) {
     if (main.status === 'playing') sampler.stop();
   }, [main.status]);
   useEffect(() => {
-    if (!sounding) releaseHeld();
+    if (!sounding) resumeAfterSample();
   }, [sounding]);
 
   const phase = (id: string) =>
@@ -373,7 +373,7 @@ export function useSample(timings: Record<string, Timings | null>) {
       if (!t) return;
       const now = player.getState();
       if (now.status === 'playing' || now.status === 'loading') {
-        held = now.key;
+        pausedForSample = now.key;
         player.pause();
       }
       sampler.play(`sample:${id}`, recitationOf(t, [1]));
