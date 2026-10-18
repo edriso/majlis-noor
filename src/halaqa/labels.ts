@@ -1,4 +1,4 @@
-import { arabic } from '@/data/arabic';
+import { arabic, clock, counted } from '@/data/arabic';
 import {
   pagesOfRange,
   rubLabel,
@@ -11,6 +11,7 @@ import {
   verseOf,
   type AyahRange,
 } from '@/data/mushaf';
+import type { PlayerStatus } from './player';
 import type { Unit } from './schedule';
 
 /**
@@ -99,4 +100,389 @@ export function rangeShort(unit: Unit, range: AyahRange) {
     if (same(range, surahRange(s))) return surah(s).name;
   }
   return ayatShort(range);
+}
+
+/**
+ * What a turn reads, at the length of a line beside a name: «الصفحة ٢٤»,
+ * «الآيات ٥–٩», «الآية ٧», «ربع الحزب ٣», «سورة الملك». A run of ayat
+ * leaves its surah to the page, whose head names it; one that crosses
+ * into the next surah names both, «الفاتحة ٧ – البقرة ٣».
+ */
+export function portionLabel(unit: Unit, range: AyahRange) {
+  if (range.to <= range.from) return '';
+  if (unit === 'page') return pagesLabel(pagesOfRange(range));
+  // A quarter or a surah is named as itself only when whole, as above.
+  if (unit === 'rub') {
+    const n = rubOfAyah(range.from);
+    if (same(range, rubRange(n))) return rubLabel(n);
+  }
+  if (unit === 'surah') {
+    const s = surahOfAyah(range.from);
+    if (same(range, surahRange(s))) return surahTitle(s);
+  }
+  const [first, last] = endsOf(range);
+  if (first.surah !== last.surah) return ayatShort(range);
+  if (first.ayah === last.ayah) return `الآية ${arabic(first.ayah)}`;
+  return `الآيات ${arabic(first.ayah)}–${arabic(last.ayah)}`;
+}
+
+/** The same where a phone's line has room for less: pages as «ص ٢٤»,
+    which every reader of a Mushaf knows; a run of ayat has no shorter
+    name that is still plain words, so it keeps its own. */
+export function portionNarrow(unit: Unit, range: AyahRange) {
+  return unit === 'page'
+    ? pagesShort(pagesOfRange(range))
+    : portionLabel(unit, range);
+}
+
+/* ---------- The reading screen's words ----------
+
+   Everything the reading screen says about a turn, worked out from plain
+   values, so each sentence is tested here rather than found by reading a
+   component. A control's name always begins with the words it shows (WCAG
+   2.5.3), so someone who speaks to their device can say what they see. */
+
+/** A text and the shorter form a phone shows instead; the same when there
+    is no shorter one. */
+export type Sized = { long: string; short: string };
+
+/** How a sitting with nothing left ended, as the model says it. */
+type End = 'khatm' | 'goal';
+
+/** «خُتم المصحف» or «بلغتم الغاية»: the line at the top once nothing is
+    left to read. */
+export const endTitle = (end: End) =>
+  end === 'khatm' ? 'خُتم المصحف' : 'بلغتم الغاية';
+
+/** What finishing the last turn leads to, under «تمّ» and in «تخطَّ». */
+const endNote = (end: End) =>
+  end === 'khatm' ? 'وبه يُختم المصحف' : 'وبه تبلغون الغاية';
+
+/** Where the circle is, beside whose turn it is: the page open in a turn
+    of pages (a turn of two shows the one being read), or the turn's ayat
+    in any other unit. */
+export function placeLine(unit: Unit, range: AyahRange, page: number): Sized {
+  if (unit === 'page')
+    return { long: `الصفحة ${arabic(page)}`, short: `ص ${arabic(page)}` };
+  const label = portionLabel(unit, range);
+  return { long: label, short: label };
+}
+
+/** Who reads next and what, as the turn passing on shows it. */
+export type Next = {
+  /** Null in a circle of one, where there is nobody else to name. */
+  name: string | null;
+  unit: Unit;
+  range: AyahRange;
+};
+
+/** «عمر · الصفحة ٥١», «عمر · ص ٥١» on a phone, or the portion alone in a
+    circle of one. */
+function nextLine({ name, unit, range }: Next): Sized {
+  const long = portionLabel(unit, range);
+  const short = portionNarrow(unit, range);
+  return name
+    ? { long: `${name} · ${long}`, short: `${name} · ${short}` }
+    : { long, short };
+}
+
+/**
+ * The main button on a reader's turn. Within a turn of several pages it
+ * turns to the next: «الصفحة التالية», «٢ من ٢ · ثم فاطمة». On the last
+ * it passes the turn: «تمّ — التالي», «فاطمة · الصفحة ٥١», or, alone with
+ * a turn of pages, «الصفحة التالية». When nothing is left after it, «تمّ»
+ * and what it completes.
+ */
+export function doneLabels({
+  step,
+  next,
+  end,
+}: {
+  /** The page the button turns to within the turn, and how many it has;
+      null on the turn's last page. */
+  step: { at: number; of: number } | null;
+  next: Next;
+  /** What finishing this turn completes, when nothing comes after it. */
+  end: End | null;
+}): { main: string; sub: Sized | null } {
+  if (step) {
+    const where = `${arabic(step.at)} من ${arabic(step.of)}`;
+    const line = next.name ? `${where} · ثم ${next.name}` : where;
+    return { main: 'الصفحة التالية', sub: { long: line, short: line } };
+  }
+  if (end) {
+    const note = endNote(end);
+    return { main: 'تمّ', sub: { long: note, short: note } };
+  }
+  const alonePaging = !next.name && next.unit === 'page';
+  return {
+    main: alonePaging ? 'الصفحة التالية' : 'تمّ — التالي',
+    sub: nextLine(next),
+  };
+}
+
+/** «تخطَّ»'s name: where skipping a reciter's turn leads. */
+export function skipLabel(next: Next, end: End | null) {
+  if (end) return `تخطَّ، ${endNote(end)}`;
+  const portion = portionLabel(next.unit, next.range);
+  return next.name ? `تخطَّ إلى ${next.name}، ${portion}` : `تخطَّ إلى ${portion}`;
+}
+
+/** A button's two lines and its name, which begins with them. */
+export type ButtonLabels = { main: string; sub: Sized; name: string };
+
+/** «لا تتوفّر تلاوة هذه الصفحة بصوت الشيخ الحصري»: a recording that does
+    not fit its timings is never played (see timings.ts), and trying again
+    would not change it, so this is said instead of «تعذّر». */
+export function untimedLabel(unit: Unit, range: AyahRange, reciter: string) {
+  const several = pagesOfRange(range).length > 1;
+  const what =
+    unit === 'page'
+      ? several
+        ? 'هذه الصفحات'
+        : 'هذه الصفحة'
+      : unit === 'rub'
+        ? 'هذا الربع'
+        : unit === 'surah'
+          ? 'هذه السورة'
+          : range.to - range.from > 1
+            ? 'هذه الآيات'
+            : 'هذه الآية';
+  return `لا تتوفّر تلاوة ${what} بصوت الشيخ ${reciter}`;
+}
+
+/**
+ * The main button on a reciter's turn says what a press does, and under it
+ * how long is left (`left`, once known): «إيقاف مؤقت», «بقي ٤:١٤»;
+ * «متابعة» once paused. When the browser held the sound back for a tap,
+ * «استمع» «إلى عبد الباسط». When his recitation will not play, the way on
+ * is to skip him: «تخطَّ», and why; trying again is the button beside it,
+ * unless his recording of the turn does not fit its timings (`untimed`),
+ * which no retry mends.
+ */
+export function recitationLabels({
+  status,
+  untimed,
+  reciter,
+  left,
+  next,
+  end,
+  unit,
+  range,
+}: {
+  status: PlayerStatus;
+  untimed: boolean;
+  /** His short name. */
+  reciter: string;
+  left: number | null;
+  next: Next;
+  end: End | null;
+  /** What his turn reads. */
+  unit: Unit;
+  range: AyahRange;
+}): ButtonLabels {
+  const time = left !== null ? `بقي ${clock(left)}` : '';
+  const his = `تلاوة ${reciter}`;
+  const named = (main: string, sub: Sized, after: string): ButtonLabels => ({
+    main,
+    sub,
+    name: [main, sub.long, after].filter(Boolean).join('، '),
+  });
+  const plain = (s: string): Sized => ({ long: s, short: s });
+  if (untimed || status === 'error') {
+    const portion = portionLabel(next.unit, next.range);
+    const after = end
+      ? endNote(end)
+      : `التالي: ${next.name ? `${next.name}، ` : ''}${portion}`;
+    return named(
+      'تخطَّ',
+      untimed
+        ? {
+            long: untimedLabel(unit, range, reciter),
+            short: 'التلاوة غير متوفّرة',
+          }
+        : plain('تعذّر تشغيل التلاوة'),
+      after,
+    );
+  }
+  switch (status) {
+    case 'loading':
+      return named('إيقاف مؤقت', plain('جارٍ التحميل…'), his);
+    case 'paused':
+      return named('متابعة', plain(time || 'متوقفة'), his);
+    case 'blocked':
+    case 'idle': {
+      const sub = `إلى ${reciter}`;
+      return { main: 'استمع', sub: plain(sub), name: `استمع ${sub}` };
+    }
+    case 'playing':
+    case 'ended':
+      return named('إيقاف مؤقت', plain(time), his);
+  }
+}
+
+/** The countdown of a timed turn, which is also its pause. It shows the
+    time where there is room for it, so its name begins with it; while the
+    reciter's timings load there is no time to show yet, and it says so
+    rather than «less than a second». */
+export function timerLabel(paused: boolean, left: number | null) {
+  const action = paused ? 'استئناف التوقيت' : 'إيقاف التوقيت مؤقتًا';
+  return left === null
+    ? `جارٍ تحميل التوقيت، ${action}`
+    : `${clock(left)}، ${action}`;
+}
+
+/**
+ * «استمع»: the word its button shows where there is room, and its name,
+ * which begins with that word and says what is heard (`what`: «الصفحة ٢٤»,
+ * «الآيات ٥–٩ من سورة الكهف»). Where the listening sheikh's recording does
+ * not fit (`untimed`, the sentence `untimedLabel` makes), the button offers
+ * another sheikh instead of a retry that cannot work.
+ */
+export function listenLabels(
+  status: PlayerStatus,
+  what: string,
+  untimed: string | null,
+): { text: string; name: string } {
+  if (untimed) return { text: 'شيخ آخر', name: `شيخ آخر: ${untimed}` };
+  switch (status) {
+    case 'loading':
+      return {
+        text: 'جارٍ التحميل…',
+        name: `جارٍ التحميل…، إيقاف الاستماع إلى ${what}`,
+      };
+    case 'playing':
+      return {
+        text: 'إيقاف مؤقت',
+        name: `إيقاف مؤقت للاستماع إلى ${what}`,
+      };
+    case 'paused':
+      return { text: 'متابعة', name: `متابعة الاستماع إلى ${what}` };
+    case 'error':
+      return {
+        text: 'تعذّر التشغيل',
+        name: `تعذّر التشغيل، أعد محاولة الاستماع إلى ${what}`,
+      };
+    case 'idle':
+    case 'ended':
+    case 'blocked':
+      return { text: 'استمع', name: `استمع إلى ${what}` };
+  }
+}
+
+/**
+ * What a screen reader hears when the turn moves, or anything about it
+ * changes: whose turn it is and what it reads, the page if the turn has
+ * more than one, and what a reciter's turn needs from the room: a tap the
+ * browser waits for, or «تخطَّ» when his recitation will not play.
+ */
+export function turnAnnouncement(t: {
+  end: End | null;
+  /** «دورك», «دور عمر», «يتلو الحصري». */
+  phrase: string;
+  unit: Unit;
+  range: AyahRange;
+  page: number;
+  /** A seated reciter's short name and his recitation's status, on his
+      turn, and whether his recording of it does not fit its timings. */
+  reciter: { name: string; status: PlayerStatus; untimed: boolean } | null;
+}) {
+  if (t.end) return `${endTitle(t.end)}. تقبّل الله منكم.`;
+  const pages = pagesOfRange(t.range);
+  const where = pages.length > 1 ? `، الآن الصفحة ${arabic(t.page)}` : '';
+  const said = `${t.phrase}، ${rangeLabel(t.unit, t.range)}${where}`;
+  const r = t.reciter;
+  if (r?.untimed)
+    return `${said}. ${untimedLabel(t.unit, t.range, r.name)}: اضغط «تخطَّ» لتنتقل إلى التالي.`;
+  if (r?.status === 'blocked')
+    return `${said}. اضغط «استمع إلى ${r.name}» لتبدأ تلاوته.`;
+  if (r?.status === 'error')
+    return `${said}. تعذّر تشغيل التلاوة: اضغط «تخطَّ» لتنتقل إلى التالي، أو أعد المحاولة.`;
+  return said;
+}
+
+/** A round of repeat mode read by everyone: shown for a moment above the
+    buttons, and said in full. */
+export function roundDone(unit: Unit, range: AyahRange) {
+  return {
+    text: `قرأ الجميع ${portionLabel(unit, range)}`,
+    said: `قرأ الجميع ${rangeLabel(unit, range)}.`,
+  };
+}
+
+/** How much a sitting has read, in the unit it counts: «قرأتم ٣ صفحات في
+    هذا المجلس», or that nothing is read yet. The count follows a verb
+    here, so its dual is the accusative «صفحتين». */
+export function sittingNote(unit: Unit, pagesRead: number, ayatRead: number) {
+  if (unit === 'page')
+    return pagesRead
+      ? `قرأتم ${counted(pagesRead, { one: 'صفحة واحدة', two: 'صفحتين', few: 'صفحات', many: 'صفحة' })} في هذا المجلس`
+      : 'لم تُقرأ صفحة بعد';
+  return ayatRead
+    ? `قرأتم ${counted(ayatRead, { one: 'آية واحدة', two: 'آيتين', few: 'آيات', many: 'آية' })} في هذا المجلس`
+    : 'لم تُقرأ آية بعد';
+}
+
+/**
+ * The middle of the circle: where the circle is, a word and, large, a
+ * number. A turn of pages shows the page open («الصفحة», ٢٤; «تكرار»
+ * instead in repeat mode, as everyone reads it); a turn of ayat its surah
+ * and ayat («الكهف», ٥–٩); a quarter its name and hizb («ربع الحزب», ٣);
+ * a surah, «سورة» and its name.
+ */
+export function circleCenter(
+  unit: Unit,
+  range: AyahRange,
+  page: number,
+  repeat: boolean,
+): { label: string; value: string } {
+  const pageCenter = {
+    label: repeat ? 'تكرار' : 'الصفحة',
+    value: arabic(page),
+  };
+  if (unit === 'page' || range.to <= range.from) return pageCenter;
+  if (unit === 'rub') {
+    const n = rubOfAyah(range.from);
+    if (same(range, rubRange(n)))
+      return {
+        label: rubLabel(n).replace(/ [٠-٩]+$/, ''),
+        value: arabic(Math.ceil(n / 4)),
+      };
+  }
+  if (unit === 'surah') {
+    const s = surahOfAyah(range.from);
+    if (same(range, surahRange(s)))
+      return { label: 'سورة', value: surah(s).name };
+  }
+  const [first, last] = endsOf(range);
+  const label =
+    first.surah === last.surah
+      ? surah(first.surah).name
+      : `${surah(first.surah).name} – ${surah(last.surah).name}`;
+  const value =
+    first.surah === last.surah && first.ayah === last.ayah
+      ? arabic(first.ayah)
+      : `${arabic(first.ayah)}–${arabic(last.ayah)}`;
+  return { label, value };
+}
+
+/**
+ * What a seat in the circle says under its name: reading now, read (or
+ * passed over, in repeat mode, by a jump made after their turn), next, or
+ * what its next turn reads.
+ */
+export function seatStatus(seat: {
+  reciter: boolean;
+  active: boolean;
+  /** Its place in repeat mode's round, if the circle repeats. */
+  round: 'done' | 'now' | 'waiting' | 'skipped' | null;
+  next: boolean;
+  /** Its next turn, short, in continue mode. */
+  upcoming: string;
+}) {
+  if (seat.active) return seat.reciter ? 'يتلو الآن' : 'يقرأ الآن';
+  if (seat.round === 'done') return seat.reciter ? 'تلا' : 'قرأ';
+  if (seat.round === 'skipped') return seat.reciter ? 'لم يتلُها' : 'لم يقرأها';
+  if (seat.next) return 'التالي';
+  return seat.upcoming;
 }
