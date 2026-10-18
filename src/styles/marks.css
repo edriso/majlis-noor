@@ -179,3 +179,43 @@
     transform: rotate(360deg);
   }
 }
+
+/* ---------- From memory ---------- */
+
+/* The page is drawn underneath, keeping its shape, so the cover is the
+   page's own size and uncovering it moves nothing; but it is not seen. */
+.memory-cover {
+  position: relative;
+}
+.memory-cover-content:focus {
+  outline: none;
+}
+.memory-cover[data-covered] .memory-cover-content {
+  visibility: hidden;
+}
+.memory-cover-panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(ellipse at 50% 35%, var(--lamp), transparent 70%),
+    var(--surface);
+  color: var(--gold);
+  text-align: center;
+}
+.memory-cover-title {
+  margin: 0;
+  color: var(--fg);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+.memory-cover-panel .button {
+  min-height: var(--target);
+}
