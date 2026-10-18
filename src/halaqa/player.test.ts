@@ -1,45 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Segment } from '@/data/timings';
-import { Player, type Media } from './player';
-
-/** An audio element that plays only when told: the test moves time. */
-class FakeMedia extends EventTarget {
-  src = '';
-  currentTime = 0;
-  readyState = 0;
-  playbackRate = 1;
-  defaultPlaybackRate = 1;
-  preload: HTMLMediaElement['preload'] = '';
-  ended = false;
-  paused = true;
-  refuse: string | null = null;
-
-  play() {
-    if (this.refuse) {
-      const error = new Error('refused');
-      error.name = this.refuse;
-      return Promise.reject(error);
-    }
-    this.paused = false;
-    return Promise.resolve().then(() => this.emit('playing'));
-  }
-  pause() {
-    this.paused = true;
-  }
-  emit(type: string) {
-    this.dispatchEvent(new Event(type));
-  }
-  /** The file's metadata has arrived. */
-  load() {
-    this.readyState = 1;
-    this.emit('loadedmetadata');
-  }
-  /** Playback has reached `seconds`. */
-  at(seconds: number) {
-    this.currentTime = seconds;
-    this.emit('timeupdate');
-  }
-}
+import { FakeMedia } from './fakeMedia';
+import { Player } from './player';
 
 const fileA = 'https://example.test/2.mp3';
 const fileB = 'https://example.test/3.mp3';
@@ -55,7 +17,7 @@ let player: Player;
 beforeEach(() => {
   vi.useFakeTimers();
   media = new FakeMedia();
-  player = new Player(() => media as unknown as Media);
+  player = new Player(() => media.media);
 });
 afterEach(() => vi.useRealTimers());
 
