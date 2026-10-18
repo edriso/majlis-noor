@@ -2,22 +2,51 @@
    right-to-left page, away from where reading starts), from the bottom on a
    phone, where a thumb can reach it. */
 
-.sheet-backdrop {
+/* The <dialog> is the backdrop: it covers the screen and dims what is behind
+   it, and the panel sits inside it. The browser's own dialog box (centred,
+   padded, bordered, kept clear of the edges) is undone, and so is its
+   ::backdrop, which on older Safari cannot read the theme's colours. It fades
+   in from @starting-style; to close, Sheet.tsx sets data-closing, waits for
+   the transitions, and only then closes it. */
+.sheet-dialog {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  color: inherit;
   background: rgb(var(--shadow-rgb) / 0.5);
   backdrop-filter: blur(2px);
-  transition: opacity 260ms var(--ease);
+  transition:
+    background-color 260ms var(--ease),
+    backdrop-filter 260ms var(--ease);
 }
-.sheet-backdrop[data-starting-style],
-.sheet-backdrop[data-ending-style] {
-  opacity: 0;
+.sheet-dialog::backdrop {
+  background: none;
+}
+.sheet-dialog[data-closing] {
+  background-color: rgb(var(--shadow-rgb) / 0);
+  backdrop-filter: blur(0);
+}
+@starting-style {
+  .sheet-dialog[open] {
+    background-color: rgb(var(--shadow-rgb) / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+/* The page behind an open sheet stays where it was. */
+html:has(dialog[open]) {
+  overflow: hidden;
 }
 
 .sheet {
-  position: fixed;
-  z-index: 50;
+  position: absolute;
   inset-block: 0;
   left: 0;
   display: flex;
@@ -28,11 +57,14 @@
   border-inline-start: 1px solid var(--line);
   box-shadow: 24px 0 60px rgb(var(--shadow-rgb) / 0.35);
   transition: transform 300ms var(--ease);
-  outline: none;
 }
-.sheet[data-starting-style],
-.sheet[data-ending-style] {
+.sheet-dialog[data-closing] .sheet {
   transform: translateX(-100%);
+}
+@starting-style {
+  .sheet-dialog[open] .sheet {
+    transform: translateX(-100%);
+  }
 }
 
 .sheet-header {
@@ -134,9 +166,13 @@
     border-radius: 999px;
     background: var(--line);
   }
-  .sheet[data-starting-style],
-  .sheet[data-ending-style] {
+  .sheet-dialog[data-closing] .sheet {
     transform: translateY(100%);
+  }
+  @starting-style {
+    .sheet-dialog[open] .sheet {
+      transform: translateY(100%);
+    }
   }
   .sheet-header {
     padding-top: 22px;

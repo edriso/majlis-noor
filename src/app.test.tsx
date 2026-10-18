@@ -218,6 +218,24 @@ describe('a halaqa', () => {
     expect(status()).toContain('الصفحة ١');
   });
 
+  it('leaves the keys to an open sheet', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: /الانتقال إلى صفحة/ }));
+    const sheet = screen.getByRole('dialog', { name: 'الانتقال إلى' });
+    act(() => {
+      fireEvent.keyDown(within(sheet).getByRole('heading'), {
+        key: 'ArrowLeft',
+      });
+    });
+    expect(status()).toContain('الصفحة ١');
+    await user.click(within(sheet).getByRole('button', { name: 'إغلاق' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    });
+    expect(status()).toContain('الصفحة ٢');
+  });
+
   it('is offered again after a refresh', async () => {
     const user = await start();
     await user.click(

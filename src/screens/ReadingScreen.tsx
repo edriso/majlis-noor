@@ -208,7 +208,7 @@ export function ReadingScreen({
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
       const t = e.target instanceof Element ? e.target : null;
-      if (t?.closest('input, select, textarea, [role="dialog"]')) return;
+      if (t?.closest('input, select, textarea, dialog[open]')) return;
       if (settingsOpen || jumpOpen || complete) return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
