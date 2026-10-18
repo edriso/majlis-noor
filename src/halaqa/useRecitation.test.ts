@@ -28,6 +28,9 @@ const settle = () => act(async () => {});
 // Al-Fatiha for the samples, and page 2 for a turn.
 const timings: Timings = {
   audio: 'https://example.test/{n}.mp3',
+  // Playback reads only the page stretches.
+  files: [],
+  ayat: [],
   pages: [[[1, 0, 48_000]], [[2, 0, 90_000]]],
 };
 

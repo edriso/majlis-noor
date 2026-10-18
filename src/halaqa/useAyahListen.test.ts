@@ -25,6 +25,9 @@ const url = 'https://example.test/2.mp3';
 // Pages 2 and 3 of al-Baqarah, as one reciter recites them.
 const timings: Timings = {
   audio: 'https://example.test/{n}.mp3',
+  // Playback reads only the page stretches.
+  files: [],
+  ayat: [],
   pages: [[], [[2, 0, 90_000]], [[2, 90_000, 180_000]]],
 };
 // Al-Baqarah 2:6, on page 2, as the caller computes it from his timings.
