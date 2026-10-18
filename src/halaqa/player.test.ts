@@ -369,6 +369,20 @@ describe('the player', () => {
     expect(media.currentTime).toBe(70);
   });
 
+  it('fetches afresh a file that failed while nothing was playing', async () => {
+    player.play('listen', [queue[0]]);
+    media.load();
+    await flush();
+    player.stop('listen');
+    // Still buffering after the stop, the connection drops.
+    media.emit('error');
+    expect(player.getState().status).toBe('idle');
+    player.play('listen', [queue[0]]);
+    expect(media.readyState).toBe(0);
+    media.load();
+    expect(media.currentTime).toBe(10);
+  });
+
   it('gives up on a recording that stops arriving, and not before', async () => {
     player.play('turn', queue);
     media.load();

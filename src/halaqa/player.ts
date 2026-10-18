@@ -466,6 +466,9 @@ export class Player {
       this.pendingSeek = null;
     });
     media.addEventListener('error', () => {
+      // Even with nothing queued (a file still buffering after a stop), the
+      // element is spoiled for the file it has.
+      this.broken = true;
       if (this.queue.length) this.fail();
     });
     this.media = media;
