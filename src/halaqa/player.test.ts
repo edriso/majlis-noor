@@ -202,6 +202,16 @@ describe('the player', () => {
     expect(player.getState().status).toBe('paused');
   });
 
+  it('stays paused when news that it was playing arrives late', async () => {
+    player.play('turn', queue);
+    media.load();
+    await flush();
+    player.pause();
+    // Queued by the browser as playback began, delivered after the pause.
+    media.emit('playing');
+    expect(player.getState().status).toBe('paused');
+  });
+
   it('stops only what its caller started', async () => {
     player.play('turn', queue);
     player.stop('listen');

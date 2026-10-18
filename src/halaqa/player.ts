@@ -53,6 +53,7 @@ export type Media = Pick<
   | 'defaultPlaybackRate'
   | 'readyState'
   | 'ended'
+  | 'paused'
   | 'preload'
   | 'play'
   | 'pause'
@@ -295,7 +296,9 @@ export class Player {
     media.addEventListener('ended', () => this.queue.length && this.advance());
     media.addEventListener('playing', () => {
       this.primed = true;
-      if (this.queue.length) this.set({ status: 'playing' });
+      // An event queued as playback began can arrive after a pause that
+      // came in between, and the element is silent by then.
+      if (this.queue.length && !media.paused) this.set({ status: 'playing' });
       this.tick();
     });
     media.addEventListener('pause', () => {
