@@ -41,7 +41,8 @@ export function TopBar({
             <strong>{turnPhrase(turn.member)}</strong>
             <span> · </span>
             {turn.time ? <SizedText text={place} /> : <span>{place.long}</span>}
-            <TurnClock time={turn.time} />
+            {/* A reciter's time is on the main button already. */}
+            {turn.timed ? <TurnClock time={turn.time} /> : null}
           </>
         )}
         <span className="visually-hidden">، انتقل إلى موضع آخر</span>

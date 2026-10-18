@@ -150,37 +150,37 @@ describe('the main button on a reader’s turn', () => {
 
   it('passes the turn on, naming who reads next and what', () => {
     expect(doneLabels({ step: null, next: next('فاطمة'), end: null })).toEqual({
-      main: 'تمّ — التالي',
-      sub: { long: 'فاطمة · الصفحة ٥١', short: 'فاطمة · ص ٥١' },
+      main: { long: 'تمّ — التالي', short: 'تمّ — التالي' },
+      sub: { long: 'فاطمة · الصفحة ٥١', short: 'فاطمة' },
     });
     expect(
       doneLabels({ step: null, next: next('عمر', 'ayah'), end: null }).sub,
-    ).toEqual({ long: 'عمر · الآيات ١٠–١٤', short: 'عمر · الآيات ١٠–١٤' });
+    ).toEqual({ long: 'عمر · الآيات ١٠–١٤', short: 'عمر' });
   });
 
   it('turns the page within a turn of several', () => {
     expect(
       doneLabels({ step: { at: 2, of: 2 }, next: next('فاطمة'), end: null }),
     ).toEqual({
-      main: 'الصفحة التالية',
-      sub: { long: '٢ من ٢ · ثم فاطمة', short: '٢ من ٢ · ثم فاطمة' },
+      main: { long: 'الصفحة التالية', short: 'التالية' },
+      sub: { long: '٢ من ٢ · ثم فاطمة', short: '٢ من ٢' },
     });
   });
 
   it('says «الصفحة التالية» to someone reading pages alone', () => {
     expect(doneLabels({ step: null, next: next(null), end: null })).toEqual({
-      main: 'الصفحة التالية',
+      main: { long: 'الصفحة التالية', short: 'التالية' },
       sub: { long: 'الصفحة ٥١', short: 'ص ٥١' },
     });
     expect(
-      doneLabels({ step: null, next: next(null, 'ayah'), end: null }).main,
+      doneLabels({ step: null, next: next(null, 'ayah'), end: null }).main.long,
     ).toBe('تمّ — التالي');
   });
 
   it('says what the last turn completes', () => {
     expect(doneLabels({ step: null, next: next('عمر'), end: 'khatm' })).toEqual(
       {
-        main: 'تمّ',
+        main: { long: 'تمّ', short: 'تمّ' },
         sub: { long: 'وبه يُختم المصحف', short: 'وبه يُختم المصحف' },
       },
     );

@@ -109,7 +109,7 @@ export function BackButton({
 export type PrimaryView =
   /** A reader's «تمّ»: the next page of a turn of several, or the turn
       passed on, with who and what comes next written under it. */
-  | { kind: 'done'; main: string; sub: Sized | null }
+  | { kind: 'done'; main: Sized; sub: Sized | null }
   /** A reciter's turn: what a press does to his recitation, and how long
       is left; when it will not play, «تخطَّ». */
   | {
@@ -181,7 +181,7 @@ export function PrimaryButton({
       ) : view.kind === 'done' ? (
         <>
           <span className="action-primary-main">
-            {view.main}
+            <SizedText text={view.main} />
             <ArrowLeft size={20} aria-hidden="true" />
           </span>
           {view.sub ? (

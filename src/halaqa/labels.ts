@@ -176,21 +176,22 @@ export type Next = {
   range: AyahRange;
 };
 
-/** «عمر · الصفحة ٥١», «عمر · ص ٥١» on a phone, or the portion alone in a
-    circle of one. */
+/** «عمر · الصفحة ٥١», or the portion alone in a circle of one. A phone
+    too narrow for both keeps who reads next, which matters more than
+    what they read, and which the circle shows anyway. */
 function nextLine({ name, unit, range }: Next): Sized {
   const long = portionLabel(unit, range);
-  const short = portionNarrow(unit, range);
   return name
-    ? { long: `${name} · ${long}`, short: `${name} · ${short}` }
-    : { long, short };
+    ? { long: `${name} · ${long}`, short: name }
+    : { long, short: portionNarrow(unit, range) };
 }
 
 /**
  * The main button on a reader's turn. Within a turn of several pages it
  * turns to the next: «الصفحة التالية», «٢ من ٢ · ثم فاطمة». On the last
  * it passes the turn: «تمّ — التالي», «فاطمة · الصفحة ٥١», or, alone with
- * a turn of pages, «الصفحة التالية». When nothing is left after it, «تمّ»
+ * a turn of pages, «الصفحة التالية». A phone's line keeps the first half
+ * of each («٢ من ٢», «فاطمة»). When nothing is left after it, «تمّ»
  * and what it completes.
  */
 export function doneLabels({
@@ -204,19 +205,20 @@ export function doneLabels({
   next: Next;
   /** What finishing this turn completes, when nothing comes after it. */
   end: End | null;
-}): { main: string; sub: Sized | null } {
+}): { main: Sized; sub: Sized | null } {
+  const plain = (text: string): Sized => ({ long: text, short: text });
+  // «الصفحة التالية» beside its arrow is wider than the button on the
+  // narrowest phone, which keeps «التالية» and the page under it.
+  const nextPage = { long: 'الصفحة التالية', short: 'التالية' };
   if (step) {
     const where = `${arabic(step.at)} من ${arabic(step.of)}`;
     const line = next.name ? `${where} · ثم ${next.name}` : where;
-    return { main: 'الصفحة التالية', sub: { long: line, short: line } };
+    return { main: nextPage, sub: { long: line, short: where } };
   }
-  if (end) {
-    const note = endNote(end);
-    return { main: 'تمّ', sub: { long: note, short: note } };
-  }
+  if (end) return { main: plain('تمّ'), sub: plain(endNote(end)) };
   const alonePaging = !next.name && next.unit === 'page';
   return {
-    main: alonePaging ? 'الصفحة التالية' : 'تمّ — التالي',
+    main: alonePaging ? nextPage : plain('تمّ — التالي'),
     sub: nextLine(next),
   };
 }
