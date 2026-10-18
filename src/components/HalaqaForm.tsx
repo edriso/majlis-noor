@@ -87,8 +87,8 @@ export function HalaqaForm({
 
       <Choice<number>
         legend="صفحات كل دور"
-        value={config.pagesPerTurn}
-        onChange={(pagesPerTurn) => set({ pagesPerTurn })}
+        value={config.unit === 'page' ? config.size : 0}
+        onChange={(size) => set({ unit: 'page', size })}
         options={[1, 2, 3].map((n) => ({
           value: n,
           label: arabic(n),

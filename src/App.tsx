@@ -6,8 +6,8 @@ import { SetupScreen } from './screens/SetupScreen';
 import { useHalaqa } from './halaqa/useHalaqa';
 import { player, wakeSound } from './halaqa/useRecitation';
 import {
-  currentPage,
   isComplete,
+  placeOf,
   type Prefs,
   type State,
 } from './halaqa/state';
@@ -84,6 +84,6 @@ export function App() {
 function initialConfig(state: State) {
   const { session } = state;
   return session && !isComplete(session)
-    ? { ...state.config, startPage: currentPage(session) }
+    ? { ...state.config, start: placeOf(session) }
     : state.config;
 }

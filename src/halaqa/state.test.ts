@@ -1,28 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AYAH_COUNT,
+  ayahIndex,
+  firstAyahOfPage,
+  rubStart,
+  surahRange,
+} from '@/data/mushaf';
+import {
+  canStepBack,
   currentPage,
   currentPages,
+  currentRange,
   defaultConfig,
   initialState,
   isComplete,
   memberName,
   newMember,
+  nextTurnOf,
   reduce,
+  sanitizeConfig,
   sanitizeState,
+  seatTurn,
   planOf,
+  turnPages,
   turnPhrase,
+  turnRange,
+  TURN_SIZES,
   type Action,
   type Config,
   type Member,
   type State,
 } from './state';
-import { readerOf, round } from './schedule';
+import { readerOf, round, type Unit } from './schedule';
 
 const person = (id: string, name = ''): Member => ({
   id,
   kind: 'person',
   name,
 });
+
+/** The first ayah of a page, which is where a halaqa chosen by page starts. */
+const page = firstAyahOfPage;
 
 /** The brief's example circle: three readers, unless a case says otherwise. */
 const threeReaders = [person('p1'), person('p2'), person('p3')];
@@ -36,6 +54,11 @@ const run = (config: Partial<Config>, ...actions: Action[]) =>
     }),
   );
 
+const finish = (s: State, times = 1) => {
+  for (let i = 0; i < times; i++) s = reduce(s, { type: 'finishTurn' });
+  return s;
+};
+
 const where = (s: State) => {
   const session = s.session!;
   return {
@@ -44,10 +67,16 @@ const where = (s: State) => {
   };
 };
 
+/** The current turn's ayat as verse keys, «2:5–2:9», for a readable case. */
+const ayat = (s: State) => {
+  const { from, to } = currentRange(s.session!);
+  return [from, to - 1];
+};
+
 describe('a halaqa', () => {
   it('runs the example session from the brief', () => {
     // Al-Baqarah from page 2, three readers, continue, one page each.
-    let s = run({ startPage: 2 });
+    let s = run({ start: page(2) });
     const seen = [where(s)];
     for (let i = 0; i < 3; i++) {
       s = reduce(s, { type: 'finishTurn' });
@@ -60,10 +89,11 @@ describe('a halaqa', () => {
       { page: 5, reader: 0 },
     ]);
     expect(s.session!.pagesRead).toBe(3);
+    expect(s.session!.ayatRead).toBe(page(5) - page(2));
   });
 
   it('steps through a turn of two pages before passing it on', () => {
-    let s = run({ startPage: 20, pagesPerTurn: 2 });
+    let s = run({ start: page(20), size: 2 });
     expect(currentPages(s.session!)).toEqual([20, 21]);
     s = reduce(s, { type: 'nextPage' });
     expect(where(s)).toEqual({ page: 21, reader: 0 });
@@ -72,33 +102,46 @@ describe('a halaqa', () => {
   });
 
   it('counts a repeated page once, when the round completes', () => {
-    let s = run({ startPage: 24, mode: 'repeat' });
-    s = reduce(s, { type: 'finishTurn' });
-    s = reduce(s, { type: 'finishTurn' });
+    let s = run({ start: page(24), mode: 'repeat' });
+    s = finish(s, 2);
     expect(s.session!.pagesRead).toBe(0);
-    s = reduce(s, { type: 'finishTurn' });
+    s = finish(s);
     expect(s.session!.pagesRead).toBe(1);
+    expect(s.session!.ayatRead).toBe(page(25) - page(24));
     expect(where(s)).toEqual({ page: 25, reader: 0 });
   });
 
   it('goes back to the previous reader and un-counts their pages', () => {
-    let s = run({ startPage: 10 }, { type: 'finishTurn' });
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
     s = reduce(s, { type: 'previousTurn' });
     expect(where(s)).toEqual({ page: 10, reader: 0 });
     expect(s.session!.pagesRead).toBe(0);
+    expect(s.session!.ayatRead).toBe(0);
     expect(reduce(s, { type: 'previousTurn' })).toBe(s);
+    expect(canStepBack(s.session!)).toBe(false);
   });
 
   it('moves the whole circle one page on past the end of a turn', () => {
-    let s = run({ startPage: 10 });
+    let s = run({ start: page(10) });
     s = reduce(s, { type: 'nextPage' });
     expect(where(s)).toEqual({ page: 11, reader: 0 });
     s = reduce(s, { type: 'finishTurn' });
     expect(where(s)).toEqual({ page: 12, reader: 1 });
   });
 
+  it('moves a turn of two pages on by one, keeping the page open', () => {
+    let s = run({ start: page(20), size: 2 }, { type: 'nextPage' });
+    s = reduce(s, { type: 'nextPage' });
+    expect(currentPages(s.session!)).toEqual([21, 22]);
+    expect(where(s)).toEqual({ page: 22, reader: 0 });
+    s = reduce(s, { type: 'previousPage' });
+    s = reduce(s, { type: 'previousPage' });
+    expect(currentPages(s.session!)).toEqual([20, 21]);
+    expect(where(s)).toEqual({ page: 20, reader: 0 });
+  });
+
   it('jumps to a page with the same reader', () => {
-    let s = run({ startPage: 10 }, { type: 'finishTurn' });
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
     s = reduce(s, { type: 'goToPage', page: 300 });
     expect(where(s)).toEqual({ page: 300, reader: 1 });
     s = reduce(s, { type: 'finishTurn' });
@@ -106,11 +149,11 @@ describe('a halaqa', () => {
   });
 
   it('keeps the page and the reader when the circle changes shape', () => {
-    let s = run({ startPage: 10 }, { type: 'finishTurn' });
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
     const config = {
       ...s.session!.config,
       mode: 'repeat' as const,
-      pagesPerTurn: 2,
+      size: 2,
     };
     s = reduce(s, { type: 'configure', config });
     expect(where(s)).toEqual({ page: 11, reader: 1 });
@@ -123,7 +166,7 @@ describe('a halaqa', () => {
     });
     expect(
       readerOf(
-        { readers: 2, mode: 'repeat', pagesPerTurn: 2 },
+        { readers: 2, mode: 'repeat', unit: 'page', size: 2 },
         s.session!.turn,
       ),
     ).toBe(1);
@@ -131,13 +174,16 @@ describe('a halaqa', () => {
 
   it('completes the Mushaf, then starts a new khatma from al-Fatihah', () => {
     let s = run(
-      { startPage: 604, members: [person('p1')] },
+      { start: page(604), members: [person('p1')] },
       { type: 'finishTurn' },
     );
     expect(isComplete(s.session!)).toBe(true);
+    expect(currentPage(s.session!)).toBe(604);
     expect(reduce(s, { type: 'finishTurn' })).toBe(s);
+    expect(reduce(s, { type: 'nextPage' })).toBe(s);
     s = reduce(s, { type: 'restartMushaf' });
     expect(where(s)).toEqual({ page: 1, reader: 0 });
+    expect(isComplete(s.session!)).toBe(false);
   });
 
   it('ends', () => {
@@ -148,7 +194,7 @@ describe('a halaqa', () => {
 describe('the circle', () => {
   it('keeps the reader when the circle is reordered', () => {
     // Omar (p2) is reading page 11; the circle is turned round.
-    let s = run({ startPage: 10 }, { type: 'finishTurn' });
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
     const [a, b, c] = s.session!.config.members;
     s = reduce(s, {
       type: 'configure',
@@ -164,7 +210,7 @@ describe('the circle', () => {
   });
 
   it('gives the turn to whoever takes the seat of a reader who leaves', () => {
-    let s = run({ startPage: 10 }, { type: 'finishTurn' });
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
     const [a, , c] = s.session!.config.members;
     s = reduce(s, {
       type: 'configure',
@@ -175,7 +221,7 @@ describe('the circle', () => {
   });
 
   it('changes nothing about the turn when only a name changes', () => {
-    const s = run({ startPage: 10 }, { type: 'finishTurn' });
+    const s = run({ start: page(10) }, { type: 'finishTurn' });
     const members = s.session!.config.members.map((m) =>
       m.id === 'p2' ? { ...m, name: 'عمر' } : m,
     );
@@ -210,7 +256,7 @@ describe('the circle', () => {
 
     it('starts the page over when someone who has not read it moves ahead', () => {
       // p1 is reading page 20 and nobody has read it yet.
-      let s = run({ startPage: 20, mode: 'repeat' });
+      let s = run({ start: page(20), mode: 'repeat' });
       s = reorder(s, ['p2', 'p1', 'p3']);
       expect(ids(s)).toEqual(['p2', 'p1', 'p3']);
       expect(reading(s)).toBe('p2');
@@ -225,7 +271,7 @@ describe('the circle', () => {
 
     it('lets the reader carry on when everyone ahead has read the page', () => {
       // p1 has read page 20; p2 is reading it; a fourth reader joins.
-      let s = run({ startPage: 20, mode: 'repeat' }, { type: 'finishTurn' });
+      let s = run({ start: page(20), mode: 'repeat' }, { type: 'finishTurn' });
       const members = [...s.session!.config.members, person('p4', 'زيد')];
       s = reduce(s, {
         type: 'configure',
@@ -236,7 +282,7 @@ describe('the circle', () => {
     });
 
     it('puts a reader who has not read the page first, ahead of one who has', () => {
-      let s = run({ startPage: 20, mode: 'repeat' }, { type: 'finishTurn' });
+      let s = run({ start: page(20), mode: 'repeat' }, { type: 'finishTurn' });
       s = reorder(s, ['p3', 'p2', 'p1']);
       expect([reading(s), where(s).page]).toEqual(['p3', 20]);
     });
@@ -244,7 +290,7 @@ describe('the circle', () => {
     it('keeps a turn of two pages whole for everyone', () => {
       // p1 read pages 20–21; p2 is on page 21 of the same pages.
       let s = run(
-        { startPage: 20, mode: 'repeat', pagesPerTurn: 2 },
+        { start: page(20), mode: 'repeat', size: 2 },
         { type: 'finishTurn' },
         { type: 'nextPage' },
       );
@@ -275,10 +321,10 @@ describe('the circle', () => {
     });
 
     it('starts over when a turn grows to a page the others have not read', () => {
-      let s = run({ startPage: 20, mode: 'repeat' }, { type: 'finishTurn' });
+      let s = run({ start: page(20), mode: 'repeat' }, { type: 'finishTurn' });
       s = reduce(s, {
         type: 'configure',
-        config: { ...s.session!.config, pagesPerTurn: 2 },
+        config: { ...s.session!.config, size: 2 },
       });
       expect([reading(s), where(s).page]).toEqual(['p1', 20]);
       expect(currentPages(s.session!)).toEqual([20, 21]);
@@ -286,7 +332,7 @@ describe('the circle', () => {
 
     it('moves on when the reader in the last seat leaves', () => {
       let s = run(
-        { startPage: 20, mode: 'repeat' },
+        { start: page(20), mode: 'repeat' },
         { type: 'finishTurn' },
         { type: 'finishTurn' },
       );
@@ -297,7 +343,10 @@ describe('the circle', () => {
     });
 
     it('changes nothing when only those after the reader are reordered', () => {
-      const s = run({ startPage: 20, mode: 'repeat' }, { type: 'finishTurn' });
+      const s = run(
+        { start: page(20), mode: 'repeat' },
+        { type: 'finishTurn' },
+      );
       const t = reorder(s, ['p1', 'p2', 'p3']);
       expect(t.session!.turn).toBe(s.session!.turn);
     });
@@ -306,7 +355,7 @@ describe('the circle', () => {
   it('seats a reciter like anyone else', () => {
     const sheikh: Member = { id: 'r1', kind: 'reciter', reciter: 'minshawi' };
     let s = run({
-      startPage: 24,
+      start: page(24),
       mode: 'repeat',
       members: [sheikh, person('p1')],
     });
@@ -349,9 +398,271 @@ describe('member names', () => {
   });
 });
 
+/* Every unit runs the same circle: the cases above, again in ayat,
+   quarters and surahs, wherever the unit changes what happens. */
+describe('turns of ayat', () => {
+  // Al-Baqarah 1 onwards, three ayat a turn: page 2 ends on al-Baqarah 5.
+  const baqarah = { start: ayahIndex(2, 1), unit: 'ayah' as Unit, size: 3 };
+
+  it('goes round the circle three ayat at a time', () => {
+    let s = run(baqarah);
+    expect(ayat(s)).toEqual([8, 10]);
+    expect(currentPages(s.session!)).toEqual([2]);
+    s = finish(s);
+    // Al-Baqarah 4 to 6 runs onto page 3: the turn has both pages.
+    expect(where(s)).toEqual({ page: 2, reader: 1 });
+    expect(ayat(s)).toEqual([11, 13]);
+    expect(currentPages(s.session!)).toEqual([2, 3]);
+    s = reduce(s, { type: 'nextPage' });
+    expect(where(s)).toEqual({ page: 3, reader: 1 });
+    s = finish(s);
+    expect(where(s)).toEqual({ page: 3, reader: 2 });
+    expect(ayat(s)).toEqual([14, 16]);
+  });
+
+  it('counts a page when its last ayah is read', () => {
+    let s = run(baqarah);
+    s = finish(s);
+    expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([0, 3]);
+    s = finish(s);
+    expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([1, 6]);
+    s = reduce(s, { type: 'previousTurn' });
+    expect([s.session!.pagesRead, s.session!.ayatRead]).toEqual([0, 3]);
+  });
+
+  it('repeats the same ayat round the circle, and counts them once', () => {
+    let s = run({ ...baqarah, mode: 'repeat' });
+    s = finish(s, 2);
+    expect(ayat(s)).toEqual([8, 10]);
+    expect(s.session!.ayatRead).toBe(0);
+    s = finish(s);
+    expect(ayat(s)).toEqual([11, 13]);
+    expect(where(s).reader).toBe(0);
+    expect(s.session!.ayatRead).toBe(3);
+  });
+
+  it('jumps to the first ayah of a page with the same reader', () => {
+    let s = run(baqarah, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 50 });
+    expect(where(s)).toEqual({ page: 50, reader: 1 });
+    expect(ayat(s)).toEqual([page(50), page(50) + 2]);
+  });
+
+  it('jumps to an ayah', () => {
+    const s = run(baqarah, { type: 'goToAyah', ayah: ayahIndex(18, 10) });
+    expect(ayat(s)).toEqual([ayahIndex(18, 10), ayahIndex(18, 12)]);
+    expect(where(s).reader).toBe(0);
+  });
+
+  it('turns to the next page past the end of a turn, from its first ayah', () => {
+    let s = run(baqarah);
+    s = reduce(s, { type: 'nextPage' });
+    expect(where(s)).toEqual({ page: 3, reader: 0 });
+    expect(ayat(s)).toEqual([page(3), page(3) + 2]);
+    s = reduce(s, { type: 'previousPage' });
+    expect(where(s)).toEqual({ page: 2, reader: 0 });
+    expect(ayat(s)).toEqual([page(2), page(2) + 2]);
+  });
+
+  it('carries on across the end of a surah', () => {
+    const s = run({ ...baqarah, start: 6 });
+    expect(ayat(s)).toEqual([6, 8]);
+    expect(currentPages(s.session!)).toEqual([1, 2]);
+  });
+
+  it('completes the Mushaf at an-Nas 6', () => {
+    let s = run({
+      start: AYAH_COUNT - 4,
+      unit: 'ayah',
+      size: 3,
+      members: [person('p1')],
+    });
+    s = finish(s);
+    expect(ayat(s)).toEqual([AYAH_COUNT - 1, AYAH_COUNT]);
+    s = finish(s);
+    expect(isComplete(s.session!)).toBe(true);
+    expect(s.session!.ayatRead).toBe(5);
+    s = reduce(s, { type: 'restartMushaf' });
+    expect(ayat(s)).toEqual([1, 3]);
+  });
+
+  it('keeps the place when the circle changes to whole pages', () => {
+    let s = run(baqarah, { type: 'finishTurn' }, { type: 'nextPage' });
+    expect(where(s)).toEqual({ page: 3, reader: 1 });
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, unit: 'page', size: 1 },
+    });
+    expect(where(s)).toEqual({ page: 3, reader: 1 });
+    expect(ayat(s)).toEqual([page(3), page(4) - 1]);
+  });
+
+  describe('in repeat mode, nobody misses an ayah', () => {
+    const repeat = { ...baqarah, mode: 'repeat' as const };
+    const reading = (st: State) =>
+      st.session!.config.members[where(st).reader].id;
+
+    it('starts the ayat over when someone who has not read them moves ahead', () => {
+      let s = run(repeat, { type: 'finishTurn' });
+      const [a, b, c] = s.session!.config.members;
+      s = reduce(s, {
+        type: 'configure',
+        config: { ...s.session!.config, members: [c, a, b] },
+      });
+      expect([reading(s), ...ayat(s)]).toEqual(['p3', 8, 10]);
+    });
+
+    it('lets the reader carry on when everyone ahead has read them', () => {
+      let s = run(repeat, { type: 'finishTurn' });
+      s = reduce(s, {
+        type: 'configure',
+        config: {
+          ...s.session!.config,
+          members: [...s.session!.config.members, person('p4')],
+        },
+      });
+      expect([reading(s), ...ayat(s)]).toEqual(['p2', 8, 10]);
+    });
+
+    it('starts over when a turn grows to ayat the others have not read', () => {
+      let s = run(repeat, { type: 'finishTurn' });
+      s = reduce(s, {
+        type: 'configure',
+        config: { ...s.session!.config, size: 5 },
+      });
+      expect([reading(s), ...ayat(s)]).toEqual(['p1', 8, 12]);
+    });
+
+    it('lets the reader carry on when the turn shrinks to ayat all have read', () => {
+      let s = run(repeat, { type: 'finishTurn' });
+      s = reduce(s, {
+        type: 'configure',
+        config: { ...s.session!.config, size: 2 },
+      });
+      expect([reading(s), ...ayat(s)]).toEqual(['p2', 8, 9]);
+    });
+
+    it('moves on when the reader in the last seat leaves', () => {
+      let s = run(repeat, { type: 'finishTurn' }, { type: 'finishTurn' });
+      s = reduce(s, {
+        type: 'configure',
+        config: {
+          ...s.session!.config,
+          members: s.session!.config.members.slice(0, 2),
+        },
+      });
+      expect([reading(s), ...ayat(s)]).toEqual(['p1', 11, 13]);
+      expect(s.session!.ayatRead).toBe(3);
+    });
+
+    it('keeps the round’s ayat when they are counted in pages instead', () => {
+      // The round is on al-Baqarah 1–3, all on page 2; as pages, it is page
+      // 2, which holds ayat the others have not read: it starts over.
+      let s = run(repeat, { type: 'finishTurn' });
+      s = reduce(s, {
+        type: 'configure',
+        config: { ...s.session!.config, unit: 'page', size: 1 },
+      });
+      expect([reading(s), where(s).page]).toEqual(['p1', 2]);
+    });
+  });
+});
+
+describe('turns of a hizb quarter', () => {
+  const quarter = { start: 1, unit: 'rub' as Unit, size: 1 };
+
+  it('reads a quarter a turn, page by page', () => {
+    let s = run(quarter);
+    expect(currentPages(s.session!)).toEqual([1, 2, 3, 4, 5]);
+    for (let p = 2; p <= 5; p++) s = reduce(s, { type: 'nextPage' });
+    expect(where(s)).toEqual({ page: 5, reader: 0 });
+    s = finish(s);
+    // The second quarter begins on page 5, where the first ended.
+    expect(where(s)).toEqual({ page: 5, reader: 1 });
+    expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
+    // The first quarter ends part-way down page 5, so four pages are read.
+    expect(s.session!.pagesRead).toBe(4);
+    expect(s.session!.ayatRead).toBe(rubStart(2) - 1);
+  });
+
+  it('jumps to the quarter a page begins in, with that page open', () => {
+    const s = run(quarter, { type: 'goToPage', page: 6 });
+    expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
+    expect(where(s)).toEqual({ page: 6, reader: 0 });
+  });
+
+  it('turns past the last page of a quarter into the next', () => {
+    let s = run(quarter);
+    for (let p = 2; p <= 5; p++) s = reduce(s, { type: 'nextPage' });
+    s = reduce(s, { type: 'nextPage' });
+    expect(where(s)).toEqual({ page: 6, reader: 0 });
+    expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
+  });
+
+  it('starts at the quarter that holds the chosen ayah', () => {
+    const s = run({ ...quarter, start: rubStart(2) + 4 });
+    expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
+  });
+
+  it('starts the quarter over in repeat mode when someone moves ahead', () => {
+    let s = run({ ...quarter, mode: 'repeat' }, { type: 'finishTurn' });
+    const [a, b, c] = s.session!.config.members;
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, members: [c, a, b] },
+    });
+    expect(where(s).reader).toBe(0);
+    expect(ayat(s)).toEqual([1, rubStart(2) - 1]);
+  });
+});
+
+describe('turns of a surah', () => {
+  const surahs = { start: ayahIndex(67, 1), unit: 'surah' as Unit, size: 1 };
+
+  it('reads a surah a turn', () => {
+    let s = run(surahs);
+    expect(currentPages(s.session!)).toEqual([562, 563, 564]);
+    s = finish(s);
+    expect(ayat(s)).toEqual([surahRange(68).from, surahRange(68).to - 1]);
+    expect(s.session!.ayatRead).toBe(30);
+    expect(s.session!.pagesRead).toBe(2);
+  });
+
+  it('completes the Mushaf with an-Nas', () => {
+    let s = run({
+      ...surahs,
+      start: ayahIndex(114, 1),
+      members: [person('p1')],
+    });
+    s = finish(s);
+    expect(isComplete(s.session!)).toBe(true);
+  });
+});
+
+describe('who reads next', () => {
+  it('names the next turn, and each seat’s next turn', () => {
+    const s = run({ start: page(10) }, { type: 'finishTurn' }).session!;
+    expect(nextTurnOf(s)).toBe(2);
+    expect([0, 1, 2].map((seat) => seatTurn(s, seat))).toEqual([3, 1, 2]);
+    expect(turnPages(s, seatTurn(s, 0))).toEqual([13]);
+    expect(turnRange(s, 2)).toEqual({ from: page(12), to: page(13) });
+  });
+});
+
 describe('a saved halaqa', () => {
   it('survives a round trip', () => {
-    const s = run({ startPage: 77 }, { type: 'finishTurn' });
+    const s = run({ start: page(77) }, { type: 'finishTurn' });
+    expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it('survives a round trip with every new choice made', () => {
+    let s = run({
+      start: ayahIndex(18, 1),
+      unit: 'ayah',
+      size: 5,
+    });
+    s = finish(s, 3);
+    s = reduce(s, { type: 'nextPage' });
     expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
@@ -368,10 +679,87 @@ describe('a saved halaqa', () => {
       listenRepeat: 1,
       cue: 'chime',
     });
-    expect(s.config.pagesPerTurn).toBe(1);
-    expect(s.config.startPage).toBe(1);
+    expect(s.config.size).toBe(1);
+    expect(s.config.unit).toBe('page');
+    expect(s.config.start).toBe(1);
     expect(s.session!.turn).toBe(0);
-    expect(s.session!.anchor).toEqual({ turn: 0, page: 1 });
+    expect(s.session!.anchor).toEqual({ turn: 0, at: 1 });
+  });
+
+  it('repairs every new field it cannot trust', () => {
+    const s = sanitizeState({
+      config: {
+        unit: 'line',
+        size: 7,
+        start: 7000,
+      },
+      session: {
+        config: { unit: 'ayah', size: 4, start: -2 },
+        turn: 4,
+        anchor: { turn: 2, at: 99999 },
+        pageInTurn: 7,
+        ayatRead: -1,
+      },
+    });
+    expect(s.config).toMatchObject({
+      unit: 'page',
+      size: 1,
+      start: 1,
+    });
+    const session = s.session!;
+    expect(session.config).toMatchObject({
+      unit: 'ayah',
+      size: 1,
+      start: 1,
+    });
+    expect(session.anchor).toEqual({ turn: 2, at: 1 });
+    expect(session.pageInTurn).toBe(0);
+    expect(session.ayatRead).toBe(0);
+  });
+
+  it('keeps only the sizes the start screen offers', () => {
+    for (const unit of ['page', 'ayah', 'rub', 'surah'] as Unit[]) {
+      for (const size of TURN_SIZES[unit])
+        expect(sanitizeConfig({ unit, size }).size).toBe(size);
+      expect(sanitizeConfig({ unit, size: 4 }).size).toBe(TURN_SIZES[unit][0]);
+    }
+  });
+
+  it('reads a halaqa saved in pages, before turns had units, as pages', () => {
+    const saved = {
+      prefs: { theme: 'blue' },
+      config: { members: threeReaders, pagesPerTurn: 2, startPage: 40 },
+      session: {
+        config: {
+          members: threeReaders,
+          mode: 'repeat',
+          pagesPerTurn: 2,
+          startPage: 30,
+        },
+        anchor: { turn: 3, page: 34 },
+        turn: 4,
+        pageInTurn: 1,
+        pagesRead: 6,
+      },
+    };
+    const s = sanitizeState(saved);
+    expect(s.config).toMatchObject({ unit: 'page', size: 2, start: page(40) });
+    const session = s.session!;
+    expect(session.config).toMatchObject({
+      unit: 'page',
+      size: 2,
+      mode: 'repeat',
+      start: page(30),
+    });
+    expect(session.anchor).toEqual({ turn: 3, at: 34 });
+    expect(currentPages(session)).toEqual([34, 35]);
+    expect(where(s)).toEqual({ page: 35, reader: 1 });
+    // And it carries on exactly as it would have.
+    let t = finish(s);
+    expect(where(t)).toEqual({ page: 34, reader: 2 });
+    t = finish(t);
+    expect(where(t)).toEqual({ page: 36, reader: 0 });
+    expect(t.session!.pagesRead).toBe(8);
   });
 
   it('turns a halaqa saved before reciters could sit into people', () => {
@@ -430,9 +818,9 @@ describe('a saved halaqa', () => {
     const members = [person('p1'), person('p2', 'عمر')];
     const s = reduce(initialState, {
       type: 'draft',
-      config: { ...defaultConfig, members, pagesPerTurn: 2 },
+      config: { ...defaultConfig, members, size: 2 },
     });
-    expect(s.config).toMatchObject({ members, pagesPerTurn: 2 });
+    expect(s.config).toMatchObject({ members, size: 2 });
     expect(s.session).toBeNull();
   });
 });

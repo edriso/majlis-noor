@@ -80,7 +80,7 @@ export function ReadingScreen({
   const reciting = !complete && member.kind === 'reciter';
   // A turn, and the pages it covers: a new key is a new turn to time or
   // to recite from its start.
-  const turnKey = `${turn}:${anchor.turn}:${anchor.page}:${plan.mode}:${plan.pagesPerTurn}`;
+  const turnKey = `${turn}:${anchor.turn}:${anchor.at}:${plan.mode}:${plan.unit}:${plan.size}`;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);

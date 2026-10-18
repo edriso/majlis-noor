@@ -92,7 +92,7 @@ function stretchOf(list: readonly number[], n: number) {
 const startOf = (list: readonly number[], n: number) =>
   n > list.length ? AYAH_COUNT + 1 : list[n - 1];
 
-const rangeOf = (list: readonly number[], n: number): AyahRange => ({
+const stretchRange = (list: readonly number[], n: number): AyahRange => ({
   from: startOf(list, n),
   to: startOf(list, n + 1),
 });
@@ -129,10 +129,10 @@ export const firstAyahOfPage = (p: number) => startOf(starts.pages, p);
 /** The first ayah of a hizb quarter, 1 to 240; 241 is the end. */
 export const rubStart = (n: number) => startOf(starts.rubs, n);
 
-export const ayatOfPage = (p: number) => rangeOf(starts.pages, p);
-export const surahRange = (s: number) => rangeOf(starts.surahs, s);
-export const juzRange = (j: number) => rangeOf(starts.juz, j);
-export const rubRange = (n: number) => rangeOf(starts.rubs, n);
+export const ayatOfPage = (p: number) => stretchRange(starts.pages, p);
+export const surahRange = (s: number) => stretchRange(starts.surahs, s);
+export const juzRange = (j: number) => stretchRange(starts.juz, j);
+export const rubRange = (n: number) => stretchRange(starts.rubs, n);
 
 /** The pages an ayah range is read on, in order: none for an empty one. */
 export function pagesOfRange({ from, to }: AyahRange) {

@@ -1,7 +1,7 @@
 import { ArrowLeft, Settings } from '@/components/icons';
 import { useState } from 'react';
 import { arabic } from '@/data/arabic';
-import { surahOfPage } from '@/data/mushaf';
+import { firstAyahOfPage, pageOfAyah, surahOfPage } from '@/data/mushaf';
 import { readerOf } from '@/halaqa/schedule';
 import {
   currentPage,
@@ -107,8 +107,10 @@ export function SetupScreen({
           }}
         >
           <StartPicker
-            page={config.startPage}
-            onChange={(startPage) => change({ ...config, startPage })}
+            page={pageOfAyah(config.start)}
+            onChange={(page) =>
+              change({ ...config, start: firstAyahOfPage(page) })
+            }
           />
           <HalaqaForm
             config={config}
