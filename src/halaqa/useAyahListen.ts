@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Segment } from '@/data/timings';
 import type { Meta } from './player';
-import { player, usePlayer } from './useRecitation';
+import { player, usePlayerStatus } from './useRecitation';
 
 export type AyahStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
@@ -28,7 +28,7 @@ const nextKey = (id: string) => `ayah:${++played}:${id}`;
  * over a page or a turn it was not chosen for.
  */
 export function useAyahListen(scope = '') {
-  const state = usePlayer();
+  const state = usePlayerStatus();
   const [mine, setMine] = useState<{
     key: string;
     id: string;

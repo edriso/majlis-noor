@@ -23,9 +23,12 @@ const start = async () => {
   return user;
 };
 
-/** The top bar: whose turn, and which page. */
-const status = () =>
-  screen.getByRole('button', { name: /الانتقال إلى صفحة/ }).textContent;
+/** The line at the top: whose turn, and where; a press opens the jump. */
+const topLine = () =>
+  within(document.querySelector<HTMLElement>('.topbar')!).getByRole('button', {
+    name: /انتقل إلى موضع آخر/,
+  });
+const status = () => topLine().textContent;
 
 describe('the start screen', () => {
   it('names the app once, as the page heading', () => {
@@ -199,9 +202,7 @@ describe('a halaqa', () => {
     const user = await start();
     expect(status()).toContain('دورك');
     expect(status()).toContain('الصفحة ١');
-    await user.click(
-      screen.getByRole('button', { name: /تمّ — القارئ التالي/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
     expect(status()).toContain('دور القارئ الثاني');
     expect(status()).toContain('الصفحة ٢');
     await user.click(screen.getByRole('button', { name: /القارئ السابق/ }));
@@ -222,7 +223,7 @@ describe('a halaqa', () => {
 
   it('leaves the keys to an open sheet', async () => {
     const user = await start();
-    await user.click(screen.getByRole('button', { name: /الانتقال إلى صفحة/ }));
+    await user.click(topLine());
     const sheet = screen.getByRole('dialog', { name: 'الانتقال إلى' });
     act(() => {
       fireEvent.keyDown(within(sheet).getByRole('heading'), {
@@ -240,9 +241,7 @@ describe('a halaqa', () => {
 
   it('is offered again after a refresh', async () => {
     const user = await start();
-    await user.click(
-      screen.getByRole('button', { name: /تمّ — القارئ التالي/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
     cleanup();
     render(<App />);
     const card = screen.getByRole('region', { name: 'تابع حلقتك' });
@@ -258,14 +257,16 @@ describe('a halaqa', () => {
     );
     const user = await start();
     await user.click(screen.getByRole('button', { name: /^استمع إلى الصفحة/ }));
-    await screen.findByRole('button', { name: 'إيقاف الاستماع مؤقتًا' });
-    await user.click(screen.getByRole('button', { name: /^إيقاف التوقيت/ }));
+    await screen.findByRole('button', { name: /^إيقاف مؤقت للاستماع/ });
+    await user.click(
+      screen.getByRole('button', { name: /إيقاف التوقيت مؤقتًا/ }),
+    );
     expect(
       screen.getByRole('button', { name: /^متابعة الاستماع/ }),
     ).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: /^استئناف التوقيت/ }));
+    await user.click(screen.getByRole('button', { name: /استئناف التوقيت/ }));
     expect(
-      await screen.findByRole('button', { name: 'إيقاف الاستماع مؤقتًا' }),
+      await screen.findByRole('button', { name: /^إيقاف مؤقت للاستماع/ }),
     ).toBeTruthy();
   });
 
@@ -283,9 +284,7 @@ describe('a halaqa', () => {
 
   it('announces whose turn it is to a screen reader', async () => {
     const user = await start();
-    await user.click(
-      screen.getByRole('button', { name: /تمّ — القارئ التالي/ }),
-    );
+    await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
     expect(screen.getByRole('status').textContent).toContain(
       'دور القارئ الثاني، الصفحة ٢',
     );

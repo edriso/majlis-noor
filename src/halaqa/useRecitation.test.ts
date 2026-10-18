@@ -1,5 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { encodeSpans } from '@/data/audio';
+import { ayahIndex, ayatOfPage } from '@/data/mushaf';
 import type { Timings } from '@/data/timings';
 import { FakeMedia } from './fakeMedia';
 import { player, useListen, useReciterTurn, useSample } from './useRecitation';
@@ -92,7 +94,7 @@ describe('a reciter’s turn', () => {
       useReciterTurn({
         reciter: 'husary',
         turnKey: '1',
-        pages: [2],
+        range: ayatOfPage(2),
         page: 2,
         timings: { husary: t },
         rate: 1,
@@ -135,7 +137,7 @@ describe('a reciter’s turn', () => {
       useReciterTurn({
         reciter: 'husary',
         turnKey: '2',
-        pages: [1, 2],
+        range: { from: ayatOfPage(1).from, to: ayatOfPage(2).to },
         page: 1,
         timings: { husary: { ...timings, untimed: [2] } },
         rate: 1,
@@ -145,12 +147,79 @@ describe('a reciter’s turn', () => {
       }),
     );
     await settle();
-    expect(result.current).toMatchObject({ status: 'error', failed: true });
+    expect(result.current).toMatchObject({
+      status: 'error',
+      failed: true,
+      untimed: true,
+    });
     expect(player.getState().key).not.toBe(result.current.key);
     act(() => result.current.toggle());
     await settle();
     expect(player.getState().key).not.toBe(result.current.key);
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('is drawn again as his recitation changes, not as it plays', async () => {
+    // The screen holding the turn draws the Mushaf page; four position
+    // updates a second must reach only what shows the time.
+    let draws = 0;
+    const { result } = renderHook(() => {
+      draws++;
+      return useReciterTurn({
+        reciter: 'husary',
+        turnKey: '3',
+        range: ayatOfPage(2),
+        page: 2,
+        timings: { husary: timings },
+        rate: 1,
+        onPage: () => {},
+        onDone: () => {},
+        onRetry: () => {},
+      });
+    });
+    act(() => main.load());
+    await settle();
+    expect(result.current.status).toBe('playing');
+    const before = draws;
+    for (const s of [10, 20, 30]) act(() => main.at(s));
+    expect(draws).toBe(before);
+    expect(result.current.time?.left()).toBe(60_000);
+    expect(result.current.time?.total).toBe(90_000);
+  });
+
+  it('recites exactly a turn of ayat, and turns the page with it', async () => {
+    // Al-Baqarah 4 to 7: two ayat at the foot of page 2 and two at the
+    // head of page 3, each ten seconds in this recording.
+    const spans = Array.from(
+      { length: 20 },
+      (_, i) => [i * 10_000, (i + 1) * 10_000] as [number, number],
+    );
+    const ayat: Timings = {
+      ...timings,
+      ayat: [[], encodeSpans(spans)],
+      pages: [[[1, 0, 48_000]], [[2, 0, 50_000]], [[2, 50_000, 160_000]]],
+    };
+    const onPage = vi.fn();
+    renderHook(() =>
+      useReciterTurn({
+        reciter: 'husary',
+        turnKey: '4',
+        range: { from: ayahIndex(2, 4), to: ayahIndex(2, 7) + 1 },
+        page: 2,
+        timings: { husary: ayat },
+        rate: 1,
+        onPage,
+        onDone: () => {},
+        onRetry: () => {},
+      }),
+    );
+    expect(player.getState()).toMatchObject({ page: 2, total: 40_000 });
+    act(() => main.load());
+    await settle();
+    expect(main.currentTime).toBe(30);
+    act(() => main.at(50));
+    expect(onPage).toHaveBeenCalledWith(3);
+    expect(player.getState().page).toBe(3);
   });
 });
 
@@ -161,6 +230,7 @@ describe('«استمع»', () => {
         reciter: 'husary',
         turnKey: '1',
         page: 2,
+        range: ayatOfPage(2),
         timings: { husary: { ...timings, untimed: [2] } },
         repeat: 1,
       }),

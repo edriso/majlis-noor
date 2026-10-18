@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { ayatOfPage } from '@/data/mushaf';
 import type { Segment, Timings } from '@/data/timings';
 import { FakeMedia } from './fakeMedia';
 import { useAyahListen } from './useAyahListen';
@@ -40,7 +41,7 @@ const turnAt40 = async (page = 2) => {
       useReciterTurn({
         reciter: 'husary',
         turnKey,
-        pages: [2, 3],
+        range: { from: ayatOfPage(2).from, to: ayatOfPage(3).to },
         page,
         timings: { husary: timings },
         rate: 1,
@@ -64,10 +65,8 @@ describe('an ayah alone', () => {
     act(() => result.current.play('2:6', ayah));
     expect(result.current).toMatchObject({ status: 'loading', id: '2:6' });
     // The turn waits, and says how long it still has.
-    expect(turn.result.current).toMatchObject({
-      status: 'paused',
-      left: 140_000,
-    });
+    expect(turn.result.current.status).toBe('paused');
+    expect(turn.result.current.time?.left()).toBe(140_000);
     expect(media.currentTime).toBe(20);
     await settle();
     expect(result.current.status).toBe('playing');
@@ -267,6 +266,7 @@ describe('an ayah alone', () => {
         reciter: 'husary',
         turnKey: '1',
         page: 2,
+        range: ayatOfPage(2),
         timings: { husary: timings },
         repeat: 1,
       }),

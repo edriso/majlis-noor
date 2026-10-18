@@ -1,15 +1,19 @@
 import { Check, User } from './icons';
-import { arabic } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';
-import { pagesShort } from '@/halaqa/labels';
+import { circleCenter, rangeShort, seatStatus } from '@/halaqa/labels';
+import { readerOf, round } from '@/halaqa/schedule';
 import {
-  pagesOf,
-  readerOf,
-  round,
-  type Anchor,
-  type Plan,
-} from '@/halaqa/schedule';
-import { memberName, type Config, type Member } from '@/halaqa/state';
+  currentPage,
+  currentRange,
+  memberName,
+  nextTurnOf,
+  planOf,
+  seatTurn,
+  turnRange,
+  type Member,
+  type Session,
+} from '@/halaqa/state';
+import { useTimeLeft, type TurnTime } from '@/halaqa/useTimeLeft';
 import { ReciterFace } from './ReciterAvatar';
 
 /** Where each seat sits, in degrees with 0 at the right and 90 at the foot.
@@ -30,39 +34,41 @@ const seatAngles = (n: number) =>
  * A gold mark travels the ring from seat to seat as the turn passes, always
  * the same way round, which is what makes the passing of a turn something
  * you see rather than something you read. Under each seat is what it is
- * doing: reading now, next, done this round, or the pages its next turn
- * covers, so the circle is also the reading order.
+ * doing: reading now, next, done this round (or passed over by a jump made
+ * after their turn), or what its next turn reads, so the circle is also the
+ * reading order. Its turns are the model's, in whatever unit the circle
+ * counts and with any turns that swapping who starts passes over.
  *
  * A reciter sits with his photo. While a turn is timed or recited, the
  * seat's own ring drains with it, so the clock is where the eye already is.
  */
 export function HalaqaCircle({
-  config,
-  plan,
-  anchor,
-  turn,
-  page,
-  progress,
+  session,
+  time,
   sounding = false,
 }: {
-  config: Config;
-  plan: Plan;
-  anchor: Anchor;
-  turn: number;
-  page: number;
-  /** The share of the turn's time left, 0 to 1, when it is timed. */
-  progress: number | null;
+  session: Session;
+  /** The turn's time, while it is timed or recited. */
+  time: TurnTime | null;
   /** Whether the reciter whose turn it is can be heard right now. */
   sounding?: boolean;
 }) {
+  const { config, anchor, turn } = session;
+  const plan = planOf(config);
   const n = plan.readers;
   const angles = seatAngles(n);
   const active = readerOf(plan, turn);
-  const next = readerOf(plan, turn + 1);
+  const next = readerOf(plan, nextTurnOf(session));
   // Cumulative, so the mark keeps turning the same way rather than spinning
   // back the long way when the circle wraps to the first seat.
   const markAngle = angles[0] - (turn * 360) / n;
   const roundSeats = plan.mode === 'repeat' ? round(plan, anchor, turn) : null;
+  const center = circleCenter(
+    plan.unit,
+    currentRange(session),
+    currentPage(session),
+    plan.mode === 'repeat',
+  );
 
   return (
     <figure className="halaqa-circle" data-readers={n}>
@@ -84,10 +90,8 @@ export function HalaqaCircle({
       </svg>
 
       <div className="halaqa-center" aria-hidden="true">
-        <span className="halaqa-center-label">
-          {plan.mode === 'repeat' ? 'تكرار' : 'الصفحة'}
-        </span>
-        <span className="halaqa-center-page">{arabic(page)}</span>
+        <span className="halaqa-center-label">{center.label}</span>
+        <span className="halaqa-center-page">{center.value}</span>
       </div>
 
       <figcaption className="visually-hidden">
@@ -104,20 +108,18 @@ export function HalaqaCircle({
         const rad = (angle * Math.PI) / 180;
         const isActive = i === active;
         const reciter = member.kind === 'reciter';
-        const done = roundSeats?.[i].state === 'done';
-        const status = isActive
-          ? reciter
-            ? 'يتلو الآن'
-            : 'يقرأ الآن'
-          : done
-            ? reciter
-              ? 'تلا'
-              : 'قرأ'
-            : n > 1 && i === next
-              ? 'التالي'
-              : plan.mode === 'continue'
-                ? pagesShort(pagesOf(plan, anchor, nextTurnOf(plan, turn, i)))
-                : '';
+        const state = roundSeats?.[i].state ?? null;
+        const done = state === 'done';
+        const status = seatStatus({
+          reciter,
+          active: isActive,
+          round: state,
+          next: n > 1 && i === next,
+          upcoming:
+            plan.mode === 'continue'
+              ? rangeShort(plan.unit, turnRange(session, seatTurn(session, i)))
+              : '',
+        });
         return (
           <div
             key={member.id}
@@ -125,6 +127,7 @@ export function HalaqaCircle({
             data-kind={member.kind}
             data-active={isActive || undefined}
             data-done={done || undefined}
+            data-skipped={state === 'skipped' || undefined}
             data-top={Math.sin(rad) < -0.5 || undefined}
             style={{
               left: `${50 + 35 * Math.cos(rad)}%`,
@@ -133,21 +136,7 @@ export function HalaqaCircle({
           >
             <span className="seat-avatar">
               <SeatFace member={member} />
-              {isActive && progress !== null ? (
-                <svg
-                  className="seat-progress"
-                  viewBox="0 0 36 36"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="16.5"
-                    pathLength="100"
-                    style={{ strokeDashoffset: 100 - progress * 100 }}
-                  />
-                </svg>
-              ) : null}
+              {isActive ? <SeatProgress time={time} /> : null}
               {done ? (
                 <span className="seat-done" aria-hidden="true">
                   <Check size={12} strokeWidth={3} />
@@ -174,6 +163,25 @@ export function HalaqaCircle({
   );
 }
 
+/** The ring round the reading seat, draining as the turn's time runs: the
+    one part of the circle drawn again as it does. */
+function SeatProgress({ time }: { time: TurnTime | null }) {
+  const left = useTimeLeft(time);
+  const total = time?.total;
+  if (left === null || !total) return null;
+  return (
+    <svg className="seat-progress" viewBox="0 0 36 36" aria-hidden="true">
+      <circle
+        cx="18"
+        cy="18"
+        r="16.5"
+        pathLength="100"
+        style={{ strokeDashoffset: 100 - (left / total) * 100 }}
+      />
+    </svg>
+  );
+}
+
 /** What fills a seat: a reciter's face as the reader has photos shown, a
     reader's initial, or a figure for a reader not named. */
 function SeatFace({ member }: { member: Member }) {
@@ -192,10 +200,4 @@ function SeatFace({ member }: { member: Member }) {
       {initial ?? <User size={22} strokeWidth={1.8} />}
     </span>
   );
-}
-
-/** The next turn, from this one on, that belongs to seat `i`. */
-function nextTurnOf(plan: Plan, turn: number, i: number) {
-  const offset = (i - readerOf(plan, turn) + plan.readers) % plan.readers;
-  return turn + offset;
 }

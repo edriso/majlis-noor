@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-
-type Clock = { key: string; left: number | null; paused: boolean };
+import {
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { Countdown } from './countdown';
+import type { TurnTime } from './useTimeLeft';
 
 /**
  * The countdown for a turn timed by a reciter's pace.
@@ -10,9 +16,9 @@ type Clock = { key: string; left: number | null; paused: boolean };
  * paused. `duration` is null until the reciter's timings have loaded, and the
  * clock waits for it rather than counting down from nothing.
  *
- * Time is measured between ticks rather than counted in ticks, because a
- * browser slows timers in a background tab to once a second or less, and a
- * halaqa held over a video call has the call in front.
+ * The component that calls this is drawn again only when the clock is
+ * paused, resumed or runs out. Its ticks reach only what shows the time,
+ * through `time` and `useTimeLeft` (see countdown.ts).
  */
 export function useTurnClock({
   enabled,
@@ -25,52 +31,48 @@ export function useTurnClock({
   turnKey: string;
   onExpire: () => void;
 }) {
-  const [clock, setClock] = useState<Clock>({
-    key: turnKey,
-    left: duration,
-    paused: false,
-  });
-
-  // Reset during render rather than in an effect, so the first frame of a
-  // new turn already shows its own time instead of the last turn's zero.
-  if (clock.key !== turnKey || (clock.left === null && duration !== null))
-    setClock({
-      key: turnKey,
-      left: duration,
-      paused: clock.key === turnKey && clock.paused,
-    });
-
-  const running =
-    enabled && !clock.paused && clock.left !== null && clock.left > 0;
+  const [clock] = useState(() => new Countdown());
+  const paused = useSyncExternalStore(
+    clock.subscribe,
+    () => clock.pausedIn(turnKey),
+    () => false,
+  );
+  const expired = useSyncExternalStore(
+    clock.subscribe,
+    () => enabled && duration !== null && clock.elapsedIn(turnKey) >= duration,
+    () => false,
+  );
 
   useEffect(() => {
-    if (!running) return;
-    let last = performance.now();
-    const id = setInterval(() => {
-      const now = performance.now();
-      const elapsed = now - last;
-      last = now;
-      setClock((c) =>
-        c.left === null ? c : { ...c, left: Math.max(0, c.left - elapsed) },
-      );
-    }, 250);
-    return () => clearInterval(id);
-  }, [running]);
+    if (!enabled || duration === null) return;
+    return clock.run(turnKey, duration);
+  }, [clock, enabled, turnKey, duration]);
 
-  const expire = useRef(onExpire);
+  const expire = useEffectEvent(onExpire);
   useEffect(() => {
-    expire.current = onExpire;
-  });
-  const expired = enabled && clock.key === turnKey && clock.left === 0;
-  useEffect(() => {
-    if (expired) expire.current();
+    if (expired) expire();
   }, [expired]);
 
+  const time = useMemo<TurnTime | null>(
+    () =>
+      enabled
+        ? {
+            total: duration,
+            left: () =>
+              duration === null
+                ? null
+                : Math.max(0, duration - clock.elapsedIn(turnKey)),
+            subscribe: clock.subscribe,
+          }
+        : null,
+    [clock, enabled, duration, turnKey],
+  );
+
   return {
-    left: clock.key === turnKey ? clock.left : duration,
-    total: duration,
-    paused: clock.paused,
-    pause: () => setClock((c) => ({ ...c, paused: true })),
-    resume: () => setClock((c) => ({ ...c, paused: false })),
+    /** The turn's time, for whatever shows it; null on an untimed turn. */
+    time,
+    paused,
+    pause: () => clock.pause(turnKey),
+    resume: () => clock.resume(turnKey),
   };
 }

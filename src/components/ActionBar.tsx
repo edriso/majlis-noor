@@ -7,42 +7,77 @@ import {
   Play,
   RotateCcw,
   Undo2,
+  Users,
 } from './icons';
 import type { ReactNode } from 'react';
-import { clock, durationWords } from '@/data/arabic';
+import { clock } from '@/data/arabic';
 import type { Reciter } from '@/data/reciters';
+import {
+  listenLabels,
+  recitationLabels,
+  timerLabel,
+  type Sized,
+} from '@/halaqa/labels';
 import type { PlayerStatus } from '@/halaqa/player';
+import { useTimeLeft, type TurnTime } from '@/halaqa/useTimeLeft';
 import { ReciterAvatar } from './ReciterAvatar';
 
 /* The bar under the page: one primary button in the middle and a few quiet
    ones beside it. What the primary button does depends on whose turn it
-   is: a reader's «تمّ», or a reciter's recitation to pause and resume. */
+   is: a reader's «تمّ», or a reciter's recitation to pause and resume. It
+   is one button for both, whose words change, so a keyboard's focus stays
+   on it when the turn passes between a reader and a reciter.
+
+   Whatever shows the turn's time reads it here, in a component of its own
+   (`useTimeLeft`), and is the only thing drawn again as the time runs. */
 
 export function ActionBar({
   toast,
-  progress,
+  time,
   children,
 }: {
   toast: { id: number; text: string } | null;
-  /** The share of a timed or recited turn left, drawn along the top. */
-  progress: number | null;
+  /** The turn's time, drawn along the top while it is timed or recited. */
+  time: TurnTime | null;
   children: ReactNode;
 }) {
   return (
     <div className="action-bar">
       {toast ? (
-        // Said aloud by the announcement already; this is for the eye.
+        // Said aloud by the screen's notice already; this is for the eye.
         <p key={toast.id} className="toast" aria-hidden="true">
           {toast.text}
         </p>
       ) : null}
-      {progress !== null ? (
-        <div className="turn-progress" aria-hidden="true">
-          <span style={{ transform: `scaleX(${progress})` }} />
-        </div>
-      ) : null}
+      <TurnProgress time={time} />
       {children}
     </div>
+  );
+}
+
+/** The share of a timed or recited turn left, a line along the bar's top. */
+function TurnProgress({ time }: { time: TurnTime | null }) {
+  const left = useTimeLeft(time);
+  const total = time?.total;
+  if (left === null || !total) return null;
+  return (
+    <div className="turn-progress" aria-hidden="true">
+      <span style={{ transform: `scaleX(${left / total})` }} />
+    </div>
+  );
+}
+
+/** A text with a shorter form for a phone (see reading.css): a screen
+    reader hears the longer, which is the name. */
+export function SizedText({ text }: { text: Sized }) {
+  if (text.long === text.short) return text.long;
+  return (
+    <>
+      <span className="label-long">{text.long}</span>
+      <span className="label-short" aria-hidden="true">
+        {text.short}
+      </span>
+    </>
   );
 }
 
@@ -70,132 +105,92 @@ export function BackButton({
   );
 }
 
-/** A reader's «تمّ»: the next page of a turn of several, or the turn
-    passed on, with who and what comes next written under it. */
-export function DoneButton({
-  onClick,
-  step,
-  alone,
-  sub,
-}: {
-  onClick: () => void;
-  /** The next page within this turn, when there is one, as a label. */
-  step: string | null;
-  /** A circle of one has no next reader to name. */
-  alone: boolean;
-  sub: string | null;
-}) {
-  return (
-    <button
-      type="button"
-      className="action-primary"
-      onClick={onClick}
-      aria-keyshortcuts="ArrowLeft"
-      title="(←)"
-    >
-      <span className="action-primary-main">
-        {step ? (
-          step
-        ) : alone ? (
-          'تمّ — متابعة'
-        ) : (
-          <>
-            <span className="label-long">تمّ — القارئ التالي</span>
-            <span className="label-short" aria-hidden="true">
-              تمّ — التالي
-            </span>
-          </>
-        )}
-        <ArrowLeft size={20} aria-hidden="true" />
-      </span>
-      {sub ? <span className="action-primary-sub">{sub}</span> : null}
-    </button>
-  );
-}
+/** What the primary button is for this turn. */
+export type PrimaryView =
+  /** A reader's «تمّ»: the next page of a turn of several, or the turn
+      passed on, with who and what comes next written under it. */
+  | { kind: 'done'; main: string; sub: Sized | null }
+  /** A reciter's turn: what a press does to his recitation, and how long
+      is left; when it will not play, «تخطَّ». */
+  | {
+      kind: 'recitation';
+      reciter: Reciter;
+      status: PlayerStatus;
+      /** Labels, given the time left. */
+      labels: (left: number | null) => ReturnType<typeof recitationLabels>;
+      /** Whether the press skips the turn, its recitation having failed. */
+      skips: boolean;
+    };
 
 /**
- * A reciter's turn: his photo, that he is reciting and how long is left,
- * and one press to pause or carry on. When the browser held the sound back
- * until a tap, or it would not load, the same button says so and is the
- * tap that starts it.
+ * The one primary button. A reader's turn shows «تمّ — التالي» and who
+ * reads next, named by those words. A reciter's turn shows his photo, what
+ * a press does and the time left, so it reads the time itself; when the
+ * browser held the sound back until a tap, or it would not load, the same
+ * button says so and is the tap that starts it, or the way on.
  */
-export function RecitationButton({
-  reciter,
-  status,
-  left,
+export function PrimaryButton({
+  view,
+  time,
   onClick,
 }: {
-  reciter: Reciter;
-  status: PlayerStatus;
-  left: number | null;
+  view: PrimaryView;
+  time: TurnTime | null;
   onClick: () => void;
 }) {
-  const name = reciter.short;
-  const time = left !== null ? `بقي ${clock(left)}` : '';
-  const words = left !== null ? `، بقي ${durationWords(left)}` : '';
-  const view: Record<
-    PlayerStatus,
-    { main: string; sub: string; icon: ReactNode; label: string }
-  > = {
-    playing: {
-      main: `يتلو ${name}`,
-      sub: time,
-      icon: <Pause size={20} aria-hidden="true" />,
-      label: `إيقاف تلاوة ${name} مؤقتًا${words}`,
-    },
-    loading: {
-      main: `يتلو ${name}`,
-      sub: 'جارٍ تحميل التلاوة…',
-      icon: <LoaderCircle size={20} aria-hidden="true" className="spin" />,
-      label: `إيقاف تلاوة ${name} مؤقتًا`,
-    },
-    paused: {
-      main: `متابعة تلاوة ${name}`,
-      sub: time ? `متوقفة · ${time}` : 'متوقفة',
-      icon: <Play size={20} aria-hidden="true" />,
-      label: `متابعة تلاوة ${name}${words}`,
-    },
-    blocked: {
-      main: `استمع إلى ${name}`,
-      sub: 'اضغط لتبدأ تلاوته',
-      icon: <Play size={20} aria-hidden="true" />,
-      label: `ابدأ تلاوة ${name}`,
-    },
-    idle: {
-      main: `استمع إلى ${name}`,
-      sub: 'اضغط لتبدأ تلاوته',
-      icon: <Play size={20} aria-hidden="true" />,
-      label: `ابدأ تلاوة ${name}`,
-    },
-    error: {
-      main: 'تعذّر تشغيل التلاوة',
-      sub: 'اضغط لإعادة المحاولة',
-      icon: <RotateCcw size={20} aria-hidden="true" />,
-      label: `إعادة محاولة تلاوة ${name}`,
-    },
-    ended: {
-      main: `يتلو ${name}`,
-      sub: '',
-      icon: <Pause size={20} aria-hidden="true" />,
-      label: `تلاوة ${name}`,
-    },
-  };
-  const v = view[status];
+  const left = useTimeLeft(view.kind === 'recitation' ? time : null);
+  const recitation =
+    view.kind === 'recitation' ? { ...view, l: view.labels(left) } : null;
+  const icon = recitation ? (
+    recitation.skips ? (
+      <ChevronsLeft size={20} aria-hidden="true" />
+    ) : recitation.status === 'loading' ? (
+      <LoaderCircle size={20} aria-hidden="true" className="spin" />
+    ) : recitation.status === 'playing' || recitation.status === 'ended' ? (
+      <Pause size={20} aria-hidden="true" />
+    ) : (
+      <Play size={20} aria-hidden="true" />
+    )
+  ) : null;
+  const keys = recitation && !recitation.skips ? 'Space' : 'ArrowLeft';
   return (
     <button
       type="button"
-      className="action-primary action-recitation"
-      data-status={status}
+      className={
+        recitation ? 'action-primary action-recitation' : 'action-primary'
+      }
+      data-status={recitation?.status}
       onClick={onClick}
-      aria-label={v.label}
-      aria-keyshortcuts="Space"
+      aria-label={recitation?.l.name}
+      aria-keyshortcuts={keys}
+      title={keys === 'ArrowLeft' ? '(←)' : undefined}
     >
-      <ReciterAvatar reciter={reciter} size={40} />
-      <span className="recitation-text">
-        <span className="action-primary-main">{v.main}</span>
-        {v.sub ? <span className="action-primary-sub">{v.sub}</span> : null}
-      </span>
-      <span className="recitation-icon">{v.icon}</span>
+      {recitation ? (
+        <>
+          <ReciterAvatar reciter={recitation.reciter} size={40} />
+          <span className="recitation-text">
+            <span className="action-primary-main">{recitation.l.main}</span>
+            {recitation.l.sub.long ? (
+              <span className="action-primary-sub">
+                <SizedText text={recitation.l.sub} />
+              </span>
+            ) : null}
+          </span>
+          <span className="recitation-icon">{icon}</span>
+        </>
+      ) : view.kind === 'done' ? (
+        <>
+          <span className="action-primary-main">
+            {view.main}
+            <ArrowLeft size={20} aria-hidden="true" />
+          </span>
+          {view.sub ? (
+            <span className="action-primary-sub">
+              <SizedText text={view.sub} />
+            </span>
+          ) : null}
+        </>
+      ) : null}
     </button>
   );
 }
@@ -225,16 +220,43 @@ export function SkipButton({
   );
 }
 
-/** The countdown of a timed turn, which is also its pause. */
+/** Tries a reciter's recitation again, beside «تخطَّ», when it failed for
+    a reason another try might mend. */
+export function RetryButton({
+  onClick,
+  reciter,
+}: {
+  onClick: () => void;
+  reciter: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="action-secondary"
+      onClick={onClick}
+      aria-label={`أعد المحاولة، تلاوة ${reciter}`}
+      aria-keyshortcuts="Space"
+    >
+      <RotateCcw size={20} aria-hidden="true" />
+      <span className="action-secondary-label" aria-hidden="true">
+        أعد المحاولة
+      </span>
+    </button>
+  );
+}
+
+/** The countdown of a timed turn, which is also its pause. Until the
+    reciter's timings are in, it shows that it is waiting for them. */
 export function TimerButton({
   paused,
-  left,
+  time,
   onClick,
 }: {
   paused: boolean;
-  left: number | null;
+  time: TurnTime | null;
   onClick: () => void;
 }) {
+  const left = useTimeLeft(time);
   return (
     <button
       type="button"
@@ -242,92 +264,73 @@ export function TimerButton({
       onClick={onClick}
       aria-pressed={paused}
       aria-keyshortcuts="Space"
-      aria-label={
-        paused
-          ? `استئناف التوقيت، بقي ${durationWords(left ?? 0)}`
-          : `إيقاف التوقيت مؤقتًا، بقي ${durationWords(left ?? 0)}`
-      }
+      aria-label={timerLabel(paused, left)}
     >
       {paused ? (
         <Play size={20} aria-hidden="true" />
+      ) : left === null ? (
+        <LoaderCircle size={20} aria-hidden="true" className="spin" />
       ) : (
         <Pause size={20} aria-hidden="true" />
       )}
-      <span className="action-clock" aria-hidden="true">
-        {left === null ? '…' : clock(left)}
-      </span>
+      <span className="action-clock">{left === null ? '…' : clock(left)}</span>
     </button>
   );
 }
 
-/** «استمع»: the open page in the halaqa's reciter's voice, paused and
-    resumed with the same button. */
+/** The time left in a timed or recited turn, « · ١:١٣», for the line at
+    the top; nothing until it is known. */
+export function TurnClock({ time }: { time: TurnTime | null }) {
+  const left = useTimeLeft(time);
+  if (left === null) return null;
+  return <span className="topbar-clock"> · {clock(left)}</span>;
+}
+
+/** «استمع»: what the reader is about to read, in the halaqa's reciter's
+    voice, paused and resumed with the same button. Where his recording
+    of it cannot be played (`untimed`), it offers another sheikh. */
 export function ListenButton({
   status,
-  page,
+  what,
+  untimed,
   onClick,
 }: {
   status: PlayerStatus;
-  page: string;
+  what: string;
+  untimed: string | null;
   onClick: () => void;
 }) {
-  const view: Record<
-    PlayerStatus,
-    { icon: ReactNode; text: string; label: string }
-  > = {
-    idle: {
-      icon: <Headphones size={20} aria-hidden="true" />,
-      text: 'استمع',
-      label: `استمع إلى ${page}`,
-    },
-    ended: {
-      icon: <Headphones size={20} aria-hidden="true" />,
-      text: 'استمع',
-      label: `استمع إلى ${page}`,
-    },
-    blocked: {
-      icon: <Headphones size={20} aria-hidden="true" />,
-      text: 'استمع',
-      label: `استمع إلى ${page}`,
-    },
-    loading: {
-      icon: <LoaderCircle size={20} aria-hidden="true" className="spin" />,
-      text: 'جارٍ التحميل…',
-      label: 'إيقاف الاستماع',
-    },
-    playing: {
-      icon: <Pause size={20} aria-hidden="true" />,
-      text: 'إيقاف مؤقت',
-      label: 'إيقاف الاستماع مؤقتًا',
-    },
-    paused: {
-      icon: <Play size={20} aria-hidden="true" />,
-      text: 'متابعة',
-      label: `متابعة الاستماع إلى ${page}`,
-    },
-    error: {
-      icon: <RotateCcw size={20} aria-hidden="true" />,
-      text: 'تعذّر التشغيل',
-      label: `تعذّر الاستماع إلى ${page}، أعد المحاولة`,
-    },
-  };
-  const v = view[status];
+  const { text, name } = listenLabels(status, what, untimed);
+  const icon = untimed ? (
+    <Users size={20} aria-hidden="true" />
+  ) : status === 'loading' ? (
+    <LoaderCircle size={20} aria-hidden="true" className="spin" />
+  ) : status === 'playing' ? (
+    <Pause size={20} aria-hidden="true" />
+  ) : status === 'paused' ? (
+    <Play size={20} aria-hidden="true" />
+  ) : status === 'error' ? (
+    <RotateCcw size={20} aria-hidden="true" />
+  ) : (
+    <Headphones size={20} aria-hidden="true" />
+  );
   return (
     <button
       type="button"
       className="action-secondary"
       data-active={
-        status === 'playing' ||
-        status === 'loading' ||
-        status === 'paused' ||
+        (!untimed &&
+          (status === 'playing' ||
+            status === 'loading' ||
+            status === 'paused')) ||
         undefined
       }
       onClick={onClick}
-      aria-label={v.label}
+      aria-label={name}
     >
-      {v.icon}
+      {icon}
       <span className="action-secondary-label" aria-hidden="true">
-        {v.text}
+        {text}
       </span>
     </button>
   );
