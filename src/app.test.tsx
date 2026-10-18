@@ -645,20 +645,15 @@ describe('accessibility', () => {
   });
 
   it('names the start screen’s and the sheets’ controls by their words', async () => {
-    // The form's turn sizes show a numeral and are named by the count it
-    // stands for; the start screen's rework writes them out, and then
-    // this exception goes.
-    const sizes = /^«[١٢٣]» named «(صفحة واحدة|صفحتان|ثلاث صفحات)»/;
-    const others = () => misnamed().filter((m) => !sizes.test(m));
     render(<App />);
-    expect(others()).toEqual([]);
+    expect(misnamed()).toEqual([]);
     cleanup();
     const user = await start();
     await user.click(topLine());
     expect(misnamed()).toEqual([]);
     await user.click(screen.getByRole('button', { name: 'إغلاق' }));
     await user.click(screen.getByRole('button', { name: 'الإعدادات' }));
-    expect(others()).toEqual([]);
+    expect(misnamed()).toEqual([]);
   });
 
   it('names every control on the reading screen', async () => {
