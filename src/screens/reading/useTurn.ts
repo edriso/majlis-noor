@@ -99,9 +99,11 @@ export function useTurn({
   // allowance the halaqa gives its readers; a reciter's turn is as long as
   // his recitation, and needs no clock.
   const timed = config.turnChange === 'reciter' && !end && !seated;
-  // A turn, and the ayat it covers: a new key is a new turn to time or to
-  // recite from its start.
-  const turnKey = `${session.turn}:${range.from}-${range.to}`;
+  // A turn, named by what it is, who reads and which ayat: a new key is a
+  // new turn to time or to recite from its start. Not by its number,
+  // which a change to the circle moves on while the same reader carries
+  // on with the same ayat («ويكمل صاحب الدور من موضعه»).
+  const turnKey = `${member.id}:${range.from}-${range.to}`;
   // «استمع» recites what the reader is about to read on the open page:
   // the page itself in a turn of pages, the turn's ayat on it otherwise.
   const onPage = ayatOfPage(page);
@@ -323,7 +325,7 @@ export function useTurn({
     /** Each reciter's timings, as `useTimings` has them: the halaqa's own
         and every seated one's. */
     timings,
-    /** The turn and the ayat it covers: a new key is a new turn. */
+    /** Who reads the turn and which ayat: a new key is a new turn. */
     turnKey,
     /** An ayah heard alone, which wave 3's ayah bar plays; the pause and
         Space already reach it first. */

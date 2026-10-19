@@ -561,6 +561,39 @@ describe('a circle that reads by the ayah', () => {
     ).toBeTruthy();
   });
 
+  /** Adds a reader from the menu's form, as the circle is changed in a
+      sitting. */
+  const addFromMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(screen.getByRole('button', { name: /^عدّل الحلقة/ }));
+    const form = screen.getByRole('dialog', { name: 'عدّل الحلقة' });
+    await user.click(within(form).getByRole('button', { name: /أضف قارئًا/ }));
+    await user.keyboard('{Escape}');
+  };
+
+  it('lets a sheikh recite on when someone joins the circle', async () => {
+    const user = await startWith({ ...ayat, members: [minshawi, you] });
+    await act(() => vi.dynamicImportSettled());
+    const reciting = player.getState().key;
+    expect(reciting).toMatch(/^turn:.*:minshawi$/);
+    await addFromMenu(user);
+    expect(status()).toContain('يتلو المنشاوي · الآيات ٥–٩');
+    expect(player.getState().key).toBe(reciting);
+  });
+
+  it('keeps a timed reader’s clock when someone joins the circle', async () => {
+    const user = await startWith({ ...ayat, turnChange: 'reciter' });
+    await user.click(
+      await screen.findByRole('button', { name: /إيقاف التوقيت مؤقتًا/ }),
+    );
+    await addFromMenu(user);
+    expect(status()).toContain('دورك · الآيات ٥–٩');
+    // A new turn's clock would be running from the start.
+    expect(
+      screen.getByRole('button', { name: /استئناف التوقيت/ }),
+    ).toBeTruthy();
+  });
+
   it('times a reader by exactly the ayat of the turn', async () => {
     await startWith({
       ...ayat,
