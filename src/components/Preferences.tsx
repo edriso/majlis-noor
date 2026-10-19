@@ -107,6 +107,12 @@ export function SoundFields({
         ]}
       />
       <Switch
+        label="تتبّع الكلمة"
+        hint="حين يتلو الشيخ تُعلَّم الكلمة التي يقرؤها لا الآية كلها، حيث يُعرف توقيت كلماتها."
+        checked={prefs.follow === 'word'}
+        onChange={(on) => onChange({ follow: on ? 'word' : 'ayah' })}
+      />
+      <Switch
         label="نغمة عند انتقال الدور"
         hint="حين ينتقل الدور وحده: بانتهاء التوقيت، أو بانتهاء تلاوة الشيخ."
         checked={prefs.cue === 'chime'}
