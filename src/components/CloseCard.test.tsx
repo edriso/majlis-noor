@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ import {
   initialState,
   reduce,
   summaryOf,
+  type CardDesign,
   type Member,
 } from '@/halaqa/state';
 import { cardImage } from '@/sitting/cardImage';
@@ -43,8 +44,17 @@ function sitting(): Closing {
   return { summary: summaryOf(s.session!, at(19, 25)), endedAt: at(19, 25) };
 }
 
-function Harness({ onEnd = () => {} }: { onEnd?: () => void }) {
+function Harness({
+  onEnd = () => {},
+  onDesign = () => {},
+  start = 'ornate',
+}: {
+  onEnd?: () => void;
+  onDesign?: (d: CardDesign) => void;
+  start?: CardDesign;
+}) {
   const [closing, setClosing] = useState<Closing | null>(null);
+  const [design, setDesign] = useState<CardDesign>(start);
   return (
     <>
       <button type="button" onClick={() => setClosing(sitting())}>
@@ -52,6 +62,11 @@ function Harness({ onEnd = () => {} }: { onEnd?: () => void }) {
       </button>
       <CloseCard
         closing={closing}
+        design={design}
+        onDesign={(d) => {
+          setDesign(d);
+          onDesign(d);
+        }}
         onContinue={() => setClosing(null)}
         onEnd={onEnd}
       />
@@ -203,5 +218,96 @@ describe('the close of a sitting', () => {
       expect(name.length).toBeGreaterThan(0);
       if (shown) expect(name.startsWith(shown)).toBe(true);
     }
+  });
+});
+
+describe('choosing the picture', () => {
+  const choice = (name: string) =>
+    screen.getByRole('radio', { name: new RegExp(`^${name}`) });
+
+  it('offers three designs as one group over «احفظ صورة»', async () => {
+    await opened();
+    const group = screen.getByRole('group', { name: 'تصميم الصورة' });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios.map((r) => r.getAttribute('value'))).toEqual([
+      'ornate',
+      'status',
+      'simple',
+    ]);
+    // Each is named by the word it shows, then what it is for.
+    expect(choice('مزخرفة').matches(':checked')).toBe(true);
+    expect(choice('حالة')).toBeTruthy();
+    expect(choice('بسيطة')).toBeTruthy();
+    expect(
+      group.compareDocumentPosition(saveButton()) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('starts on the design this device chose last', async () => {
+    const user = userEvent.setup();
+    render(<Harness start="simple" />);
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    expect(choice('بسيطة').matches(':checked')).toBe(true);
+    expect(
+      document.querySelector('.close-face')?.getAttribute('data-design'),
+    ).toBe('simple');
+  });
+
+  it('hands the choice up to be kept, and saves the picture in it', async () => {
+    const onDesign = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onDesign={onDesign} />);
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    await user.click(choice('حالة'));
+    expect(onDesign).toHaveBeenLastCalledWith('status');
+    expect(choice('حالة').matches(':checked')).toBe(true);
+    expect(
+      document.querySelector('.close-face')?.getAttribute('data-design'),
+    ).toBe('status');
+    await user.click(saveButton());
+    expect(vi.mocked(cardImage).mock.lastCall?.[1]).toBe('status');
+    expect(vi.mocked(saveImage).mock.calls[0][1]).toBe(
+      'majlis-noor-2026-10-18.png',
+    );
+  });
+
+  it('moves between the designs with the arrow keys', async () => {
+    const onDesign = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onDesign={onDesign} />);
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    choice('مزخرفة').focus();
+    await user.keyboard('{ArrowDown}');
+    expect(onDesign).toHaveBeenLastCalledWith('status');
+    expect(document.activeElement).toBe(choice('حالة'));
+    await user.keyboard('{ArrowDown}');
+    expect(onDesign).toHaveBeenLastCalledWith('simple');
+    await user.keyboard('{ArrowUp}');
+    expect(onDesign).toHaveBeenLastCalledWith('status');
+  });
+
+  it('draws the chosen design ahead of the press, again when it changes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime.bind(vi),
+    });
+    render(<Harness />);
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(vi.mocked(cardImage).mock.calls.map((c) => c[1])).toEqual([
+      'ornate',
+    ]);
+    await user.click(choice('بسيطة'));
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(vi.mocked(cardImage).mock.calls.map((c) => c[1])).toEqual([
+      'ornate',
+      'simple',
+    ]);
+    // Pressed now, the picture already drawn is the one handed over.
+    await user.click(saveButton());
+    expect(cardImage).toHaveBeenCalledTimes(2);
+    expect(saveImage).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });

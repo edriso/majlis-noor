@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
-import type { Summary } from '@/halaqa/state';
+import type { CardDesign, Summary } from '@/halaqa/state';
 import { cardImage } from '@/sitting/cardImage';
 import { cardText } from '@/sitting/cardText';
 import { imageName, saveImage } from '@/sitting/saveImage';
+import { Choice, type Option } from './Choice';
 import { Check } from './icons';
 import { LogoMark } from './Logo';
 import { Sheet } from './Sheet';
@@ -34,6 +35,108 @@ const SAVE_SAID: Partial<Record<Saving, string>> = {
 /** How long «حُفظت الصورة» stays before the button offers to save again. */
 const SAVED_FOR = 4000;
 
+/** Each picture's shape and look in small, beside its name: the framed
+    4:5, the tall 9:16 under its arch, the plain square set from the
+    right. Drawn in the theme's own colours by close.css. */
+function Thumb({ design }: { design: CardDesign }) {
+  return (
+    <svg
+      className="close-thumb"
+      viewBox="0 0 24 28"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {design === 'ornate' ? (
+        <>
+          <rect
+            className="close-thumb-frame"
+            x="2"
+            y="1.5"
+            width="20"
+            height="25"
+            rx="2.5"
+          />
+          <rect
+            className="close-thumb-frame"
+            x="4"
+            y="3.5"
+            width="16"
+            height="21"
+            rx="1.5"
+          />
+          <path
+            className="close-thumb-gold"
+            d="M12 1 13.4 2.5 12 4 10.6 2.5Z"
+          />
+          <path
+            className="close-thumb-line"
+            d="M8 10h8M7 13.5h10M8.5 17h7M9.5 20.5h5"
+          />
+        </>
+      ) : design === 'status' ? (
+        <>
+          <path
+            className="close-thumb-frame"
+            d="M5 27V11.5C5 7 8 3.5 12 1.5c4 2 7 5.5 7 10V27"
+          />
+          <path
+            className="close-thumb-line"
+            d="M9 12h6M8 15.5h8M9 19h6M10 22.5h4"
+          />
+        </>
+      ) : (
+        <>
+          <rect
+            className="close-thumb-frame"
+            x="1.5"
+            y="3.5"
+            width="21"
+            height="21"
+            rx="2"
+          />
+          <path className="close-thumb-gold" d="M19 8h-5" />
+          <path className="close-thumb-line" d="M19 12H7M19 15.5H9M19 19h-8" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/* The three pictures, each named by a word that is also how it is heard,
+   and then what it is for. */
+const DESIGNS: Option<CardDesign>[] = [
+  {
+    value: 'ornate',
+    label: (
+      <>
+        <Thumb design="ornate" />
+        مزخرفة
+      </>
+    ),
+    spokenSuffix: '، بإطار، للمحادثات',
+  },
+  {
+    value: 'status',
+    label: (
+      <>
+        <Thumb design="status" />
+        حالة
+      </>
+    ),
+    spokenSuffix: '، طولية، للحالة والقصص',
+  },
+  {
+    value: 'simple',
+    label: (
+      <>
+        <Thumb design="simple" />
+        بسيطة
+      </>
+    ),
+    spokenSuffix: '، مربّعة، بلا زخرفة',
+  },
+];
+
 /** The diamond of the Mushaf's surah headers between two hairlines. */
 function Ornament() {
   return (
@@ -47,9 +150,11 @@ function Ornament() {
 }
 
 /**
- * «ختام المجلس»: what the sitting read, from where to where, how long and
- * who sat, ending on the supplication that closes a gathering. «احفظ صورة»
- * draws the same card as a picture and hands it to the share sheet or the
+ * «ختام المجلس»: what the sitting read, from where to where, when, how
+ * long and who sat, ending on the supplication that closes a gathering.
+ * «احفظ صورة» draws the same card as a picture, in the design chosen over
+ * it (`design`, the device's own setting, changed through `onDesign` and
+ * kept for the next sitting), and hands it to the share sheet or the
  * downloads; «تابعوا القراءة» («تابع» to one alone) goes back to the
  * sitting with nothing lost (so do Escape, «إغلاق» and a tap outside);
  * «إنهاء» ends it. Once closed, the card is gone: the app keeps no record
@@ -60,10 +165,14 @@ function Ornament() {
  */
 export function CloseCard({
   closing,
+  design,
+  onDesign,
   onContinue,
   onEnd,
 }: {
   closing: Closing | null;
+  design: CardDesign;
+  onDesign: (design: CardDesign) => void;
   onContinue: () => void;
   onEnd: () => void;
 }) {
@@ -78,32 +187,34 @@ export function CloseCard({
   /* The picture is drawn once the sheet has settled, before it is asked
      for, so «احفظ صورة» hands it over at once: a phone opens its share
      sheet only close to the tap that asked. It is kept for this card in
-     this theme, and drawn again if either changes. */
+     this design and theme, and drawn again if any of them changes. */
   const picture = useRef<{
     of: Closing;
+    design: CardDesign;
     theme: string | undefined;
     blob: Promise<Blob>;
   } | null>(null);
-  const pictureOf = (c: Closing) => {
+  const pictureOf = (c: Closing, d: CardDesign) => {
     const theme = document.documentElement.dataset.theme;
     const kept = picture.current;
-    if (kept && kept.of === c && kept.theme === theme) return kept.blob;
-    const blob = cardImage(cardText(c.summary, c.endedAt));
-    picture.current = { of: c, theme, blob };
+    if (kept && kept.of === c && kept.design === d && kept.theme === theme)
+      return kept.blob;
+    const blob = cardImage(cardText(c.summary, c.endedAt), d);
+    picture.current = { of: c, design: d, theme, blob };
     // A picture that failed is not kept: the next press tries afresh.
     blob.catch(() => {
       if (picture.current?.blob === blob) picture.current = null;
     });
     return blob;
   };
-  const prepare = useEffectEvent((c: Closing) => {
-    pictureOf(c).catch(() => {});
+  const prepare = useEffectEvent((c: Closing, d: CardDesign) => {
+    pictureOf(c, d).catch(() => {});
   });
   useEffect(() => {
     if (!closing) return;
-    const timer = window.setTimeout(() => prepare(closing), 400);
+    const timer = window.setTimeout(() => prepare(closing, design), 400);
     return () => window.clearTimeout(timer);
-  }, [closing]);
+  }, [closing, design]);
 
   useEffect(() => {
     if (saving !== 'saved') return;
@@ -118,7 +229,7 @@ export function CloseCard({
     if (saving === 'busy') return;
     setSaving('busy');
     try {
-      const blob = await pictureOf(shown);
+      const blob = await pictureOf(shown, design);
       const saved = await saveImage(blob, imageName(shown.endedAt));
       setSaving(saved === 'cancelled' ? 'idle' : 'saved');
     } catch {
@@ -137,15 +248,19 @@ export function CloseCard({
       variant="dialog"
     >
       <div className="close-card">
-        <div className="close-face">
+        <div className="close-face" data-design={design}>
           <div className="close-dates">
             <p className="close-day">{day}</p>
-            {otherDays.map((d) => (
-              <p key={d} className="close-day-other">
-                {d}
-              </p>
-            ))}
-            <p className="close-day-other close-time">{text.time}</p>
+            {/* The Gregorian date and the time, on one line where the
+                card is wide enough (close.css). */}
+            <p className="close-when">
+              {otherDays.map((d) => (
+                <span key={d} className="close-day-other">
+                  {d}
+                </span>
+              ))}
+              <span className="close-day-other close-time">{text.time}</span>
+            </p>
           </div>
           <Ornament />
           <div className="close-read">
@@ -176,6 +291,16 @@ export function CloseCard({
         </div>
 
         <div className="close-actions">
+          <div className="close-designs">
+            <Choice
+              legend="تصميم الصورة"
+              hideLegend
+              variant="tiles"
+              options={DESIGNS}
+              value={design}
+              onChange={onDesign}
+            />
+          </div>
           <button
             type="button"
             className="button button-primary button-large button-block"

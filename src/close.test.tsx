@@ -128,6 +128,32 @@ describe('closing a sitting from the menu', () => {
   });
 });
 
+describe('the picture’s design', () => {
+  const saved = () =>
+    JSON.parse(localStorage.getItem('majlis-noor:v1')!).prefs.cardDesign;
+
+  it('is kept on the device as soon as it is chosen, for the next sitting', async () => {
+    const user = await startWith({ members: [you, omar] });
+    await endFromMenu(user);
+    expect(
+      within(card())
+        .getByRole('radio', { name: /^مزخرفة/ })
+        .matches(':checked'),
+    ).toBe(true);
+    await user.click(within(card()).getByRole('radio', { name: /^حالة/ }));
+    expect(saved()).toBe('status');
+
+    await user.click(within(card()).getByRole('button', { name: 'إنهاء' }));
+    await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
+    await endFromMenu(user);
+    expect(
+      within(card())
+        .getByRole('radio', { name: /^حالة/ })
+        .matches(':checked'),
+    ).toBe(true);
+  });
+});
+
 describe('closing a sitting at its end', () => {
   it('closes from the goal’s card, and goes back to it', async () => {
     const user = await startWith({

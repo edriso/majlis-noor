@@ -158,3 +158,92 @@
   line-height: var(--leading-tight);
   text-align: center;
 }
+
+/* ---------- The three pictures ---------- */
+
+/* The choice of picture, a row of three over «احفظ صورة». Each thumbnail
+   is its picture's shape in small: the frame in the gold line, the words
+   as strokes of the text colour, gold where the picture has gold. */
+.close-thumb {
+  width: 24px;
+  height: 28px;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.close-thumb-frame {
+  stroke: var(--gold);
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+.close-thumb-gold {
+  stroke: var(--gold);
+  stroke-width: 1.6;
+  fill: var(--gold);
+}
+.close-thumb-line {
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+/* The card on the screen wears the chosen picture's frame, so the choice
+   shows at once without giving the sheet a picture's height. The status
+   picture's arch: one line, rounded over the top, a little more air. */
+.close-face[data-design='status'] {
+  padding-top: var(--space-6);
+  border-radius: 50% 50% var(--radius-md) var(--radius-md) / 64px 64px
+    var(--radius-md) var(--radius-md);
+  box-shadow: none;
+  background: var(--lamp);
+}
+/* The square: no frame, every line set from the right, the ornaments a
+   short gold rule at the start of the line. */
+.close-face[data-design='simple'] {
+  justify-items: start;
+  padding-inline: var(--space-2);
+  border-color: transparent;
+  box-shadow: none;
+  text-align: start;
+}
+.close-face[data-design='simple'] .close-ornament {
+  width: 48px;
+}
+.close-face[data-design='simple'] .close-ornament::before,
+.close-face[data-design='simple'] .close-ornament svg {
+  display: none;
+}
+.close-face[data-design='simple'] .close-ornament::after {
+  height: 2px;
+  background: var(--gold);
+}
+
+/* The time of the sitting under the Gregorian date, or after it with a
+   dot where the card has room for both on one line, which spares the
+   sheet a line it would otherwise scroll by. */
+.close-face {
+  container-type: inline-size;
+}
+.close-when {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+}
+@container (min-width: 300px) {
+  .close-when {
+    display: flex;
+    justify-content: center;
+    column-gap: 0.4em;
+  }
+  .close-when > :not(:first-child)::before {
+    content: '·' / '';
+    margin-inline-end: 0.4em;
+  }
+}
+
+/* The picker adds a row to the card, so on a wide screen its dialog may
+   stand a little taller than other dialogs before it scrolls. */
+@media (min-width: 760px) {
+  .sheet[data-variant='dialog']:has(> .sheet-body > .close-card) {
+    max-height: min(92dvh, 840px);
+  }
+}

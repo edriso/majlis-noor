@@ -248,6 +248,10 @@ export function ReadingScreen({
       />
       <CloseCard
         closing={closing}
+        design={prefs.cardDesign}
+        onDesign={(cardDesign) =>
+          dispatch({ type: 'prefs', prefs: { cardDesign } })
+        }
         onContinue={() => setClosing(null)}
         onEnd={actions.end}
       />
