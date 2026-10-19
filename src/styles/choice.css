@@ -37,8 +37,11 @@
   gap: var(--space-2);
 }
 
+/* As wide as the column, the options sharing it out, so two choices one
+   above the other («مقدار كل دور» and how many) end at the same edge
+   rather than at the widths of their words. */
 .choice-pills .choice-options {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -49,6 +52,7 @@
 }
 .choice-pills .choice-option {
   display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   min-width: 52px;
