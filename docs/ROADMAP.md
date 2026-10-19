@@ -586,7 +586,6 @@ summary counts ayat. Phase 5 follows 3.4.
 - **The data's terms.** The maintainer's letter to Quran Foundation (point
   9 above), and with its answer, whether the page fonts may be carried
   (D3).
-- **The README's screenshots** are being taken afresh for the new screens.
 - **Known rough edges:**
   - the reciter list loads every reciter's timings as it opens, about
     230 KB gzipped, to show each pace and sample al-Fatiha;
