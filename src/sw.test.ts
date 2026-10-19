@@ -372,8 +372,8 @@ describe('a new version', () => {
     await earlier.put(FONT, new Response('page font'));
     await earlier.put(SCOPE + 'assets/index-Old.js', new Response('old'));
     await (
-      await caches.open('majlis-ayah-shell-v2')
-    ).put(SCOPE, new Response('old name'));
+      await caches.open('majlis-noor-shell-v2')
+    ).put(SCOPE, new Response('older still'));
     await caches.open('someone-elses-cache');
     const sw = worker(v1);
     await sw.install();

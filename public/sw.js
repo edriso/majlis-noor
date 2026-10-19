@@ -99,11 +99,10 @@ const activate = async () => {
   const fonts = await caches.open(PAGE_FONTS);
   for (const name of await caches.keys()) {
     if (KEEP.includes(name)) continue;
-    // Caches of earlier versions, and of the app's first name, مجلس آية,
-    // which shares this origin. Versions before v4 kept the page fonts
-    // with everything else; those move here instead of being fetched again.
-    if (!name.startsWith('majlis-noor-') && !name.startsWith('majlis-ayah-'))
-      continue;
+    // Caches of earlier versions; anything else on this origin is not ours.
+    // Versions before v4 kept the page fonts with everything else; those
+    // move here instead of being fetched again.
+    if (!name.startsWith('majlis-noor-')) continue;
     const old = await caches.open(name);
     for (const request of await old.keys()) {
       if (new URL(request.url).hostname !== FONT_HOST) continue;
