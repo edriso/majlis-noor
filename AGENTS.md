@@ -11,10 +11,6 @@ reciter (a sheikh), whose recitation of his pages plays on his turn. It is a
 static web app. There is no server, no database, no accounts and no
 analytics; everything a reader does stays in their browser.
 
-The app was called Majlis Ayah (`مجلس آية`) at first. In code the old name
-survives in exactly two places, both on purpose: the storage key it adopts
-(see below) and the service worker's clean-up of its old caches.
-
 There are two screens and no router:
 
 - **The start screen** (`SetupScreen`). Where to start (surah, juz or page);
@@ -120,10 +116,8 @@ in `localStorage` under one key and nowhere else.
 
 **The storage key is a contract.** It is `majlis-noor:v1`, read by
 `src/halaqa/storage.ts` and again by the inline script in `index.html` that
-paints the theme before the bundle loads. Both also read the old name's key,
-`majlis-ayah:v1`, when the new one is empty, and the first save removes it:
-the two names share the `edriso.github.io` origin, so a halaqa saved under
-the old one is there to adopt. Renaming the key again needs the same.
+paints the theme before the bundle loads. Renaming it strands every halaqa
+saved under it, unless both read the old key when the new one is empty.
 Whatever is read back goes through `sanitizeState()`, which never trusts it
 and turns the old shape (`readers`, a list of names) into members.
 
@@ -330,5 +324,4 @@ rule looks right in all four. Adding a theme means its block in
 
 `public/sw.js` is a hand-written service worker, registered only in
 production: the page network-first, hashed assets and page fonts cache-first,
-recitations never cached. Bump its `VERSION` to drop every cache it made; it
-also drops the caches it made under the app's first name.
+recitations never cached. Bump its `VERSION` to drop every cache it made.
