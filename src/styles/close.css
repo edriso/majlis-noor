@@ -56,8 +56,13 @@
   text-align: center;
   line-height: var(--leading-tight);
 }
+/* Centred lines shared out evenly, so none ends on a word left alone.
+   Where a unit must not break is cardText's (no-break spaces); a unit
+   longer than a phone's line may break inside it rather than overflow. */
 .close-face p {
   margin: 0;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 .close-dates,

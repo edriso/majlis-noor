@@ -40,6 +40,20 @@ export type CardText = {
 
 export const CARD_TITLE = 'ختام المجلس';
 
+/* Where a line of the card may not break, whether the browser sets it or
+   cardImage.ts does: a number and what it counts («الآية ١٠٥», «٢٢ آية»,
+   «١٤٤٨ هـ»), a page in its brackets, a name of two or three words
+   («الشيخ الحصري», «أبو أحمد»; a longer one could not fit a phone's line,
+   and breaks only where «عبد», «أبو» or «بن» does not join it to the word
+   after) and a separator with what it follows. At 320px «(الصفحة ٢٩٣)»
+   otherwise left «٢٩٣)» alone on a line. */
+const NBSP = '\u00a0';
+const together = (s: string) => s.replaceAll(' ', NBSP);
+const nameTogether = (name: string) =>
+  name.split(' ').length <= 3
+    ? together(name)
+    : name.replace(/(?<=^|\s)(عبد|أبو|أم|بن|ابن|بنت) /g, `$1${NBSP}`);
+
 /** The supplication that closes a gathering (kaffārat al-majlis). */
 export const SUPPLICATION =
   'سبحانك اللهم وبحمدك، أشهد أن لا إله إلا أنت، أستغفرك وأتوب إليك';
@@ -83,7 +97,9 @@ export function cardDates(at: number) {
     hijriFormat.resolvedOptions().calendar === 'islamic-umalqura'
       ? [hijriFormat.format(day)]
       : [];
-  return [...hijri, gregorianFormat.format(day)];
+  return [...hijri, gregorianFormat.format(day)].map((d) =>
+    d.replace(/ هـ$/, `${NBSP}هـ`),
+  );
 }
 
 /** «من سورة آل عمران، الآية ١ (الصفحة ٥٠)». */
@@ -92,7 +108,7 @@ export function placeLine(
   place: Place,
 ) {
   const { surah, ayah } = verseOf(place.ayah);
-  return `${word} ${surahTitle(surah)}، الآية ${arabic(ayah)} (الصفحة ${arabic(place.page)})`;
+  return `${word} ${surahTitle(surah)}، ${together(`الآية ${arabic(ayah)}`)} ${together(`(الصفحة ${arabic(place.page)})`)}`;
 }
 
 /** Longer than this is not a sitting's length but a halaqa left open and
@@ -137,7 +153,9 @@ export function presentLine(members: readonly Sitter[]) {
   if (members.length === 0 || aloneUnnamed(members)) return null;
   const names: string[] = [];
   for (const m of members) {
-    const name = m.kind === 'reciter' ? `الشيخ ${m.name}` : m.name;
+    const name = nameTogether(
+      m.kind === 'reciter' ? `الشيخ ${m.name}` : m.name,
+    );
     if (m.kind === 'reciter' && names.includes(name)) continue;
     names.push(name);
   }
@@ -159,8 +177,9 @@ export function cardText(summary: Summary, endedAt: number): CardText {
         summary.ayatRead ? ayatCount(summary.ayatRead) : null,
         sittingLength(summary.durationMs),
       ]
-        .filter(Boolean)
-        .join(' · ')
+        .filter((part) => part !== null)
+        .map(together)
+        .join(`${NBSP}· `)
     : null;
   return {
     title: CARD_TITLE,

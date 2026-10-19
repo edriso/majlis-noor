@@ -90,6 +90,16 @@ describe('breaking a line', () => {
     expect(Math.abs(even[0].length - even[1].length)).toBeLessThanOrEqual(2);
     expect(balancedLines('أ ب', 16, chars)).toEqual(['أ ب']);
   });
+
+  it('never breaks at a no-break space', () => {
+    const glued = 'من سورة الإسراء، الآية\u00a0١٠٥ (الصفحة\u00a0٢٩٣)';
+    for (const width of [10, 14, 20, 30])
+      for (const line of wrapLines(glued, width, chars)) {
+        expect(line.startsWith('٢٩٣')).toBe(false);
+        expect(line.startsWith('١٠٥')).toBe(false);
+      }
+    expect(wrapLines(glued, 16, chars).at(-1)).toBe('(الصفحة\u00a0٢٩٣)');
+  });
 });
 
 describe('laying out the card', () => {
@@ -102,7 +112,8 @@ describe('laying out the card', () => {
       ...text.dates,
       ...text.read,
       text.amount,
-      'الحاضرون: أنت وفاطمة والشيخ الحصري',
+      // «الشيخ الحصري» held together by a no-break space.
+      'الحاضرون: أنت وفاطمة والشيخ\u00a0الحصري',
       ...text.supplication,
     ]);
     expect(ops.filter((op) => op.kind === 'rule')).toHaveLength(2);

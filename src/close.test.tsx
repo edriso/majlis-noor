@@ -25,6 +25,8 @@ const omar = { id: 'p2', kind: 'person', name: 'عمر' };
 
 const primary = () => document.querySelector<HTMLElement>('.action-primary')!;
 const card = () => screen.getByRole('dialog', { name: 'ختام المجلس' });
+/** What the card says, its no-break spaces read as spaces. */
+const cardWords = () => card().textContent.replaceAll('\u00a0', ' ');
 const place = () =>
   within(document.querySelector<HTMLElement>('.topbar')!).getByRole('button', {
     name: /انتقل إلى موضع آخر/,
@@ -44,7 +46,7 @@ describe('closing a sitting from the menu', () => {
     expect(screen.queryByRole('dialog', { name: 'القائمة' })).toBeNull();
     // One dialog, not a sheet over a sheet.
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    const text = card().textContent;
+    const text = cardWords();
     expect(text).toContain('من سورة الفاتحة، الآية ١ (الصفحة ١)');
     expect(text).toContain('إلى سورة الفاتحة، الآية ٧ (الصفحة ١)');
     expect(text).toContain('صفحة واحدة · ٧ آيات');
@@ -136,9 +138,9 @@ describe('closing a sitting at its end', () => {
     expect(screen.getByRole('heading', { name: /^بلغت/ })).toBeTruthy();
     const end = screen.getByRole('button', { name: 'إنهاء المجلس' });
     await user.click(end);
-    expect(card().textContent).toContain('إلى سورة الفاتحة، الآية ٧ (الصفحة ١)');
+    expect(cardWords()).toContain('إلى سورة الفاتحة، الآية ٧ (الصفحة ١)');
     // «أنت» alone is not named, and is spoken to as one.
-    expect(card().textContent).not.toContain('الحاضر');
+    expect(cardWords()).not.toContain('الحاضر');
     await user.click(
       within(card()).getByRole('button', { name: 'تابع القراءة' }),
     );
@@ -153,7 +155,7 @@ describe('closing a sitting at its end', () => {
     await user.click(primary());
     expect(screen.getByRole('heading', { name: 'خُتم المصحف' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
-    expect(card().textContent).toContain('إلى سورة الناس، الآية ٦ (الصفحة ٦٠٤)');
+    expect(cardWords()).toContain('إلى سورة الناس، الآية ٦ (الصفحة ٦٠٤)');
     await user.click(within(card()).getByRole('button', { name: 'إنهاء' }));
     expect(screen.getByRole('button', { name: /ابدأ المجلس/ })).toBeTruthy();
   });

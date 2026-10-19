@@ -34,7 +34,7 @@ const husary: Member = { id: 'r1', kind: 'reciter', reciter: 'husary' };
 
 /** A sitting started at START, after the given actions, as it closes at
     `endedAt`. */
-function closed(config: Partial<Config>, endedAt: number, ...acts: Action[]) {
+function card(config: Partial<Config>, endedAt: number, ...acts: Action[]) {
   const state = acts.reduce(
     reduce,
     reduce(initialState, {
@@ -46,25 +46,39 @@ function closed(config: Partial<Config>, endedAt: number, ...acts: Action[]) {
   return cardText(summaryOf(state.session!, endedAt), endedAt);
 }
 
+/** «~» for a space a line may not break at, so a test can say where. */
+const g = (s: string) => s.replaceAll('~', '\u00a0');
+/** Every space plain, for the tests that are about the words alone. */
+const plain = <T>(value: T): T =>
+  JSON.parse(JSON.stringify(value).replaceAll('\u00a0', ' ')) as T;
+
+/** The same card, every space plain: what it says, not where it breaks,
+    which the first test and «where a line may break» below look at. */
+const closed = (...args: Parameters<typeof card>) => plain(card(...args));
+
 const finish = (n: number): Action[] =>
   Array.from({ length: n }, () => ({ type: 'finishTurn' }) as const);
 
 describe('the close of a sitting', () => {
   it('says from where to where, how much, how long, and who sat', () => {
-    const card = closed(
+    const text = card(
       { members: [you, fatima, husary], start: ayahIndex(3, 1) },
       at(19, 25),
       ...finish(4),
     );
-    expect(card).toEqual({
+    // «~» is a space the line may not break at.
+    expect(text).toEqual({
       title: 'ختام المجلس',
-      dates: ['الأحد، ٧ جمادى الأولى ١٤٤٨ هـ', '١٨ أكتوبر ٢٠٢٦'],
+      dates: [g('الأحد، ٧ جمادى الأولى ١٤٤٨~هـ'), '١٨ أكتوبر ٢٠٢٦'],
       read: [
-        'من سورة آل عمران، الآية ١ (الصفحة ٥٠)',
-        'إلى سورة آل عمران، الآية ٢٩ (الصفحة ٥٣)',
+        g('من سورة آل عمران، الآية~١ (الصفحة~٥٠)'),
+        g('إلى سورة آل عمران، الآية~٢٩ (الصفحة~٥٣)'),
       ],
-      amount: '٤ صفحات · ٢٩ آية · ٢٥ دقيقة',
-      present: { label: 'الحاضرون', names: 'أنت وفاطمة والشيخ الحصري' },
+      amount: g('٤~صفحات~· ٢٩~آية~· ٢٥~دقيقة'),
+      present: {
+        label: 'الحاضرون',
+        names: g('أنت وفاطمة والشيخ~الحصري'),
+      },
       supplication: [
         'سبحانك اللهم وبحمدك،',
         'أشهد أن لا إله إلا أنت،',
@@ -117,7 +131,9 @@ describe('the close of a sitting', () => {
       }),
       { type: 'finishTurn' },
     );
-    const card = cardText(summaryOf(state.session!, at(20, 0)), at(20, 0));
+    const card = plain(
+      cardText(summaryOf(state.session!, at(20, 0)), at(20, 0)),
+    );
     expect(card.amount).toBe('صفحة واحدة · ٧ آيات');
   });
 
@@ -196,11 +212,11 @@ describe('the close of a sitting', () => {
 describe('the day', () => {
   it('gives the Hijri date first, then the Gregorian, in Arabic digits', () => {
     expect(cardDates(at(9, 0))).toEqual([
-      'الأحد، ٧ جمادى الأولى ١٤٤٨ هـ',
+      g('الأحد، ٧ جمادى الأولى ١٤٤٨~هـ'),
       '١٨ أكتوبر ٢٠٢٦',
     ]);
     expect(cardDates(new Date(2027, 2, 1, 12).getTime())).toEqual([
-      'الاثنين، ٢٢ رمضان ١٤٤٨ هـ',
+      g('الاثنين، ٢٢ رمضان ١٤٤٨~هـ'),
       '١ مارس ٢٠٢٧',
     ]);
   });
@@ -253,7 +269,7 @@ describe('who sat', () => {
     }));
     expect(presentLine(sitters)).toEqual({
       label: 'الحاضرون',
-      names: 'أنت وفاطمة وعمر والشيخ الحصري',
+      names: g('أنت وفاطمة وعمر والشيخ~الحصري'),
     });
     expect(
       presentLine([
@@ -261,7 +277,14 @@ describe('who sat', () => {
         { id: 'r1', kind: 'reciter', name: 'الحصري' },
         { id: 'r2', kind: 'reciter', name: 'الحصري' },
       ]),
-    ).toEqual({ label: 'الحاضران', names: 'أنت والشيخ الحصري' });
+    ).toEqual({ label: 'الحاضران', names: g('أنت والشيخ~الحصري') });
+    // A long name breaks, but never inside «عبد الرحمن» or «بن».
+    expect(
+      presentLine([
+        { id: 'p1', kind: 'person', name: 'عبد الرحمن بن عبد العزيز' },
+        { id: 'p2', kind: 'person', name: 'أبو أحمد' },
+      ])?.names,
+    ).toBe(g('عبد~الرحمن بن~عبد~العزيز وأبو~أحمد'));
   });
 
   it('agrees with how many sat', () => {

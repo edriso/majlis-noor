@@ -74,9 +74,10 @@ const font = (weight: number, size: number, family: string) =>
   `${weight} ${Math.round(size * 10) / 10}px ${family}`;
 
 /**
- * `text` in lines no wider than `width`, broken between words. A word wider
- * than the line has a line to itself and is left to the caller, who can
- * shrink the type: an Arabic word is never broken.
+ * `text` in lines no wider than `width`, broken between words, never at a
+ * no-break space, which cardText puts where words belong together. A word
+ * wider than the line has a line to itself and is left to the caller, who
+ * can shrink the type: an Arabic word is never broken.
  */
 export function wrapLines(
   text: string,
@@ -85,7 +86,7 @@ export function wrapLines(
 ) {
   const lines: string[] = [];
   let line = '';
-  for (const word of text.split(/\s+/).filter(Boolean)) {
+  for (const word of text.split(/[^\S\u00a0]+/).filter(Boolean)) {
     const longer = line ? `${line} ${word}` : word;
     if (line && measure(longer) > width) {
       lines.push(line);

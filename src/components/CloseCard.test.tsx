@@ -103,7 +103,8 @@ describe('the close of a sitting', () => {
       'أستغفرك وأتوب إليك',
       'مجلس نور',
     ])
-      expect(dialog.textContent).toContain(line);
+      // No-break spaces keep a line's units whole; they read as spaces.
+      expect(dialog.textContent.replaceAll('\u00a0', ' ')).toContain(line);
   });
 
   it('goes back to the sitting with «تابعوا القراءة», Escape or «إغلاق»', async () => {
