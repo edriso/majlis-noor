@@ -1,8 +1,12 @@
 import { memo, useEffect, useRef, type PointerEvent } from 'react';
 import { arabic } from '@/data/arabic';
+import type { AyahRange } from '@/data/mushaf';
 import type { PageSize } from '@/halaqa/state';
+import { MemoryCover } from '@/mushaf/MemoryCover';
 import { MushafPage } from '@/mushaf/MushafPage';
+import { useFollow } from '@/mushaf/useFollow';
 import { spreadOf, swipeOf } from './spread';
+import type { FollowSource } from './useMarks';
 
 /**
  * The Mushaf, as large as its room allows: one page fitted whole, or, where
@@ -14,8 +18,13 @@ import { spreadOf, swipeOf } from './spread';
  * screen (`size` «width»), one page, scrolled down.
  *
  * A finger drawn across the page turns between the turn's own pages, never
- * past them: passing the turn is the main button's. A tap on the page does
- * nothing here, and must not: it is kept for choosing an ayah.
+ * past them: passing the turn is the main button's. A tap on a word chooses
+ * its ayah (`onAyahTap`); the page tells the two apart, and the pointer is
+ * never captured here, so a tap's click reaches the word it was on.
+ *
+ * On the pages: the turn's ayat underlined where it covers part of a page,
+ * the ayah or word being recited, the ayah chosen, and in a review from
+ * memory a cover over them (`cover`).
  *
  * Drawn again only when the page or what it prefetches changes, never as a
  * turn's time runs or its recitation pauses.
@@ -27,6 +36,11 @@ export const MushafView = memo(function MushafView({
   size,
   prefetch,
   onSwipe,
+  turn,
+  follow,
+  selected,
+  onAyahTap,
+  cover,
 }: {
   page: number;
   /** The first and last page of the turn: those not dimmed. */
@@ -35,6 +49,15 @@ export const MushafView = memo(function MushafView({
   size: PageSize;
   prefetch: readonly number[];
   onSwipe: (direction: 'forward' | 'back') => void;
+  /** The turn's ayat, where it covers part of a page. */
+  turn: AyahRange | null;
+  /** The recitation the pages follow. */
+  follow: FollowSource;
+  selected: number | null;
+  onAyahTap: (ayah: number, word: number | null) => void;
+  /** Covers the pages for a review from memory; a new value covers them
+      again. */
+  cover: string | null;
 }) {
   const stage = useRef<HTMLElement>(null);
   const stroke = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -92,22 +115,71 @@ export const MushafView = memo(function MushafView({
         onPointerUp={up}
         onPointerCancel={cancel}
       >
-        <div className="mushaf-spread" data-pages={pages.length}>
-          {pages.map((p) => (
-            <div
-              key={p}
-              className="mushaf-leaf"
-              data-current={p === page || undefined}
-              data-dim={p < turnFirst || p > turnLast || undefined}
-            >
-              <MushafPage
-                page={p}
-                prefetch={p === page ? prefetch : undefined}
-              />
-            </div>
-          ))}
-        </div>
+        <MemoryCover cover={cover} pages={pages.length === 2 ? 2 : 1}>
+          <Spread
+            pages={pages}
+            page={page}
+            turnFirst={turnFirst}
+            turnLast={turnLast}
+            prefetch={prefetch}
+            turn={turn}
+            follow={follow}
+            selected={selected}
+            onAyahTap={onAyahTap}
+          />
+        </MemoryCover>
       </section>
     </section>
   );
 });
+
+/**
+ * The pages, following the recitation. Where it is moves on every frame,
+ * so this is drawn again on every frame while it plays (`useFollow`), and
+ * nothing else is: the pages are drawn again only when the ayah or the
+ * word recited changes.
+ */
+function Spread({
+  pages,
+  page,
+  turnFirst,
+  turnLast,
+  prefetch,
+  turn,
+  follow,
+  selected,
+  onAyahTap,
+}: {
+  pages: readonly number[];
+  page: number;
+  turnFirst: number;
+  turnLast: number;
+  prefetch: readonly number[];
+  turn: AyahRange | null;
+  follow: FollowSource;
+  selected: number | null;
+  onAyahTap: (ayah: number, word: number | null) => void;
+}) {
+  const recited = useFollow(follow);
+  return (
+    <div className="mushaf-spread" data-pages={pages.length}>
+      {pages.map((p) => (
+        <div
+          key={p}
+          className="mushaf-leaf"
+          data-current={p === page || undefined}
+          data-dim={p < turnFirst || p > turnLast || undefined}
+        >
+          <MushafPage
+            page={p}
+            prefetch={p === page ? prefetch : undefined}
+            turn={turn}
+            recited={recited}
+            selected={selected}
+            onAyahTap={onAyahTap}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}

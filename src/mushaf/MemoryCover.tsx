@@ -19,7 +19,9 @@ export function MemoryCover({
 }: {
   /** A new value covers the page again; null leaves it uncovered. */
   cover: string | null;
-  /** How many pages it covers, for the button's words. */
+  /** 2 where it covers a spread, which shows two pages only where the
+      room is wide enough (stage.css): the button's words follow what the
+      room shows (marks.css). */
   pages?: 1 | 2;
   children: ReactNode;
 }) {
@@ -52,7 +54,14 @@ export function MemoryCover({
               requestAnimationFrame(() => content.current?.focus());
             }}
           >
-            {pages === 2 ? 'اكشف الصفحتين' : 'اكشف الصفحة'}
+            {pages === 2 ? (
+              <>
+                <span className="memory-cover-one">اكشف الصفحة</span>
+                <span className="memory-cover-two">اكشف الصفحتين</span>
+              </>
+            ) : (
+              'اكشف الصفحة'
+            )}
           </button>
         </div>
       ) : null}

@@ -137,7 +137,7 @@
 }
 .ayah-bar-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: var(--leading-tight);
 }
@@ -151,7 +151,7 @@
 }
 .ayah-bar-button {
   min-height: var(--target);
-  padding: 6px 16px;
+  padding: 6px 14px;
   gap: var(--space-2);
   border-color: var(--control-border);
   background: transparent;
@@ -218,4 +218,48 @@
 }
 .memory-cover-panel .button {
   min-height: var(--target);
+}
+
+/* Over a spread the button names what is covered: two pages only where
+   the stage is wide enough to show them (stage.css). */
+.memory-cover-two {
+  display: none;
+}
+@container stage (min-aspect-ratio: 6 / 5) {
+  .memory-cover-one {
+    display: none;
+  }
+  .memory-cover-two {
+    display: inline;
+  }
+}
+
+/* On the reading screen the cover stands where the spread stood, centred
+   in the stage, or at its top where the page is as wide as the screen. */
+.mushaf-stage > .memory-cover {
+  margin: auto;
+}
+.mushaf-stage[data-size='width'] > .memory-cover {
+  margin-block: 0;
+  align-self: start;
+}
+.mushaf-stage > .memory-cover .memory-cover-panel {
+  border-radius: 6px;
+}
+
+/* ---------- The ayah bar's dock ---------- */
+
+/* Over the foot of the page, just above the action bar, rather than in
+   the column, which would make the page smaller while it is open; at the
+   top of the room where the ayah chosen is low on the page, so the bar
+   never covers the ayah it is about (useMarks). */
+.ayah-dock {
+  position: absolute;
+  inset-inline: var(--space-3);
+  bottom: var(--space-2);
+  z-index: 10;
+}
+.ayah-dock[data-at='top'] {
+  top: var(--space-2);
+  bottom: auto;
 }

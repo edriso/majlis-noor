@@ -312,7 +312,18 @@ export function useTurn({
     time: seated ? recitation.time : clock.time,
     clock,
     recitation,
-    listen: { ...listen, what: listenWhat, untimedLabel: listenUntimed },
+    listen: {
+      ...listen,
+      what: listenWhat,
+      untimedLabel: listenUntimed,
+      /** The ayat it recites, all on the open page. */
+      range: listenRange,
+    },
+    /** Each reciter's timings, as `useTimings` has them: the halaqa's own
+        and every seated one's. */
+    timings,
+    /** The turn and the ayat it covers: a new key is a new turn. */
+    turnKey,
     /** An ayah heard alone, which wave 3's ayah bar plays; the pause and
         Space already reach it first. */
     ayah,

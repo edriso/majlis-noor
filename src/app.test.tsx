@@ -734,6 +734,110 @@ describe('the menu and the jump', () => {
   });
 });
 
+describe('an ayah on the page', () => {
+  /** The ayah markers drawn, once the page is in. */
+  const markers = () =>
+    screen.findAllByRole('button', { name: /استمع إليها$/ });
+  const ayahBar = () => screen.queryByRole('region', { name: /^الآية/ });
+
+  it('opens the ayah bar from a tapped word, and from a marker', async () => {
+    const user = await startWith({ members: [you, omar] });
+    await markers();
+    // Al-Fatihah 5, its third word.
+    await user.click(
+      document.querySelector<HTMLElement>('[data-ayah="5"][data-word="3"]')!,
+    );
+    expect(ayahBar()?.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'الآية ٥ · الفاتحة' }));
+    expect(
+      document.querySelectorAll('.mushaf-words [data-selected]').length,
+    ).toBeGreaterThan(0);
+    const marker = screen.getByRole('button', {
+      name: 'الآية ٢ من سورة الفاتحة — استمع إليها',
+    });
+    marker.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('region', { name: 'الآية ٢ · الفاتحة' }));
+    expect(document.activeElement?.textContent).toContain('استمع');
+  });
+
+  it('closes on Escape before the bars come back, giving the marker its focus', async () => {
+    const user = await startWith({ members: [you, omar] });
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(screen.getByRole('button', { name: /إخفاء الأزرار/ }));
+    const [marker] = await markers();
+    marker.focus();
+    await user.keyboard('{Enter}');
+    expect(ayahBar()).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(ayahBar()).toBeNull();
+    expect(document.activeElement).toBe(marker);
+    expect(document.querySelector('.reading[data-quiet]')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(document.querySelector('.reading[data-quiet]')).toBeNull();
+  });
+
+  it('lets the ayah chosen go when the turn passes', async () => {
+    const user = await startWith({ members: [you, omar] });
+    const [marker] = await markers();
+    await user.click(marker);
+    expect(ayahBar()).toBeTruthy();
+    await user.click(primary());
+    expect(ayahBar()).toBeNull();
+    expect(document.querySelector('.mushaf-words [data-selected]')).toBeNull();
+  });
+
+  it('underlines a turn of a few ayat, and never a turn of whole pages', async () => {
+    await startWith({
+      members: [you, omar],
+      unit: 'ayah',
+      size: 3,
+      start: kahf5,
+    });
+    await markers();
+    const underlined = () =>
+      new Set(
+        [...document.querySelectorAll<HTMLElement>('[data-turn]')].map(
+          (el) => el.dataset.ayah,
+        ),
+      );
+    expect(underlined()).toEqual(
+      new Set([kahf5, kahf5 + 1, kahf5 + 2].map(String)),
+    );
+    cleanup();
+    await startWith({ members: [you, omar], start: kahf5 });
+    await markers();
+    expect(underlined().size).toBe(0);
+  });
+
+  it('covers the page on a reader’s turn, in a review from memory', async () => {
+    const user = await startWith({
+      members: [you, minshawi],
+      fromMemory: true,
+    });
+    expect(screen.getByText('اقرأ من حفظك'));
+    await user.click(screen.getByRole('button', { name: /اكشف الصفحة/ }));
+    expect(screen.queryByText('اقرأ من حفظك')).toBeNull();
+    // The sheikh's turn is followed on the page, not recited from memory.
+    await user.click(primary());
+    expect(status()).toContain('يتلو المنشاوي');
+    expect(screen.queryByText('اقرأ من حفظك')).toBeNull();
+  });
+
+  it('follows the word when the reader asks, from the menu', async () => {
+    const user = await startWith({ members: [you, omar] });
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    const follow = screen.getByRole<HTMLInputElement>('switch', {
+      name: /تتبّع الكلمة/,
+    });
+    expect(follow.checked).toBe(false);
+    await user.click(follow);
+    expect(follow.checked).toBe(true);
+    const saved = JSON.parse(localStorage.getItem('majlis-noor:v1')!);
+    expect(saved.prefs.follow).toBe('word');
+  });
+});
+
 describe('accessibility', () => {
   const unnamed = () =>
     [...document.querySelectorAll('button, input, select, a')].filter((el) => {
@@ -774,12 +878,17 @@ describe('accessibility', () => {
   /** The words a control shows: on a wide screen the longer form of a text
       that has a shorter one for a phone; on a phone, the words before the
       first shortened one, since what follows is only shortened. Words kept
-      for screen readers alone are not shown. */
+      for screen readers alone are not shown, and nor are a page's glyphs,
+      code points that mean nothing as text: an ayah's marker shows its
+      number through one, which its name says in words. */
   const shownBy = (el: Element, wide: boolean) => {
     const from = el instanceof HTMLInputElement ? el.labels?.[0] : el;
     if (!from) return '';
     const out: string[] = [];
-    for (const t of texts(from, (p) => !!p.closest('.visually-hidden'))) {
+    for (const t of texts(
+      from,
+      (p) => !!p.closest('.visually-hidden, .mushaf-words'),
+    )) {
       const p = t.parentElement!;
       if (wide ? p.closest('.label-short') : p.closest('.label-long')) continue;
       if (!wide && p.closest('.label-short')) break;

@@ -50,6 +50,14 @@ describe('the cover of a review from memory', () => {
         {page}
       </MemoryCover>,
     );
-    expect(screen.getByRole('button', { name: 'اكشف الصفحتين' }));
+    // Both words are there; the room decides which is shown (marks.css),
+    // and the hidden one is no part of the name.
+    const button = screen.getByRole('button', { name: /اكشف/ });
+    expect(button.querySelector('.memory-cover-one')?.textContent).toBe(
+      'اكشف الصفحة',
+    );
+    expect(button.querySelector('.memory-cover-two')?.textContent).toBe(
+      'اكشف الصفحتين',
+    );
   });
 });

@@ -11,6 +11,7 @@ import {
   type Session,
 } from '@/halaqa/state';
 import { useWakeLock } from '@/hooks/useWakeLock';
+import { AyahBar } from '@/mushaf/AyahBar';
 import { CircleView } from './reading/CircleView';
 import { Completion } from './reading/Completion';
 import { JumpSheet } from './reading/JumpSheet';
@@ -18,6 +19,7 @@ import { ListenerSheet } from './reading/ListenerSheet';
 import { MushafView } from './reading/MushafView';
 import { TopBar, type Showing } from './reading/TopBar';
 import { TurnActions } from './reading/TurnActions';
+import { useMarks } from './reading/useMarks';
 import { useQuiet } from './reading/useQuiet';
 import { useReadingKeys } from './reading/useReadingKeys';
 import { useTurn } from './reading/useTurn';
@@ -56,6 +58,7 @@ export function ReadingScreen({
 }) {
   const turn = useTurn({ session, prefs, dispatch });
   const { actions } = turn;
+  const marks = useMarks(turn, prefs);
   const [sheet, setSheet] = useState<
     'jump' | 'menu' | 'halaqa' | 'listener' | null
   >(null);
@@ -161,8 +164,27 @@ export function ReadingScreen({
             size={prefs.pageSize}
             prefetch={turn.prefetch}
             onSwipe={actions.turnPage}
+            turn={marks.turn}
+            follow={marks.follow}
+            selected={marks.chosen?.ayah ?? null}
+            onAyahTap={marks.choose}
+            cover={marks.cover}
           />
         )}
+        {marks.chosen && showing === 'mushaf' && !turn.end ? (
+          // Escape closes it before it brings the bars back: it listens
+          // on the document, which hears a key before the window does.
+          <div className="ayah-dock" data-at={marks.chosen.dock}>
+            <AyahBar
+              ayah={marks.chosen.ayah}
+              word={marks.chosen.word}
+              reciter={session.config.reciter}
+              timings={turn.timings[session.config.reciter]}
+              listen={turn.ayah}
+              onClose={marks.unchoose}
+            />
+          </div>
+        ) : null}
       </main>
 
       {turn.end ? null : (
