@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ayahIndex, loadPage, type Page } from '@/data/mushaf';
 import { loadPageFont } from './fonts';
+import { entryTexts } from './words';
 import {
   ayahButtonLabel,
   FONT_NOTE,
@@ -395,5 +396,104 @@ describe('a page with its ayat marked and tappable', () => {
     press(100, 100);
     lift(103, 104); // a finger's wobble
     expect(onAyahTap).toHaveBeenCalledWith(5, 2);
+  });
+
+  /** A selection from one glyph's text to another's, as a drag or a long
+      press leaves it; a marker's glyph is inside its button. */
+  const select = (
+    [from, fromAt]: [HTMLElement, number | 'end'],
+    [to, toAt]: [HTMLElement, number | 'end'],
+  ) => {
+    const text = (el: HTMLElement) =>
+      (el.firstElementChild ?? el).firstChild as Text;
+    const offset = (el: HTMLElement, at: number | 'end') =>
+      at === 'end' ? text(el).length : at;
+    const range = document.createRange();
+    range.setStart(text(from), offset(from, fromAt));
+    range.setEnd(text(to), offset(to, toAt));
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+  /** What a copy puts on the clipboard, if the page answers it. */
+  const copy = () => {
+    const setData = vi.fn();
+    const event = new Event('copy', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: { setData } });
+    article().dispatchEvent(event);
+    expect(setData.mock.calls.length).toBeLessThanOrEqual(1);
+    return event.defaultPrevented
+      ? (setData.mock.calls[0] as [string, string])
+      : null;
+  };
+  const words = (line: number) => {
+    const at = page1.lines[line];
+    return at.t === 'text' ? entryTexts(at.x) : [];
+  };
+
+  it('copies the words selected as their text, not their glyphs', async () => {
+    await drawn({ onAyahTap: () => {} });
+    // From inside al-Fatihah 1's second word to its marker, a button.
+    select([word(1, 2), 0], [word(1, null), 'end']);
+    expect(copy()).toEqual(['text/plain', words(1).slice(1).join(' ')]);
+    expect(words(1)[4]).toBe('﴿١﴾');
+  });
+
+  it('copies over lines in reading order, and leaves out a word only touched', async () => {
+    await drawn();
+    // From the very end of 1's last word, which is not selected, to the
+    // first letter of 2's second word, which is.
+    select([word(1, 4), 'end'], [word(2, 2), 1]);
+    expect(copy()).toEqual([
+      'text/plain',
+      [words(1)[4], ...words(2).slice(0, 2)].join(' '),
+    ]);
+    getSelection()!.removeAllRanges();
+    expect(copy()).toBeNull();
+  });
+
+  it('leaves a copy of anything but words to the browser', async () => {
+    await drawn();
+    const range = document.createRange();
+    range.selectNodeContents(article().querySelector('.mushaf-running-head')!);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    expect(copy()).toBeNull();
+  });
+
+  it('takes a click that leaves words selected for a selection, not a tap', async () => {
+    const onAyahTap = vi.fn();
+    await drawn({ onAyahTap });
+    select([word(5, 1), 0], [word(5, 2), 'end']);
+    fireEvent.click(word(5, 2), { detail: 2 });
+    expect(onAyahTap).not.toHaveBeenCalled();
+    // The keyboard's click on a marker still chooses its ayah.
+    fireEvent.click(word(5, null), { detail: 0 });
+    expect(onAyahTap).toHaveBeenCalledWith(5, null);
+    getSelection()!.removeAllRanges();
+    fireEvent.click(word(5, 2), { detail: 1 });
+    expect(onAyahTap).toHaveBeenLastCalledWith(5, 2);
+  });
+
+  it('keeps a mouse that selected words from turning the page', async () => {
+    const stroke = vi.fn();
+    render(
+      // The stage, which turns the page on a stroke's end (MushafView).
+      <div onPointerUp={stroke}>
+        <MushafPage page={1} onAyahTap={() => {}} />
+      </div>,
+    );
+    await waitFor(() =>
+      expect(article().querySelector('[data-font="glyphs"]')).not.toBeNull(),
+    );
+    select([word(3, 1), 0], [word(4, 2), 'end']);
+    fireEvent.pointerUp(word(4, 2), { pointerType: 'mouse' });
+    expect(stroke).not.toHaveBeenCalled();
+    // A finger's stroke is still the stage's.
+    fireEvent.pointerUp(word(4, 2), { pointerType: 'touch' });
+    expect(stroke).toHaveBeenCalledTimes(1);
+    getSelection()!.removeAllRanges();
+    fireEvent.pointerUp(word(4, 2), { pointerType: 'mouse' });
+    expect(stroke).toHaveBeenCalledTimes(2);
   });
 });

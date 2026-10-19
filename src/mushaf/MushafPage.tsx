@@ -10,7 +10,7 @@ import {
 } from '@/data/mushaf';
 import { loadPageFont, pageFontFamily } from './fonts';
 import { usePage } from './usePage';
-import { ayatOfLine, pageWords, type GlyphWord } from './words';
+import { ayatOfLine, entryTexts, pageWords, type GlyphWord } from './words';
 import {
   memo,
   useEffect,
@@ -113,6 +113,7 @@ export const MushafPage = memo(function MushafPage({
   const words = useMemo(() => (drawn ? pageWords(drawn) : []), [drawn]);
   const lineAyat = useMemo(() => words.map(ayatOfLine), [words]);
   const tap = useTap(onAyahTap);
+  useCopyText();
 
   return (
     <article
@@ -247,8 +248,15 @@ function sameProps(a: MushafPageProps, b: MushafPageProps) {
  *
  * A finger that moved is a swipe, or the start of one, and is not a tap:
  * the click a pointer ends with is measured against where it pressed. A
- * click from the keyboard, or from a screen reader, has no press before it
- * and always counts.
+ * click that leaves words selected (a double-click, a short drag) is a
+ * reader choosing words to copy, and is not a tap either. A click from the
+ * keyboard, or from a screen reader, has no press before it and always
+ * counts.
+ *
+ * A mouse drawn across the words selects them, as it does any text, so it
+ * does not turn the page too: the stage (MushafView) never hears the end
+ * of that stroke. A finger selects with a long press, which the browser
+ * takes over, and still turns the page with a stroke.
  *
  * The handlers are props of the lines, so they are there from the moment
  * the lines are, a page drawn afresh for its font included.
@@ -260,6 +268,10 @@ function useTap(onAyahTap: MushafPageProps['onAyahTap']) {
     onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
       pressed.current = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
     },
+    onPointerUp: (e: PointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === 'mouse' && selecting(e.currentTarget))
+        e.stopPropagation();
+    },
     onClick: (e: MouseEvent<HTMLDivElement>) => {
       const from = pressed.current;
       pressed.current = null;
@@ -267,15 +279,100 @@ function useTap(onAyahTap: MushafPageProps['onAyahTap']) {
       if (!target || !e.currentTarget.contains(target)) return;
       if (
         e.detail > 0 &&
-        from &&
-        (Math.abs(e.clientX - from.x) > TAP_SLOP_X ||
-          Math.abs(e.clientY - from.y) > TAP_SLOP_Y)
+        ((from &&
+          (Math.abs(e.clientX - from.x) > TAP_SLOP_X ||
+            Math.abs(e.clientY - from.y) > TAP_SLOP_Y)) ||
+          selecting(e.currentTarget))
       )
         return;
       const { ayah, word } = target.dataset;
       onAyahTap(Number(ayah), word ? Number(word) : null);
     },
   };
+}
+
+/** Whether some of a page's lines are selected. */
+function selecting(lines: Node) {
+  const selection = document.getSelection();
+  if (!selection || selection.isCollapsed) return false;
+  for (let i = 0; i < selection.rangeCount; i++)
+    if (selection.getRangeAt(i).intersectsNode(lines)) return true;
+  return false;
+}
+
+/** The words on a page drawn in its glyphs, each a span (a marker a
+    button), in reading order, the right-hand page's first in a spread. */
+const GLYPH_WORDS = '.mushaf-lines[data-font="glyphs"] .mushaf-words > *';
+
+/** Whether a range takes in any of a glyph's text, not only touches it:
+    a drag that ends at the edge of a word leaves that word out. */
+function takesIn(range: Range, word: Element) {
+  // A marker's glyph is in a span of its own, inside the button.
+  const text = (word.firstElementChild ?? word).firstChild;
+  if (!text) return false;
+  const own = document.createRange();
+  own.selectNodeContents(text);
+  return (
+    range.compareBoundaryPoints(Range.END_TO_START, own) < 0 &&
+    range.compareBoundaryPoints(Range.START_TO_END, own) > 0
+  );
+}
+
+/**
+ * The Uthmani text of the words a selection takes in, on every page drawn
+ * in its glyphs, in reading order and joined by spaces, a word partly
+ * selected given whole; an ayah's marker gives its number as the text
+ * writes it, ﴿١٤﴾. Null when it takes in no word, so whatever else is
+ * selected is copied as it is.
+ *
+ * Each word's text is its line's (`entryTexts`), read from the line's
+ * hidden text, so a selection over the two pages of a spread needs only
+ * the page, not either page's data.
+ */
+export function selectedText(selection: Selection): string | null {
+  if (selection.isCollapsed || selection.rangeCount === 0) return null;
+  const ranges = Array.from({ length: selection.rangeCount }, (_, i) =>
+    selection.getRangeAt(i),
+  );
+  const lines = new Map<Element, string[]>();
+  const picked: string[] = [];
+  for (const word of document.querySelectorAll(GLYPH_WORDS)) {
+    if (!ranges.some((range) => takesIn(range, word))) continue;
+    const line = word.closest('.mushaf-line');
+    if (!line) continue;
+    let texts = lines.get(line);
+    if (!texts) {
+      texts = entryTexts(line.querySelector('.mushaf-text')?.textContent ?? '');
+      lines.set(line, texts);
+    }
+    const text = texts[[...word.parentElement!.children].indexOf(word)];
+    if (text) picked.push(text);
+  }
+  return picked.length ? picked.join(' ') : null;
+}
+
+/**
+ * Copying words selected on the page gives their Uthmani text. Left to
+ * itself the browser copies what the page is made of: glyph codes, which
+ * are private-use code points and paste as «مي» or as boxes.
+ *
+ * Heard on the whole document, since a selection may start outside the
+ * page, or be all of it; each page drawn listens, and whichever hears the
+ * copy first answers for every page.
+ */
+function useCopyText() {
+  useEffect(() => {
+    const copy = (e: ClipboardEvent) => {
+      if (e.defaultPrevented || !e.clipboardData) return;
+      const selection = document.getSelection();
+      const text = selection && selectedText(selection);
+      if (!text) return;
+      e.clipboardData.setData('text/plain', text);
+      e.preventDefault();
+    };
+    document.addEventListener('copy', copy);
+    return () => document.removeEventListener('copy', copy);
+  }, []);
 }
 
 function PageRetry({
