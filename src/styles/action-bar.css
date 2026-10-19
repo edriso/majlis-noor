@@ -76,23 +76,29 @@
 .action-primary:active {
   transform: scale(0.985);
 }
+/* Both lines wrap between their words where the button is too narrow for
+   them, with the reader's text made large, rather than lose their ends:
+   the next reader's name is the point of the second. */
 .action-primary-main {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  column-gap: var(--space-2);
   font-size: var(--screen-text-lg);
   font-weight: 600;
   line-height: var(--leading-tight);
-  white-space: nowrap;
+  text-align: center;
+}
+.action-primary-main > svg {
+  flex: none;
 }
 .action-primary-sub {
   max-width: 100%;
-  overflow: hidden;
   color: var(--on-gold-muted);
   font-size: var(--screen-text-sm);
   line-height: var(--leading-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
+  text-wrap: balance;
 }
 
 /* The time a timed or recited turn has left, draining along the foot of
@@ -130,9 +136,10 @@
   flex: 1;
   min-width: 0;
 }
-.recitation-text .action-primary-main {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.recitation-text .action-primary-main,
+.recitation-text .action-primary-sub {
+  justify-content: start;
+  text-align: start;
 }
 .recitation-icon {
   display: grid;
