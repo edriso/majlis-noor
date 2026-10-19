@@ -1,4 +1,11 @@
-import { ArrowDown, ArrowUp, Headphones, UserPlus, X } from './icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  Headphones,
+  UserPlus,
+  X,
+} from './icons';
 import { useEffect, useId, useRef, useState } from 'react';
 import { arabic, seatsCount } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';
@@ -285,7 +292,8 @@ export function Members({
 }
 
 /** A sheikh's seat: his name and the style of his recording, pressed to
-    choose another. Named by what it shows, then which seat it is and what
+    choose another. Drawn as a row that opens, with the chevron the
+    summary rows have, not as a field: there is nothing to type in it. Named by what it shows, then which seat it is and what
     a press does, so the words on it are the start of its name. */
 function SheikhButton({
   id,
@@ -301,9 +309,12 @@ function SheikhButton({
   const reciter = reciterById(member.reciter);
   return (
     <button type="button" id={id} className="member-reciter" onClick={onClick}>
-      <span className="member-reciter-name">الشيخ {reciter.short}</span>
-      <span className="member-reciter-meta">{reciter.style}</span>
+      <span className="member-reciter-text">
+        <span className="member-reciter-name">الشيخ {reciter.short}</span>
+        <span className="member-reciter-meta">{reciter.style}</span>
+      </span>
       <span className="visually-hidden">، في المقعد {arabic(seat)}، غيّره</span>
+      <ChevronLeft size={18} aria-hidden="true" />
     </button>
   );
 }
