@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type Dispatch,
-  type ReactNode,
-} from 'react';
+import { useId, useState, type Dispatch, type ReactNode } from 'react';
 import { reciterById } from '@/data/reciters';
 import {
   placeOf,
@@ -49,6 +42,8 @@ export function SettingsPanel({
   prefs,
   dispatch,
   onQuiet,
+  onEnd,
+  onClosed,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,6 +54,12 @@ export function SettingsPanel({
   dispatch: Dispatch<Action>;
   /** Hides the bars round the page. */
   onQuiet: () => void;
+  /** «إنهاء المجلس»: the screen closes the menu and shows the close of
+      the sitting, where ending it is one choice and going back another,
+      so the menu does not ask first. */
+  onEnd: () => void;
+  /** Once the menu has gone (see Sheet). */
+  onClosed?: () => void;
 }) {
   // What was asked for, and the menu's own place under it. Both start
   // over each time the menu opens.
@@ -80,6 +81,7 @@ export function SettingsPanel({
       <Sheet
         open={open}
         onOpenChange={onOpenChange}
+        onClosed={onClosed}
         title={picking.title}
         description={picking.description}
         onBack={() => setPicking(null)}
@@ -99,6 +101,7 @@ export function SettingsPanel({
       <Sheet
         open={open}
         onOpenChange={onOpenChange}
+        onClosed={onClosed}
         title="عدّل الحلقة"
         description="من في الحلقة وكيف تقرأ. يُطبَّق كل تغيير فور اختياره، ويكمل صاحب الدور من موضعه."
         onBack={start === 'menu' ? () => setPlace('menu') : undefined}
@@ -117,6 +120,7 @@ export function SettingsPanel({
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
+      onClosed={onClosed}
       title="القائمة"
       description="المجلس، والمظهر، والصوت. يُطبَّق كل اختيار فور اختياره."
     >
@@ -126,12 +130,13 @@ export function SettingsPanel({
           detail="من فيها، وترتيبهم، وكيف تقرأ"
           onClick={() => setPlace('halaqa')}
         />
-        <EndSitting
-          onEnd={() => {
-            onOpenChange(false);
-            dispatch({ type: 'end' });
-          }}
-        />
+        <button
+          type="button"
+          className="button button-danger button-block"
+          onClick={onEnd}
+        >
+          إنهاء المجلس
+        </button>
       </Section>
       <AppearanceSection
         prefs={prefs}
@@ -348,65 +353,6 @@ export function AboutSection() {
         </p>
       ) : null}
     </Section>
-  );
-}
-
-/**
- * «إنهاء المجلس», asked once: a slip of the finger in a sheet full of
- * buttons should not end a sitting. The focus goes to «تراجع», which a
- * screen reader hears with the question, so a second press of Enter keeps
- * the sitting rather than ending it; going back returns the focus to the
- * button that asked.
- */
-export function EndSitting({ onEnd }: { onEnd: () => void }) {
-  const [asking, setAsking] = useState(false);
-  const [asked, setAsked] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
-  const cancel = useRef<HTMLButtonElement>(null);
-  const question = useId();
-
-  useEffect(() => {
-    if (asking) cancel.current?.focus();
-    else if (asked) button.current?.focus();
-  }, [asking, asked]);
-
-  if (!asking)
-    return (
-      <button
-        ref={button}
-        type="button"
-        className="button button-danger button-block"
-        onClick={() => {
-          setAsking(true);
-          setAsked(true);
-        }}
-      >
-        إنهاء المجلس
-      </button>
-    );
-  return (
-    <div className="menu-confirm">
-      <p id={question}>
-        أتنهون المجلس؟ يُحفظ الموضع الذي بلغتموه، لتبدؤوا منه في المرة القادمة.
-      </p>
-      <button
-        type="button"
-        className="button button-danger button-block"
-        onClick={onEnd}
-        aria-describedby={question}
-      >
-        نعم، أنهوا المجلس
-      </button>
-      <button
-        ref={cancel}
-        type="button"
-        className="button button-quiet button-block"
-        onClick={() => setAsking(false)}
-        aria-describedby={question}
-      >
-        تراجع
-      </button>
-    </div>
   );
 }
 

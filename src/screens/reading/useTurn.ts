@@ -339,6 +339,19 @@ export function useTurn({
           config: { ...config, goal: { to: 'none' } },
         }),
       end: () => dispatch({ type: 'end' }),
+      /** Stills whatever sounds or counts (a reciter's turn, «استمع», an
+          ayah heard alone, a timed turn's clock) and leaves it stilled:
+          the close of the sitting opens over the page, and if the circle
+          goes back to reading, it carries on when someone asks. (A
+          reciter whose timings are still on their way starts when they
+          arrive; only a slow first load ever leaves them on their way.) */
+      hush: () => {
+        if (recitation.status === 'playing' || recitation.status === 'loading')
+          recitation.toggle();
+        listen.pause();
+        ayah.pause();
+        if (timed && !clock.paused) clock.pause();
+      },
     },
   };
 }

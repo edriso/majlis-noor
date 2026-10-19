@@ -1,5 +1,5 @@
 /* The reading screen's menu (SettingsPanel.tsx): sections under small
-   headings, the confirmation before ending, the about text and the keys. */
+   headings, the about text and the keys. */
 
 .menu-section {
   display: grid;
@@ -18,19 +18,11 @@
   font-weight: 600;
   line-height: var(--leading-tight);
 }
-.menu-about p,
-.menu-confirm p {
+.menu-about p {
   margin: 0;
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: var(--leading-prose);
-}
-.menu-confirm {
-  display: grid;
-  gap: var(--space-3);
-}
-.menu-confirm p {
-  color: var(--fg);
 }
 
 /* A plain action among the choices: «إخفاء الأزرار». */

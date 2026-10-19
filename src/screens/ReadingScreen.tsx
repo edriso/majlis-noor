@@ -1,8 +1,15 @@
 import { useState, type Dispatch } from 'react';
+import { CloseCard, type Closing } from '@/components/CloseCard';
 import { Minimize } from '@/components/icons';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { AYAH_COUNT } from '@/data/mushaf';
-import { placeOf, type Action, type Prefs, type Session } from '@/halaqa/state';
+import {
+  placeOf,
+  summaryOf,
+  type Action,
+  type Prefs,
+  type Session,
+} from '@/halaqa/state';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { CircleView } from './reading/CircleView';
 import { Completion } from './reading/Completion';
@@ -32,6 +39,11 @@ import { useTurn } from './reading/useTurn';
  *
  * What the turn is lives in `useTurn`; this screen lays it out and holds
  * which view and which sheet are open.
+ *
+ * «إنهاء المجلس» (in the menu, or on the goal's and the khatm's card)
+ * shows the close of the sitting (`CloseCard`), summed up at the press;
+ * whatever was sounding is stilled. Its «إنهاء» ends the sitting, and
+ * «تابعوا القراءة» goes back to it as it was.
  */
 export function ReadingScreen({
   session,
@@ -53,9 +65,21 @@ export function ReadingScreen({
     if (!open) setSheet(null);
   };
 
+  // The close, summed up when it is asked for, before the session ends.
+  // Asked from the menu, it waits for the menu to have gone (`ending`),
+  // so a sheet never opens over a sheet and the menu's own exit does not
+  // hand the focus back from under it.
+  const [closing, setClosing] = useState<Closing | null>(null);
+  const [ending, setEnding] = useState<Closing | null>(null);
+  const closeSitting = (): Closing => {
+    const endedAt = Date.now();
+    actions.hush();
+    return { summary: summaryOf(session, endedAt), endedAt };
+  };
+
   useWakeLock(!turn.end);
   useReadingKeys({
-    enabled: sheet === null && !turn.end,
+    enabled: sheet === null && !closing && !ending && !turn.end,
     forward: turn.reciter ? actions.skip : actions.done,
     back: () => {
       if (turn.canGoBack) actions.back();
@@ -125,7 +149,7 @@ export function ReadingScreen({
             ayatRead={session.ayatRead}
             onRestart={actions.restart}
             onCarryOn={actions.carryOn}
-            onEnd={actions.end}
+            onEnd={() => setClosing(closeSitting())}
           />
         ) : showing === 'circle' ? (
           <CircleView turn={turn} onEdit={() => setSheet('halaqa')} />
@@ -175,6 +199,20 @@ export function ReadingScreen({
         prefs={prefs}
         dispatch={dispatch}
         onQuiet={quiet.hide}
+        onEnd={() => {
+          setEnding(closeSitting());
+          setSheet(null);
+        }}
+        onClosed={() => {
+          if (!ending) return;
+          setClosing(ending);
+          setEnding(null);
+        }}
+      />
+      <CloseCard
+        closing={closing}
+        onContinue={() => setClosing(null)}
+        onEnd={actions.end}
       />
     </div>
   );
