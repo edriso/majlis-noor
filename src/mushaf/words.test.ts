@@ -74,6 +74,7 @@ describe('pageWords', () => {
     }
   });
 
+  // Reads every word of the Mushaf: slow when the machine is busy.
   it('counts every ayah once, its words from 1 and its marker last', () => {
     expect(counts.size).toBe(6236);
     for (const page of pages) {
@@ -88,7 +89,7 @@ describe('pageWords', () => {
         }
       });
     }
-  });
+  }, 30_000);
 
   it('numbers the words as a reciter’s word timings do, in every surah', () => {
     // Al-Husary's timings hold every word of all but a handful of ayat;

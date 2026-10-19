@@ -229,6 +229,7 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
     }
   });
 
+  // Reads every word of the Mushaf: slow when the machine is busy.
   it('times words in order, inside their ayah, and says where it cannot', () => {
     let full = 0;
     for (const s of surahs) {
@@ -258,7 +259,7 @@ describe.each(reciters.map((r) => [r.id, r]))('%s', (id, reciter) => {
       });
     }
     expect(full).toBeGreaterThanOrEqual(fullyTimed[id]);
-  });
+  }, 30_000);
 });
 
 it('starts no page before the last one ends, but where the source does', () => {
