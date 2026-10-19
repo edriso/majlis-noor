@@ -89,12 +89,6 @@ export const ChevronLeft = (props: IconProps) => (
   </Icon>
 );
 
-export const ChevronRight = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="m9 18 6-6-6-6" />
-  </Icon>
-);
-
 export const ChevronsLeft = (props: IconProps) => (
   <Icon {...props}>
     <path d="m11 17-5-5 5-5" />
@@ -140,12 +134,6 @@ export const Minimize = (props: IconProps) => (
   </Icon>
 );
 
-export const Minus = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M5 12h14" />
-  </Icon>
-);
-
 export const Pause = (props: IconProps) => (
   <Icon {...props}>
     <rect x="14" y="3" width="5" height="18" rx="1" />
@@ -156,13 +144,6 @@ export const Pause = (props: IconProps) => (
 export const Play = (props: IconProps) => (
   <Icon {...props}>
     <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
-  </Icon>
-);
-
-export const Plus = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M5 12h14" />
-    <path d="M12 5v14" />
   </Icon>
 );
 

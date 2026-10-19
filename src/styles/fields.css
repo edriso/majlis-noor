@@ -21,8 +21,7 @@
   text-wrap: pretty;
 }
 
-.input,
-.select {
+.input {
   width: 100%;
   min-height: 48px;
   padding: 10px 14px;
@@ -37,27 +36,11 @@
 .input::placeholder {
   color: var(--muted);
 }
-.input:hover,
-.select:hover {
+.input:hover {
   border-color: var(--muted);
 }
-.input:focus-visible,
-.select:focus-visible {
+.input:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 1px;
   border-color: var(--gold);
-}
-.select {
-  appearance: none;
-  padding-inline-start: 40px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d9b469' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: left 14px center;
-}
-:root[data-theme='sand'] .select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c5714' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-}
-.select option {
-  background: var(--surface);
-  color: var(--fg);
 }

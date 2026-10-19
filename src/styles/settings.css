@@ -13,8 +13,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
-.settings-section .halaqa-form,
-.settings-section .start-picker {
+.settings-section .halaqa-form {
   gap: 22px;
 }
 .settings-about p {
