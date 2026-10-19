@@ -16,6 +16,10 @@
 .circle-view .halaqa-circle {
   --circle-size: max(220px, min(640px, 100cqw - 110px, 100cqh - 210px));
 }
+/* Names beside the faces at either side need room across. */
+.circle-view .halaqa-circle:has(.halaqa-seat[data-side]) {
+  --circle-size: max(200px, min(600px, 100cqw - 240px, 100cqh - 190px));
+}
 
 .halaqa-circle {
   --circle-size: 280px;
@@ -130,6 +134,49 @@
     :is(.seat-name, .seat-status) {
     display: none;
   }
+}
+
+/* A seat at either side of a large circle carries its name beside its
+   face, away from the ring, with the face's centre on the ring. In a
+   right-to-left row the face would come first, on the right: on the right
+   side the row is turned round so the words lie outside. */
+.halaqa-seat[data-side] {
+  flex-direction: row-reverse;
+  gap: var(--space-2);
+  width: max-content;
+  /* Beside the face rather than under it: the face's width more, and as
+     much room for the words as the circle's room has beside it. */
+  max-width: calc(
+    var(--seat-size) + var(--space-2) + clamp(3.25rem, 26cqi, 7.5rem)
+  );
+  text-align: start;
+  transform: translate(calc(var(--seat-size) / -2), -50%);
+}
+.halaqa-seat[data-side='left'] {
+  flex-direction: row;
+  transform: translate(calc(-100% + var(--seat-size) / 2), -50%);
+}
+.halaqa-seat[data-side] .seat-avatar {
+  flex: none;
+}
+.seat-words {
+  display: grid;
+  justify-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+.halaqa-seat[data-side] .seat-words {
+  justify-items: start;
+}
+/* A name too long for that room wraps between its words, never cut. */
+.halaqa-seat[data-side] .seat-name {
+  white-space: normal;
+  text-wrap: balance;
+  line-height: 1.2;
+}
+/* A small circle that names only two seats leaves the rest their faces. */
+.seat-words:empty {
+  display: none;
 }
 
 /* A seat on the upper arc carries its name above it, out of the circle,

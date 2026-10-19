@@ -130,6 +130,16 @@ export function HalaqaCircle({
             data-done={done || undefined}
             data-skipped={state === 'skipped' || undefined}
             data-top={Math.sin(rad) < -0.5 || undefined}
+            // In a circle of five or more the seats at either side sit
+            // too close above and below each other for a name under the
+            // face; there the name goes beside it, outwards.
+            data-side={
+              n >= 5 && Math.abs(Math.cos(rad)) > 0.7
+                ? Math.cos(rad) > 0
+                  ? 'right'
+                  : 'left'
+                : undefined
+            }
             style={{
               left: `${50 + 35 * Math.cos(rad)}%`,
               top: `${50 + 35 * Math.sin(rad)}%`,
@@ -144,19 +154,21 @@ export function HalaqaCircle({
                 </span>
               ) : null}
             </span>
-            <span className="seat-name">{memberName(member)}</span>
-            {status ? (
-              <span className="seat-status">
-                {isActive && reciter && sounding ? (
-                  <span className="seat-sound" aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                ) : null}
-                {status}
-              </span>
-            ) : null}
+            <span className="seat-words">
+              <span className="seat-name">{memberName(member)}</span>
+              {status ? (
+                <span className="seat-status">
+                  {isActive && reciter && sounding ? (
+                    <span className="seat-sound" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  ) : null}
+                  {status}
+                </span>
+              ) : null}
+            </span>
           </div>
         );
       })}
