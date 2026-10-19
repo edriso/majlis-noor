@@ -71,7 +71,7 @@
   height: 100%;
   overflow: hidden;
   border-radius: var(--radius-pill);
-  background: var(--surface-raised);
+  background: var(--face, var(--surface-raised));
   color: var(--muted);
 }
 /* The figure is drawn in the colour of a control's edge, quieter than a

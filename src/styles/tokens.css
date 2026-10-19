@@ -22,6 +22,8 @@
      --ink-soft on --paper                       7.6     needs 4.5
      --ink, --ink-soft on --mark-recite          5.8     needs 4.5
      --mark-turn on --paper                      3.8     needs 3 (1.4.11)
+     --muted on --seat-1 … --seat-8              5.0     needs 4.5
+     --fg on --seat-1 … --seat-8                 7.4     needs 4.5
 
    Secondary text is a colour of its own, never `opacity`: opacity multiplies
    against whatever is behind it and quietly drops below AA. So is a control
@@ -112,6 +114,27 @@
 
   --fg: #f4ecdc;
   --danger: #f1a08f;
+
+  /* The tints a reader's face is drawn on (names.ts, `tintOf`), so two
+     whose letters match are still two people: eight hues, the first four
+     the furthest apart, each laid lightly over the theme's raised surface
+     so the letter on it keeps AA in every theme. */
+  --seat-hue-1: #d9a45b;
+  --seat-hue-2: #5fb3a1;
+  --seat-hue-3: #d07f9a;
+  --seat-hue-4: #7d9be0;
+  --seat-hue-5: #a6bb5f;
+  --seat-hue-6: #b08ad8;
+  --seat-hue-7: #d98763;
+  --seat-hue-8: #5fa9d1;
+  --seat-1: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-1));
+  --seat-2: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-2));
+  --seat-3: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-3));
+  --seat-4: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-4));
+  --seat-5: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-5));
+  --seat-6: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-6));
+  --seat-7: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-7));
+  --seat-8: color-mix(in srgb, var(--surface-raised) 82%, var(--seat-hue-8));
 
   /* Tints the three night themes share; sand sets its own. */
   --glow-rgb: 217 180 105;

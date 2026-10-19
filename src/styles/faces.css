@@ -1,14 +1,44 @@
 /* Faces: a reader's letter or silhouette, a reciter's photo or initial,
-   always in a circle (MemberAvatar.tsx, ReciterAvatar.tsx). */
+   always in a circle (MemberAvatar.tsx, ReciterAvatar.tsx, and MemberFace
+   in HalaqaCircle.tsx). */
+
+/* Each member's own tint (names.ts, `tintOf`), which a frame is drawn on;
+   a photo covers it. */
+[data-tint='1'] {
+  --face: var(--seat-1);
+}
+[data-tint='2'] {
+  --face: var(--seat-2);
+}
+[data-tint='3'] {
+  --face: var(--seat-3);
+}
+[data-tint='4'] {
+  --face: var(--seat-4);
+}
+[data-tint='5'] {
+  --face: var(--seat-5);
+}
+[data-tint='6'] {
+  --face: var(--seat-6);
+}
+[data-tint='7'] {
+  --face: var(--seat-7);
+}
+[data-tint='8'] {
+  --face: var(--seat-8);
+}
 
 .person-avatar {
   display: inline-grid;
   place-items: center;
   flex: none;
   border-radius: var(--radius-pill);
-  background: var(--surface-raised);
+  background: var(--face, var(--surface-raised));
   box-shadow: 0 0 0 1px var(--control-border);
-  color: var(--gold);
+  /* Plain on the tint, which is colour enough; gold on it would not keep
+     AA in every theme. */
+  color: var(--fg);
   font-family: var(--font-naskh);
   font-weight: 700;
   font-size: var(--text-lg);

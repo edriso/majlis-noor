@@ -4,9 +4,11 @@
 /* The circle's room: the circle as large as it fits, with the names
    around it, and under it what the sitting has read and «عدّل الحلقة». */
 .circle-view {
-  container-type: size;
+  container: circle-room / size;
   display: grid;
-  align-content: center;
+  /* Centred, but never pushed up out of reach where it is taller than its
+     room (large text on a phone): there it starts at the top and scrolls. */
+  align-content: safe center;
   justify-items: center;
   gap: var(--space-4);
   min-height: 0;
@@ -14,11 +16,13 @@
   padding-block: var(--space-2);
 }
 .circle-view .halaqa-circle {
-  --circle-size: max(220px, min(640px, 100cqw - 110px, 100cqh - 210px));
+  /* What the names above and below and the words under the circle take,
+     in rem, since they grow with the reader's text. */
+  --circle-size: max(220px, min(640px, 100cqw - 110px, 100cqh - 13rem));
 }
 /* Names beside the faces at either side need room across. */
 .circle-view .halaqa-circle:has(.halaqa-seat[data-side]) {
-  --circle-size: max(200px, min(600px, 100cqw - 240px, 100cqh - 190px));
+  --circle-size: max(200px, min(600px, 100cqw - 240px, 100cqh - 12rem));
 }
 
 .halaqa-circle {
@@ -33,14 +37,19 @@
   transition: width 420ms var(--ease);
 }
 /* A seat on the upper arc carries its name above it, out of the box; this
-   is the room for it. */
+   is the room for it, as tall as two lines of words. */
 .halaqa-circle:has(.halaqa-seat[data-top]) {
-  margin-top: 60px;
+  margin-top: 3.75rem;
 }
 /* A lone reader sits at the foot of the circle, with the name below it,
    and so, nearly, do the lowest seats of a large circle. */
 .halaqa-circle[data-readers='1'] {
-  margin-bottom: 64px;
+  margin-bottom: 4rem;
+}
+/* The lower seats of a circle of two to four carry their words a little
+   past the circle; with large text, a line or two. */
+.halaqa-circle:is([data-readers='2'], [data-readers='3'], [data-readers='4']) {
+  margin-bottom: max(0px, 3rem - 48px);
 }
 .halaqa-circle:is(
   [data-readers='5'],
@@ -126,12 +135,32 @@
   --seat-width: clamp(76px, 24cqi, 150px);
 }
 /* From seven seats on a small circle (a phone), only who reads now and who
-   reads next keep their names under their faces; the rest show their
-   face, and their names are in the figure's caption for a screen reader. */
+   reads next keep their whole names and what they do; the rest keep the
+   name they are called by (`shortNameOf`), wrapping in a narrower room so
+   it never reaches the next seat's, and their full names are in the
+   figure's caption for a screen reader. */
 @container (max-width: 460px) {
   :is([data-readers='7'], [data-readers='8'])
+    > .halaqa-seat:not([data-active], [data-next]) {
+    --seat-width: clamp(56px, 24cqi, 150px);
+  }
+  :is([data-readers='7'], [data-readers='8'])
     > .halaqa-seat:not([data-active], [data-next])
-    :is(.seat-name, .seat-status) {
+    :is(.seat-name-rest, .seat-status) {
+    display: none;
+  }
+}
+
+/* A room narrower than a phone held upright (the room between the rails
+   of a phone on its side) has no width for names beside the faces: there
+   the seats at either side keep their faces alone, and the circle the
+   size it would have without them. Who reads now is at the head of the
+   rail beside it, and every name is in the figure's caption. */
+@container circle-room (max-width: 300px) {
+  .circle-view .halaqa-circle:has(.halaqa-seat[data-side]) {
+    --circle-size: max(200px, min(600px, 100cqw - 40px, 100cqh - 12rem));
+  }
+  .halaqa-seat[data-side] .seat-words {
     display: none;
   }
 }
@@ -168,10 +197,8 @@
 .halaqa-seat[data-side] .seat-words {
   justify-items: start;
 }
-/* A name too long for that room wraps between its words, never cut. */
+/* Beside the face, a name sits closer. */
 .halaqa-seat[data-side] .seat-name {
-  white-space: normal;
-  text-wrap: balance;
   line-height: 1.2;
 }
 /* A small circle that names only two seats leaves the rest their faces. */
@@ -217,11 +244,12 @@
   color: var(--on-gold);
   box-shadow: 0 0 0 2px var(--bg);
 }
+/* A name too long for its seat wraps between its words, never cut. */
 .seat-name {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  line-height: var(--leading-tight);
   color: var(--muted);
   font-size: clamp(var(--text-sm), 4.4cqi, var(--text-lg));
   font-weight: 500;
@@ -340,6 +368,10 @@
 /* With forced colours the gold is gone: who reads now keeps a ring of the
    system's highlight, and the travelling mark and the time draw in it. */
 @media (forced-colors: active) {
+  /* Every seat keeps its edge, which was a shadow. */
+  .seat-avatar {
+    outline: 1px solid CanvasText;
+  }
   .halaqa-seat[data-active] .seat-avatar {
     outline: 3px solid Highlight;
     outline-offset: 3px;
@@ -348,7 +380,22 @@
   .seat-progress circle {
     stroke: Highlight;
   }
+  .halaqa-ring-line,
+  .halaqa-ring-inner {
+    stroke: CanvasText;
+  }
   .halaqa-seat[data-active] .seat-status {
     color: Highlight;
+  }
+  /* The system lays a plate behind each line of text, and the large
+     number's plate, as tall as its font, covered «الصفحة» above it: the
+     middle draws its words itself, in the system's text colour. */
+  .halaqa-center {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+  .halaqa-center-label,
+  .halaqa-center-page {
+    color: CanvasText;
   }
 }

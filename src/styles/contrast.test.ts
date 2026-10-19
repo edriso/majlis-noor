@@ -93,6 +93,10 @@ it('can measure every colour mixed in tokens.css', () => {
     expect(m, `--${name}: color-mix(${args})`).toBeTruthy();
 });
 
+/** An ink on each of the eight tints a reader's face is drawn on. */
+const seats = (ink: string) =>
+  Array.from({ length: 8 }, (_, i) => [ink, `seat-${i + 1}`, 4.5]);
+
 describe.each(Object.entries(themes))('%s', (_, c) => {
   it.each([
     ['fg', 'bg', 4.5],
@@ -116,7 +120,11 @@ describe.each(Object.entries(themes))('%s', (_, c) => {
     ['disabled', 'bg', 3],
     ['disabled', 'surface', 3],
     ['disabled', 'surface-raised', 3],
-  ])('--%s on --%s', (ink, ground, min) => {
+    // A reader's letter on their face's tint: quiet in the circle, plain
+    // in the lists.
+    ...seats('muted'),
+    ...seats('fg'),
+  ] as [string, string, number][])('--%s on --%s', (ink, ground, min) => {
     expect(c[ink], ink).toBeDefined();
     expect(c[ground], ground).toBeDefined();
     expect(ratio(c[ink], c[ground])).toBeGreaterThanOrEqual(min as number);

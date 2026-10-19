@@ -453,6 +453,32 @@ describe('a halaqa', () => {
     expect(seats[1]).toContain('يقرأ الآن');
   });
 
+  it('says a seat’s next page in words, and tells faces apart', async () => {
+    const abuAhmad = { id: 'p1', kind: 'person', name: 'أبو أحمد' };
+    const ummAhmad = { id: 'p2', kind: 'person', name: 'أم أحمد' };
+    const fatima = { id: 'p3', kind: 'person', name: 'فاطمة الزهراء' };
+    const user = await startWith({ members: [abuAhmad, ummAhmad, fatima] });
+    await user.click(screen.getByRole('button', { name: 'الحلقة' }));
+    const seat = document.querySelectorAll('.halaqa-seat')[2];
+    // «ص ٣» is for the eye; a screen reader hears «الصفحة ٣».
+    const status = seat.querySelector('.seat-status')!;
+    expect(status.querySelector('[aria-hidden="true"]')?.textContent).toBe(
+      'ص ٣',
+    );
+    expect(status.querySelector('.visually-hidden')?.textContent).toBe(
+      'الصفحة ٣',
+    );
+    // The whole name, its first word ready to stand alone.
+    expect(seat.querySelector('.seat-name')?.textContent).toBe('فاطمة الزهراء');
+    expect(seat.querySelector('.seat-name-rest')?.textContent).toBe(' الزهراء');
+    // The same letter, but not the same face.
+    const faces = [...document.querySelectorAll('.halaqa-seat .member-face')];
+    expect(faces[0].textContent).toBe(faces[1].textContent);
+    expect(faces[0].getAttribute('data-tint')).not.toBe(
+      faces[1].getAttribute('data-tint'),
+    );
+  });
+
   it('listens for keys once, however often the turn passes', async () => {
     const user = await start();
     const bound = vi.spyOn(window, 'addEventListener');

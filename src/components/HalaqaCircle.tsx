@@ -1,6 +1,11 @@
 import { Check } from './icons';
 import { reciterById } from '@/data/reciters';
-import { circleCenter, rangeShort, seatStatus } from '@/halaqa/labels';
+import {
+  circleCenter,
+  rangeLabel,
+  rangeShort,
+  seatStatus,
+} from '@/halaqa/labels';
 import { readerOf, round } from '@/halaqa/schedule';
 import {
   currentPage,
@@ -14,6 +19,7 @@ import {
   type Session,
 } from '@/halaqa/state';
 import { useTimeLeft, type TurnTime } from '@/halaqa/useTimeLeft';
+import { initialOf, shortNameOf, tintOf } from './names';
 import { ReciterFace } from './ReciterAvatar';
 
 /** Where each seat sits, in degrees with 0 at the right and 90 at the foot.
@@ -41,6 +47,10 @@ const seatAngles = (n: number) =>
  *
  * A reciter sits with his photo. While a turn is timed or recited, the
  * seat's own ring drains with it, so the clock is where the eye already is.
+ *
+ * A name too long for its seat wraps, never cut. In a crowded circle on a
+ * phone, the seats but the reader's and the next keep the name a person
+ * is called by (`shortNameOf`), and what they read next goes.
  */
 export function HalaqaCircle({
   session,
@@ -110,16 +120,27 @@ export function HalaqaCircle({
         const reciter = member.kind === 'reciter';
         const state = roundSeats?.[i].state ?? null;
         const done = state === 'done';
+        const range =
+          plan.mode === 'continue'
+            ? turnRange(session, seatTurn(session, i))
+            : null;
+        const upcoming = range ? rangeShort(plan.unit, range) : '';
         const status = seatStatus({
           reciter,
           active: isActive,
           round: state,
           next: n > 1 && i === next,
-          upcoming:
-            plan.mode === 'continue'
-              ? rangeShort(plan.unit, turnRange(session, seatTurn(session, i)))
-              : '',
+          upcoming,
         });
+        // «ص ٢٨٣» is how a Mushaf is written, not how it is said: a
+        // screen reader spells it out, so it hears «الصفحة ٢٨٣».
+        const spoken =
+          range && status === upcoming && plan.unit === 'page'
+            ? rangeLabel(plan.unit, range)
+            : null;
+        const name = memberName(member);
+        const short = shortNameOf(member);
+        const rest = name.startsWith(short) ? name.slice(short.length) : '';
         return (
           <div
             key={member.id}
@@ -155,7 +176,16 @@ export function HalaqaCircle({
               ) : null}
             </span>
             <span className="seat-words">
-              <span className="seat-name">{memberName(member)}</span>
+              <span className="seat-name">
+                {rest ? (
+                  <>
+                    {short}
+                    <span className="seat-name-rest">{rest}</span>
+                  </>
+                ) : (
+                  name
+                )}
+              </span>
               {status ? (
                 <span className="seat-status">
                   {isActive && reciter && sounding ? (
@@ -165,7 +195,14 @@ export function HalaqaCircle({
                       <i />
                     </span>
                   ) : null}
-                  {status}
+                  {spoken ? (
+                    <>
+                      <span aria-hidden="true">{status}</span>
+                      <span className="visually-hidden">{spoken}</span>
+                    </>
+                  ) : (
+                    status
+                  )}
                 </span>
               ) : null}
             </span>
@@ -198,25 +235,36 @@ function SeatProgress({ time }: { time: TurnTime | null }) {
 /**
  * What fills a member's round frame, in the circle and at the top of the
  * screen: a reciter's face as the reader has photos shown, or his initial;
- * a named reader's first letter; or, for a reader not named, a figure,
+ * a named reader's letter (`initialOf`); or, for a reader not named, a figure,
  * since a default name («القارئ الثاني») would make a misleading letter.
  * The figure fills the frame as a portrait would, its shoulders cut by the
- * circle, rather than a small icon floating in it. Decorative: the name is
- * always written beside it.
+ * circle, rather than a small icon floating in it. Each member's frame has
+ * a tint of its own (`tintOf`), so two whose letters match still differ.
+ * Decorative: the name is always written beside it.
  */
 export function MemberFace({ member }: { member: Member }) {
   if (member.kind === 'reciter')
     return (
-      <span className="member-face" data-kind="reciter" aria-hidden="true">
+      <span
+        className="member-face"
+        data-kind="reciter"
+        data-tint={tintOf(member)}
+        aria-hidden="true"
+      >
         <ReciterFace
           reciter={reciterById(member.reciter)}
           initialClass="member-initial"
         />
       </span>
     );
-  const initial = member.name.trim().at(0);
+  const initial = initialOf(member.name);
   return (
-    <span className="member-face" data-kind="person" aria-hidden="true">
+    <span
+      className="member-face"
+      data-kind="person"
+      data-tint={tintOf(member)}
+      aria-hidden="true"
+    >
       {initial ? (
         <span className="member-initial">{initial}</span>
       ) : (
