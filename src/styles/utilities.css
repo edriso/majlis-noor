@@ -29,3 +29,14 @@
 .skip-link:focus {
   top: 12px;
 }
+
+/* With forced colours the system draws every control in its own text
+   colour, so one that cannot act now takes the system's colour for that,
+   here, where no stylesheet's own colour outranks it. */
+@media (forced-colors: active) {
+  [aria-disabled='true'],
+  [aria-disabled='true'] * {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}

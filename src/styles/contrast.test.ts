@@ -112,6 +112,10 @@ describe.each(Object.entries(themes))('%s', (_, c) => {
     ['on-gold-muted', 'gold-strong', 4.5],
     ['control-border', 'bg', 3],
     ['control-border', 'surface', 3],
+    // A control that cannot act now: dimmer than the rest, still legible.
+    ['disabled', 'bg', 3],
+    ['disabled', 'surface', 3],
+    ['disabled', 'surface-raised', 3],
   ])('--%s on --%s', (ink, ground, min) => {
     expect(c[ink], ink).toBeDefined();
     expect(c[ground], ground).toBeDefined();

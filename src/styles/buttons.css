@@ -74,7 +74,19 @@
   border-color: var(--control-border);
 }
 
+/* A control that cannot act now (a page not yet typed, a circle full) is
+   drawn in --disabled, never faded with opacity, which would drop it under
+   3:1 on the light theme. It stays focusable, and says why it rests.
+   Stylesheets that colour a control's parts of their own (setup.css,
+   marks.css) give its resting state those parts too; with forced colours
+   it is the system's GrayText (utilities.css). */
 [aria-disabled='true'] {
-  opacity: 0.4;
+  color: var(--disabled);
   cursor: not-allowed;
+}
+.button-primary[aria-disabled='true'],
+.button-primary[aria-disabled='true']:hover {
+  border-color: var(--disabled);
+  background: transparent;
+  color: var(--disabled);
 }

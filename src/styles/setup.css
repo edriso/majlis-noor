@@ -202,9 +202,10 @@ html:has(.setup-start) {
   background: var(--hover);
   color: var(--fg);
 }
+.member-action[aria-disabled='true'],
 .member-action[aria-disabled='true']:hover {
   background: transparent;
-  color: var(--muted);
+  color: var(--disabled);
 }
 /* On the narrowest phones, with buttons to make room for, the face gives
    its room to the name. */
@@ -242,9 +243,11 @@ html:has(.setup-start) {
   border-color: var(--gold);
   background: var(--gold-soft);
 }
+.member-add-button[aria-disabled='true'],
 .member-add-button[aria-disabled='true']:hover {
-  border-color: var(--control-border);
+  border-color: var(--disabled);
   background: transparent;
+  color: var(--disabled);
 }
 .member-add-button svg {
   flex: none;
@@ -260,6 +263,9 @@ html:has(.setup-start) {
 .member-add-hint {
   color: var(--muted);
   font-size: var(--text-xs);
+}
+.member-add-button[aria-disabled='true'] :is(svg, .member-add-hint) {
+  color: var(--disabled);
 }
 .member-full {
   margin-top: var(--space-2);
@@ -314,6 +320,15 @@ html:has(.setup-start) {
 }
 .talqeen-button[data-done] {
   border-color: var(--gold);
+}
+.talqeen-button[aria-disabled='true'],
+.talqeen-button[aria-disabled='true']:hover {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--disabled);
+}
+.talqeen-button[aria-disabled='true'] svg {
+  color: var(--disabled);
 }
 
 /* Four goals, two to a row, so none is cut on a phone. */

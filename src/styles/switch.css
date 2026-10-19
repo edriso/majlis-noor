@@ -32,8 +32,17 @@
   border-radius: var(--radius-sm);
 }
 .switch:has(.switch-input:disabled) {
-  opacity: 0.4;
+  color: var(--disabled);
   cursor: not-allowed;
+}
+.switch:has(.switch-input:disabled) .switch-hint {
+  color: var(--disabled);
+}
+.switch:has(.switch-input:disabled) .switch-track {
+  border-color: var(--disabled);
+}
+.switch:has(.switch-input:disabled) .switch-thumb {
+  background: var(--disabled);
 }
 .switch-text {
   display: grid;
