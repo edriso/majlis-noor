@@ -21,6 +21,7 @@ import {
   goalEnd,
   memberName,
   newMember,
+  placeOf,
   planOf,
   sanitizeConfig,
   turnPhrase,
@@ -184,8 +185,10 @@ export function resumeLines(s: Session) {
   const page = currentPage(s);
   const first = surahOfAyah(range.from);
   let place: string;
+  // A page is named by the surah read on it: the one it begins in, or the
+  // one the turn begins at part-way down it.
   if (end || config.unit === 'page')
-    place = `الصفحة ${arabic(page)} · ${surahTitle(surahOfAyah(firstAyahOfPage(page)))}`;
+    place = `الصفحة ${arabic(page)} · ${surahTitle(surahOfAyah(end ? firstAyahOfPage(page) : placeOf(s)))}`;
   else {
     const label = portionLabel(config.unit, range);
     // A whole surah is named by itself, and a run across two surahs

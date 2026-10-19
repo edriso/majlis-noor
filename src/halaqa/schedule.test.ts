@@ -7,6 +7,7 @@ import {
   surahRange,
 } from '@/data/mushaf';
 import {
+  anchorOn,
   endsRound,
   isBeforeStart,
   rangeOf,
@@ -133,6 +134,59 @@ it('wraps a single reader back to themself', () => {
   const plan: Plan = { readers: 1, mode: 'continue', unit: 'page', size: 1 };
   expect([0, 1, 2].map((t) => readerOf(plan, t))).toEqual([0, 0, 0]);
   expect(pagesOf(plan, start, 2)).toEqual([22]);
+});
+
+describe('an anchor part-way into its unit', () => {
+  // Al-A'la begins part-way down page 591, under the end of at-Tariq.
+  const alAla = ayahIndex(87, 1);
+
+  it('is kept only past the first ayah of the unit', () => {
+    expect(anchorOn('page', 0, alAla)).toEqual({
+      turn: 0,
+      at: 591,
+      ayah: alAla,
+    });
+    expect(anchorOn('page', 2, firstAyahOfPage(591))).toEqual({
+      turn: 2,
+      at: 591,
+    });
+    expect(anchorOn('ayah', 0, alAla)).toEqual({ turn: 0, at: alAla });
+    expect(anchorOn('surah', 0, alAla)).toEqual({ turn: 0, at: 87 });
+  });
+
+  it('begins the turns on its unit there, and every later turn whole', () => {
+    const plan: Plan = { readers: 2, mode: 'continue', unit: 'page', size: 1 };
+    const anchor = anchorOn('page', 0, alAla);
+    expect(rangeOf(plan, anchor, 0)).toEqual({
+      from: alAla,
+      to: firstAyahOfPage(592),
+    });
+    expect(rangeOf(plan, anchor, 1)).toEqual({
+      from: firstAyahOfPage(592),
+      to: firstAyahOfPage(593),
+    });
+    // A turn before it, reached by stepping back, is the whole page.
+    expect(rangeOf(plan, { ...anchor, turn: 1 }, 0).from).toBe(
+      firstAyahOfPage(590),
+    );
+  });
+
+  it('begins a whole round there in repeat mode', () => {
+    const plan: Plan = { readers: 3, mode: 'repeat', unit: 'page', size: 2 };
+    const anchor = anchorOn('page', 0, alAla);
+    for (const turn of [0, 1, 2])
+      expect(rangeOf(plan, anchor, turn)).toEqual({
+        from: alAla,
+        to: firstAyahOfPage(593),
+      });
+    expect(rangeOf(plan, anchor, 3).from).toBe(firstAyahOfPage(593));
+  });
+
+  it('is cut at the end like any turn', () => {
+    const plan: Plan = { readers: 1, mode: 'continue', unit: 'page', size: 1 };
+    const anchor = anchorOn('page', 0, alAla);
+    expect(rangeOf(plan, anchor, 0, alAla)).toEqual({ from: alAla, to: alAla });
+  });
 });
 
 describe('units', () => {

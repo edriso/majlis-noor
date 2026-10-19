@@ -47,6 +47,19 @@ describe('a turn of pages', () => {
     );
   });
 
+  it('plays and times only its ayat when it begins part-way down a page', () => {
+    // Al-A'la begins part-way down page 591, under the end of at-Tariq.
+    const range = { from: ayahIndex(87, 1), to: ayatOfPage(591).to };
+    const [first] = rangeRecitation(minshawi, range);
+    expect(first.from).toBe(span(minshawi, 87, 1)[0]);
+    expect(turnDuration(minshawi, 'page', range)).toBe(
+      turnDuration(minshawi, 'ayah', range),
+    );
+    expect(turnDuration(minshawi, 'page', range)).toBeLessThan(
+      pagesDuration(minshawi, [591]),
+    );
+  });
+
   it('takes as long as its ayat, for every reciter on every page', () => {
     // The two ways of timing a turn must agree, or a turn of a page and a
     // turn of that page's ayat would be given different times.

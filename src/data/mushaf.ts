@@ -141,6 +141,16 @@ export function pagesOfRange({ from, to }: AyahRange) {
   return Array.from({ length: last - first + 1 }, (_, i) => first + i);
 }
 
+/** Whether an ayah range is whole pages, from the top of its first to the
+    foot of its last. Not one that begins at a surah part-way down a page. */
+export function isWholePages({ from, to }: AyahRange) {
+  if (to <= from) return false;
+  return (
+    from === firstAyahOfPage(pageOfAyah(from)) &&
+    to === firstAyahOfPage(pageOfAyah(to - 1) + 1)
+  );
+}
+
 /** The surah a page is named by: the first one with text on it, which is
     the surah of its first ayah, since no page begins inside one. */
 export const surahOfPage = (p: number) =>

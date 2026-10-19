@@ -64,12 +64,19 @@ A sitting (`Session`) is:
 - `turn`, a counter that goes up by «تمّ» and down by «القارئ السابق». The
   member is always `members[turn % members.length]`, so the circle goes
   round in the order it was set up.
-- `anchor` (`{ turn, at }`), one turn whose first unit is known. Every other
-  turn's first unit is counted from it:
+- `anchor` (`{ turn, at, ayah? }`), one turn whose first unit is known.
+  Every other turn's first unit is counted from it:
   - **continue** («كلٌّ يُكمل»): `at + (turn - anchor.turn) * size`;
   - **repeat** («كلٌّ يكرّر»): the same, counted in rounds
     (`floor(turn / members)`) instead of turns, so everyone in a round reads
     the same units. A circle of one is always continue (`planOf`).
+
+  `ayah`, when present, is where in unit `at` the reading begins: a place
+  chosen part-way into a unit (al-A'la, half-way down page 591, under the
+  end of at-Tariq). The turns that begin on that unit begin at that ayah;
+  every later turn is whole. `anchorOn(unit, turn, ayah)` makes one, and
+  leaves `ayah` out when it is the unit's first. `anchorAt(turn, at)`, a
+  whole unit, is for every move that is not a place chosen.
 - `pageInTurn`, which of the turn's pages is open.
 - What the circle has finished: `pagesRead` (a page counts when its last
   ayah is read, so a turn of a few ayat adds a page only as it reaches the
@@ -85,10 +92,14 @@ A sitting (`Session`) is:
   the reducer stays pure); null for a sitting saved before it was kept.
 
 Whatever the unit, a turn's ayat are a half-open range of ayah numbers
-(`rangeOf`, `turnRange`), cut at the end of the Mushaf and at `until`, and
-its pages are the pages that range is printed on (`turnPages`). The Madani
-print ends every page on a whole ayah, so a turn of pages is whole ayat; a
-turn of a few ayat may run onto the next page, and then it has two.
+(`rangeOf`, `turnRange`), begun at the anchor's `ayah` on its unit, cut at
+the end of the Mushaf and at `until`, and its pages are the pages that range
+is printed on (`turnPages`). The Madani print ends every page on a whole
+ayah, so a turn of pages is whole ayat; a turn of a few ayat may run onto
+the next page, and then it has two. A turn of pages that is not whole pages
+(`isWholePages`: one begun at a surah, or cut by the goal) is underlined on
+the page, named by its ayat («الآيات ١–١٠») and timed by them, as a turn
+of ayat is.
 
 Selectors the screens use: `currentRange`, `currentPages`, `currentPage`,
 `placeOf` (the first ayah the circle has not left behind),
@@ -97,11 +108,17 @@ Selectors the screens use: `currentRange`, `currentPages`, `currentPage`,
 
 ## Moving the circle
 
-`start` anchors turn 0 at the unit holding `config.start`.
+`start` anchors turn 0 at `config.start` itself (`anchorOn`): a sitting
+started at al-A'la reads page 591 from al-A'la, not from the end of at-Tariq
+at its top, then page 592 whole. The same goes for a quarter that opens
+before the surah or juz chosen.
 
 **A jump re-anchors the current turn** (`goToAyah`, `goToPage` outside the
-turn, `restartMushaf`): the turn now begins on the unit holding the ayah,
-with that ayah's page open. The turn number is kept, so the same member
+turn, `restartMushaf`), with the jump's page open. `goToAyah` is a place
+chosen (the reading screen's picker sends every choice, page included, as
+its first ayah) and begins at the ayah itself, as `start` does. The others
+begin on the whole unit holding it: turning the page on past a turn of
+quarters (`nextPage`) reads the whole quarter it lands in. The turn number is kept, so the same member
 keeps the turn. A jump to or past the goal drops the goal, and the sitting
 carries on without one. `withRun` decides what the jump does to the run: a
 turn that begins just after `lastRead` reads on unbroken; anywhere else the
@@ -192,11 +209,12 @@ changes: a rename, a new reciter in another seat, a new goal, a new pace.
 Otherwise the turn counter moves to a fresh round, `(round + 1) * members +
 seat`, so the modulo names the right member from here on.
 
-In continue mode the new anchor carries on from `placeOf`, in the new unit,
-keeping the page open. A reader who keeps the turn, in turns of the same
-unit and size, keeps the turn's own ayat: on the second of two pages they
-still read those two, not that one and the next. A goal reached and kept
-stays reached.
+In continue mode the new anchor carries on from `placeOf`, in the new unit
+and from that ayah (`anchorOn`), keeping the page open. A reader who keeps
+the turn, in turns of the same unit and size, keeps the turn's own ayat: on
+the second of two pages they still read those two, not that one and the
+next, and a turn begun at a surah still begins there. A goal reached and
+kept stays reached.
 
 In repeat mode **nobody misses an ayah**. The round keeps its first unit
 (converted if the unit changed), not the page open. If the reader who left
@@ -366,7 +384,8 @@ rather than rejects:
   saved before units (`pagesPerTurn`, `startPage`, `anchor.page`) is read
   as turns of pages; `start` is an ayah from 1 to 6236;
 - the session: `anchor.turn` no later than `turn`, `anchor.at` from 1 to
-  one past the unit's last, `pageInTurn` within the turn, `until` from 2 to
+  one past the unit's last, `anchor.ayah` only inside that unit past its
+  first ayah, `pageInTurn` within the turn, `until` from 2 to
   one past the last ayah or null, `startedAt` a time or null. `lastRead` is
   derived for a sitting saved before it was kept (`lastBefore`), and
   `before` is clamped to `lastRead`, or derived for an older save
@@ -379,8 +398,8 @@ AGENTS.md for why that key is a contract.
 
 | File                          | What it holds                                                                                                                   |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `schedule.test.ts`            | continue and repeat, every unit, cuts at an end, swapping who starts                                                            |
-| `state.test.ts`               | the reducer in every unit: jumps and runs, «القارئ السابق», changing the circle, the goal, ending, the summary, the saved shapes |
+| `schedule.test.ts`            | continue and repeat, every unit, cuts at an end, an anchor part-way into its unit, swapping who starts |
+| `state.test.ts`               | the reducer in every unit: a start part-way down a page, jumps and runs, «القارئ السابق», changing the circle, the goal, ending, the summary, the saved shapes |
 | `storage.test.ts`             | the saved halaqa, a first visit                                                                                                 |
 | `labels.test.ts`              | every sentence of the reading screen, and what a screen reader hears                                                            |
 | `circleLabels.test.ts`        | the teaching circle, the summary row, where the sitting starts, the card for a sitting left open                                |

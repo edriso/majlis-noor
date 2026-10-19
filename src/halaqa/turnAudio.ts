@@ -9,6 +9,7 @@
 
 import {
   ayatOfPage,
+  isWholePages,
   pagesOfRange,
   verseKey,
   type AyahRange,
@@ -67,15 +68,16 @@ export function rangeRecitation(t: Timings, range: AyahRange): Segment[] {
 
 /**
  * Milliseconds the reciter takes over a turn, which a reader's timed turn
- * is given (before the circle's allowance). A turn of pages is timed by
- * its pages, as before; any other by exactly its ayat. Where he is not
+ * is given (before the circle's allowance). A turn of whole pages is timed
+ * by its pages, as before; any other (one that begins at a surah part-way
+ * down a page among them) by exactly its ayat. Where he is not
  * timed on them, the turn's whole pages stand in, which may give a reader
  * too long but never cuts one off: they say «تمّ».
  */
 export function turnDuration(t: Timings, unit: Unit, range: AyahRange) {
   if (range.to <= range.from) return 0;
   const pages = pagesOfRange(range);
-  if (unit === 'page') return pagesDuration(t, pages);
+  if (unit === 'page' && isWholePages(range)) return pagesDuration(t, pages);
   return (
     ayatDuration(t, verseKey(range.from), verseKey(range.to - 1)) ??
     pagesDuration(t, pages)

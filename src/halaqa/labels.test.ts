@@ -60,6 +60,22 @@ describe('a turn, in its own unit', () => {
     expect(rangeShort('page', ayatOfPage(24))).toBe('ص ٢٤');
   });
 
+  it('names part of a page by its ayat, as a turn that begins at a surah', () => {
+    // Al-A'la begins part-way down page 591.
+    const alAla = { from: ayahIndex(87, 1), to: ayatOfPage(591).to };
+    const next = { name: '', unit: 'page' as Unit, range: ayatOfPage(592) };
+    expect(rangeLabel('page', alAla)).toBe('الآيات ١–١٠ من سورة الأعلى');
+    expect(rangeShort('page', alAla)).toBe('الأعلى ١–١٠');
+    expect(portionNarrow('page', alAla)).toBe('الآيات ١–١٠');
+    expect(
+      stripDetail({ unit: 'page', range: alAla, next, end: null }).portion,
+    ).toBe('الآيات ١–١٠');
+    expect(
+      stripDetail({ unit: 'page', range: ayatOfPage(591), next, end: null })
+        .portion,
+    ).toBe('');
+  });
+
   it('names ayat within their surah', () => {
     expect(rangeLabel('ayah', kahf(5, 9))).toBe('الآيات ٥–٩ من سورة الكهف');
     expect(rangeLabel('ayah', kahf(7, 7))).toBe('الآية ٧ من سورة الكهف');

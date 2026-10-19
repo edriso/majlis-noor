@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { firstAyahOfPage, type AyahRange } from '@/data/mushaf';
+import { isWholePages, type AyahRange } from '@/data/mushaf';
 import type { Prefs } from '@/halaqa/state';
 import type { Turn } from './useTurn';
 
@@ -52,13 +52,10 @@ function lowOnPage(ayah: number) {
  * nothing.
  */
 export function useMarks(turn: Turn, prefs: Prefs) {
-  const { range, pages, page, unit, reciter, ayah, listen, timings } = turn;
+  const { range, page, reciter, ayah, listen, timings } = turn;
   const config = turn.session.config;
 
-  const whole =
-    unit === 'page' ||
-    (range.from === firstAyahOfPage(pages[0]) &&
-      range.to === firstAyahOfPage(pages[pages.length - 1] + 1));
+  const whole = isWholePages(range);
   const turnFrom = whole ? 0 : range.from;
   const turnTo = whole ? 0 : range.to;
   const turnMark = useMemo(

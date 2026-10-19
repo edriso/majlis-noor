@@ -6,7 +6,12 @@ import {
   useState,
   type Dispatch,
 } from 'react';
-import { ayatOfPage, PAGE_COUNT, pagesOfRange } from '@/data/mushaf';
+import {
+  ayatOfPage,
+  isWholePages,
+  PAGE_COUNT,
+  pagesOfRange,
+} from '@/data/mushaf';
 import { reciterById } from '@/data/reciters';
 import { chime } from '@/halaqa/chime';
 import {
@@ -105,7 +110,8 @@ export function useTurn({
   // on with the same ayat («ويكمل صاحب الدور من موضعه»).
   const turnKey = `${member.id}:${range.from}-${range.to}`;
   // «استمع» recites what the reader is about to read on the open page:
-  // the page itself in a turn of pages, the turn's ayat on it otherwise.
+  // the page itself in a turn of whole pages, the turn's ayat on it
+  // otherwise (a turn that begins at a surah part-way down the page).
   const onPage = ayatOfPage(page);
   const listenFrom = Math.max(range.from, onPage.from);
   const listenRange = {
@@ -113,7 +119,9 @@ export function useTurn({
     to: Math.max(listenFrom, Math.min(range.to, onPage.to)),
   };
   const listenWhat =
-    unit === 'page' ? pagesLabel([page]) : ayatLabel(listenRange);
+    unit === 'page' && isWholePages(listenRange)
+      ? pagesLabel([page])
+      : ayatLabel(listenRange);
 
   const [toast, setToast] = useState<{
     id: number;

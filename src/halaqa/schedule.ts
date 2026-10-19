@@ -57,8 +57,12 @@ export type Plan = {
 };
 
 /** A turn and the unit it begins on, from which every other turn is
-    counted. `at` is in the plan's unit. */
-export type Anchor = { turn: number; at: number };
+    counted. `at` is in the plan's unit. `ayah`, when there is one, is where
+    in that unit the reading begins: a sitting started at a surah that opens
+    part-way down a page reads that page from the surah, not from its top.
+    It is part of the unit `at`, past its first ayah, and the turns that
+    begin on that unit begin there; every later one is whole. */
+export type Anchor = { turn: number; at: number; ayah?: number };
 
 /** A half-open run of a unit's numbers, `from` read and `to` not. */
 export type UnitRange = { from: number; to: number };
@@ -268,7 +272,8 @@ export function unitsOf(
 
 /**
  * The ayat a turn reads, as a half-open range of ayah numbers through the
- * whole Mushaf, cut as `unitsOf` cuts it and, inside a unit, at `end`.
+ * whole Mushaf, cut as `unitsOf` cuts it and, inside a unit, at `end`; a
+ * turn on the anchor's unit begins at the anchor's ayah, if it has one.
  */
 export function rangeOf(
   plan: Plan,
@@ -277,7 +282,11 @@ export function rangeOf(
   end = END,
 ): AyahRange {
   const units = unitsOf(plan, anchor, turn, end);
-  const from = Math.min(unitStart(plan.unit, units.from), end);
+  const first =
+    units.from === anchor.at && anchor.ayah !== undefined
+      ? Math.max(unitStart(plan.unit, units.from), anchor.ayah)
+      : unitStart(plan.unit, units.from);
+  const from = Math.min(first, end);
   if (units.to <= units.from) return { from, to: from };
   return { from, to: Math.min(unitStart(plan.unit, units.to), end) };
 }
@@ -291,6 +300,15 @@ export function isBeforeStart(plan: Plan, anchor: Anchor, turn: number) {
 
 /** Re-anchors a halaqa so that `turn` begins on unit `at`. */
 export const anchorAt = (turn: number, at: number): Anchor => ({ turn, at });
+
+/** Re-anchors a halaqa so that `turn` begins at ayah `a`: on the unit that
+    holds it, and from the ayah itself when that is not the unit's first. */
+export function anchorOn(unit: Unit, turn: number, a: number): Anchor {
+  const at = unitOf(unit, a);
+  return a > unitStart(unit, at) && a <= AYAH_COUNT
+    ? { turn, at, ayah: a }
+    : { turn, at };
+}
 
 export type RoundSeat = {
   turn: number;

@@ -208,6 +208,99 @@ describe('a halaqa', () => {
   });
 });
 
+describe('a sitting that starts part-way down a page', () => {
+  // Al-A'la begins part-way down page 591, under the end of at-Tariq.
+  const alAla = ayahIndex(87, 1);
+
+  it('reads from the surah chosen, not from the top of its page', () => {
+    let s = run({ start: alAla });
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+    expect(currentPages(s.session!)).toEqual([591]);
+    expect(placeOf(s.session!)).toBe(alAla);
+    expect(s.session!.from).toBe(alAla);
+    s = finish(s);
+    expect(where(s)).toEqual({ page: 592, reader: 1 });
+    expect(ayat(s)).toEqual([page(592), page(593) - 1]);
+    expect(s.session!.pagesRead).toBe(1);
+    expect(s.session!.ayatRead).toBe(page(592) - alAla);
+    expect(summaryOf(s.session!, T0).from?.key).toBe('87:1');
+  });
+
+  it('reads from it in a turn of two pages', () => {
+    const s = run({ start: alAla, size: 2 });
+    expect(ayat(s)).toEqual([alAla, page(593) - 1]);
+    expect(currentPages(s.session!)).toEqual([591, 592]);
+  });
+
+  it('has everyone in the first round read from it in repeat mode', () => {
+    let s = run({ start: alAla, mode: 'repeat' });
+    s = finish(s, 2);
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+    s = finish(s);
+    expect(ayat(s)).toEqual([page(592), page(593) - 1]);
+    expect(s.session!.ayatRead).toBe(page(592) - alAla);
+  });
+
+  it('steps back to it and un-counts it', () => {
+    let s = run({ start: alAla }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'previousTurn' });
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+    expect(s.session!.ayatRead).toBe(0);
+    expect(canStepBack(s.session!)).toBe(false);
+  });
+
+  it('jumps to a surah from the surah', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToAyah', ayah: alAla });
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+    expect(where(s)).toEqual({ page: 591, reader: 1 });
+    expect(s.session!.from).toBe(alAla);
+  });
+
+  it('drops a goal the surah chosen is already past', () => {
+    // The goal is the end of at-Tariq, which al-A'la is past although the
+    // page it is on is not.
+    let s = run({ start: ayahIndex(86, 1), goal: { to: 'surah' } });
+    expect(s.session!.until).toBe(alAla);
+    s = reduce(s, { type: 'goToAyah', ayah: alAla });
+    expect(s.session!.until).toBeNull();
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+  });
+
+  it('keeps it when the circle changes around the reader', () => {
+    let s = run({ start: alAla });
+    const [a, b, c] = s.session!.config.members;
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, members: [b, a, c] },
+    });
+    expect(where(s)).toEqual({ page: 591, reader: 1 });
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+  });
+
+  it('carries on from it when turns of ayat become turns of pages', () => {
+    let s = run({ start: alAla, unit: 'ayah', size: 5 });
+    s = reduce(s, {
+      type: 'configure',
+      config: { ...s.session!.config, unit: 'page', size: 1 },
+    });
+    expect(ayat(s)).toEqual([alAla, page(592) - 1]);
+  });
+
+  it('starts the next sitting there if it ends before reading it', () => {
+    const s = run({ start: alAla }, { type: 'end' });
+    expect(s.config.start).toBe(alAla);
+  });
+
+  it('is saved, and kept only where it is inside the anchored page', () => {
+    const s = run({ start: alAla }, { type: 'finishTurn' });
+    expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
+    const stray = JSON.parse(JSON.stringify(s));
+    stray.session.anchor.ayah = page(600);
+    expect(sanitizeState(stray).session!.anchor).toEqual({ turn: 0, at: 591 });
+  });
+});
+
 describe('ending keeps the place', () => {
   it('starts the next halaqa where this one stopped', () => {
     let s = run({ start: page(10) }, { type: 'finishTurn' });
@@ -730,10 +823,12 @@ describe('turns of a hizb quarter', () => {
     expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
   });
 
-  it('starts at the quarter that holds the chosen ayah', () => {
-    const s = run({ ...quarter, start: rubStart(2) + 4 });
-    expect(ayat(s)).toEqual([rubStart(2), rubStart(3) - 1]);
-    expect(s.session!.from).toBe(rubStart(2));
+  it('starts at the chosen ayah, and reads the rest of its quarter', () => {
+    let s = run({ ...quarter, start: rubStart(2) + 4 });
+    expect(ayat(s)).toEqual([rubStart(2) + 4, rubStart(3) - 1]);
+    expect(s.session!.from).toBe(rubStart(2) + 4);
+    s = finish(s);
+    expect(ayat(s)).toEqual([rubStart(3), rubStart(4) - 1]);
   });
 
   it('starts the quarter over in repeat mode when someone moves ahead', () => {

@@ -206,6 +206,11 @@ describe('the card for a sitting left open', () => {
     expect(resumeLines({ ...s, turn: 1 }).turn).toBe('دور فاطمة');
   });
 
+  it('names a page by the surah the turn begins at, part-way down it', () => {
+    const s = started({ start: ayahIndex(87, 1) });
+    expect(resumeLines(s).place).toBe('الصفحة ٥٩١ · سورة الأعلى');
+  });
+
   it('names a turn of ayat by its ayat and surah', () => {
     const s = started({
       members: [minshawi, you],

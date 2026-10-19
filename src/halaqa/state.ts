@@ -21,6 +21,7 @@ import {
 import { defaultReciter, reciterById, reciters } from '@/data/reciters';
 import {
   anchorAt,
+  anchorOn,
   END,
   endsRound,
   isBeforeStart,
@@ -459,15 +460,23 @@ function withRun(s: Session, next: Session): Session {
 
 /**
  * Moves the current turn so it begins on the unit holding ayah `a`, with
- * the page that ayah is on open. Re-anchoring keeps the turn number, so the
- * same member keeps the turn. A jump to or past the sitting's goal leaves
- * the goal behind, and the sitting carries on without one.
+ * the page that ayah is on open. A place chosen (`exact`) is read from the
+ * ayah itself: a jump to a surah that opens part-way down a page reads from
+ * the surah, not from the top of the page. Turning the page on past a turn
+ * of quarters is not a choice, and reads the whole quarter it lands in.
+ * Re-anchoring keeps the turn number, so the same member keeps the turn. A
+ * jump to or past the sitting's goal leaves the goal behind, and the
+ * sitting carries on without one.
  */
-function jumpTo(s: Session, a: number): Session {
+function jumpTo(s: Session, a: number, exact = false): Session {
   const plan = planOf(s.config);
   const ayah = Math.min(Math.max(Math.round(a) || 1, 1), AYAH_COUNT);
-  const anchor = anchorAt(s.turn, unitOf(plan.unit, ayah));
-  const passed = s.until !== null && unitStart(plan.unit, anchor.at) >= s.until;
+  const anchor = exact
+    ? anchorOn(plan.unit, s.turn, ayah)
+    : anchorAt(s.turn, unitOf(plan.unit, ayah));
+  const passed =
+    s.until !== null &&
+    (exact ? ayah : unitStart(plan.unit, anchor.at)) >= s.until;
   const next: Session = {
     ...s,
     anchor,
@@ -480,6 +489,13 @@ function jumpTo(s: Session, a: number): Session {
   });
 }
 
+/** `turn` anchored on `at`, the unit the turn it takes over from began on,
+    and from the same ayah, if that turn did not begin at the unit's top. */
+const ownAnchor = (was: Anchor, turn: number, at: number): Anchor =>
+  at === was.at && was.ayah !== undefined
+    ? { turn, at, ayah: was.ayah }
+    : anchorAt(turn, at);
+
 export function reduce(state: State, action: Action): State {
   if (action.type === 'prefs')
     return { ...state, prefs: { ...state.prefs, ...action.prefs } };
@@ -491,7 +507,10 @@ export function reduce(state: State, action: Action): State {
 
   if (action.type === 'start') {
     const config = sanitizeConfig(action.config);
-    const anchor = anchorAt(0, unitOf(config.unit, config.start));
+    // From the place chosen, not the top of the page (or the start of the
+    // quarter) that holds it: a sitting started at al-A'la does not read
+    // the end of at-Tariq above it.
+    const anchor = anchorOn(config.unit, 0, config.start);
     return {
       ...state,
       config,
@@ -504,7 +523,7 @@ export function reduce(state: State, action: Action): State {
         ayatRead: 0,
         lastRead: 0,
         startedAt: Number.isFinite(action.at) ? action.at : null,
-        from: unitStart(config.unit, anchor.at),
+        from: anchor.ayah ?? unitStart(config.unit, anchor.at),
         before: 0,
         // From the place chosen, not the start of the unit holding it: a
         // quarter that opens in the surah before is still a sitting in the
@@ -609,7 +628,7 @@ export function reduce(state: State, action: Action): State {
     }
 
     case 'goToAyah':
-      return set(jumpTo(s, action.ayah));
+      return set(jumpTo(s, action.ayah, true));
 
     case 'restartMushaf':
       return set(jumpTo(s, 1));
@@ -649,7 +668,7 @@ export function reduce(state: State, action: Action): State {
             ...s,
             config,
             until,
-            anchor: anchorAt(s.turn, unitOf(plan.unit, here)),
+            anchor: anchorOn(plan.unit, s.turn, here),
             pageInTurn: 0,
           });
         return configured({ ...s, config, until });
@@ -666,23 +685,17 @@ export function reduce(state: State, action: Action): State {
       if (!repeating) {
         const turn = start + reader;
         const own = startOf(plan, s.anchor, s.turn);
-        const at =
+        const anchor =
           reached && keptGoal
-            ? unitAfter(next.unit, here)
+            ? anchorAt(turn, unitAfter(next.unit, here))
             : moved !== -1 &&
                 !reached &&
                 own !== null &&
                 next.unit === plan.unit &&
                 next.size === plan.size
-              ? own
-              : unitOf(next.unit, here);
-        const carried: Session = {
-          ...s,
-          config,
-          until,
-          turn,
-          anchor: anchorAt(turn, at),
-        };
+              ? ownAnchor(s.anchor, turn, own)
+              : anchorOn(next.unit, turn, here);
+        const carried: Session = { ...s, config, until, turn, anchor };
         return configured({ ...carried, pageInTurn: keepOpen(s, carried) });
       }
 
@@ -702,6 +715,11 @@ export function reduce(state: State, action: Action): State {
           : first > UNIT_COUNT[plan.unit]
             ? UNIT_COUNT[next.unit] + 1
             : unitOf(next.unit, unitStart(plan.unit, first));
+      // In the same unit the round keeps the ayah it began at, too.
+      const roundAt = (turn: number) =>
+        next.unit === plan.unit
+          ? ownAnchor(s.anchor, turn, first)
+          : anchorAt(turn, firstNext);
       if (moved === -1 && seat >= next.readers) {
         const at =
           next.unit === plan.unit
@@ -725,12 +743,7 @@ export function reduce(state: State, action: Action): State {
           r.state,
         ]),
       );
-      const fresh = rangeOf(
-        next,
-        anchorAt(start, firstNext),
-        start,
-        until ?? END,
-      );
+      const fresh = rangeOf(next, roundAt(start), start, until ?? END);
       const covered =
         isEmpty(fresh) || (fresh.from >= read.from && fresh.to <= read.to);
       const marks = config.members.slice(0, reader).map((m) => was.get(m.id));
@@ -745,7 +758,7 @@ export function reduce(state: State, action: Action): State {
         config,
         until,
         turn: start + reader,
-        anchor: anchorAt(start + ticked, firstNext),
+        anchor: roundAt(start + ticked),
         pageInTurn: 0,
       };
       return configured({
@@ -944,10 +957,13 @@ export function sanitizeState(raw: unknown): State {
     // A halaqa saved before turns had units anchored a page, `anchor.page`.
     const a = (s.anchor ?? {}) as Record<string, unknown>;
     const at = a.at ?? (sc.unit === 'page' ? a.page : undefined);
-    const anchor = anchorAt(
+    const unit = anchorAt(
       intIn(a.turn, 0, turn, 0),
       intIn(at, 1, UNIT_COUNT[sc.unit] + 1, unitOf(sc.unit, sc.start)),
     );
+    // The ayah it began at is kept only inside that unit, past its top.
+    const ayah = anchorOn(sc.unit, unit.turn, intIn(a.ayah, 1, AYAH_COUNT, 0));
+    const anchor = ayah.at === unit.at && ayah.ayah ? ayah : unit;
     const stored = s.startedAt;
     const built: Session = {
       config: sc,

@@ -7,6 +7,7 @@ import {
   pagesCount,
 } from '@/data/arabic';
 import {
+  isWholePages,
   PAGE_COUNT,
   pagesOfRange,
   rubLabel,
@@ -76,13 +77,15 @@ const same = (a: AyahRange, b: AyahRange) => a.from === b.from && a.to === b.to;
 /**
  * What a turn reads, in the words of its unit: «الصفحة ٢٤», «الآيات ٥–٩ من
  * سورة الكهف», «ربع الحزب ٣» as the margin names the quarter, «سورة الملك».
- * A quarter or a surah cut short (at the end of the Mushaf, or where the
- * sitting means to stop) is named by its ayat instead, so the label never
- * promises more than the turn holds.
+ * A page, a quarter or a surah cut short (at the end of the Mushaf, where
+ * the sitting means to stop, or where it began, at a surah part-way down a
+ * page) is named by its ayat instead, so the label never promises more than
+ * the turn holds.
  */
 export function rangeLabel(unit: Unit, range: AyahRange) {
   if (range.to <= range.from) return '';
-  if (unit === 'page') return pagesLabel(pagesOfRange(range));
+  if (unit === 'page' && isWholePages(range))
+    return pagesLabel(pagesOfRange(range));
   if (unit === 'rub') {
     const n = rubOfAyah(range.from);
     if (same(range, rubRange(n))) return rubLabel(n);
@@ -98,7 +101,8 @@ export function rangeLabel(unit: Unit, range: AyahRange) {
     «ربع الحزب ٣», «الملك». */
 export function rangeShort(unit: Unit, range: AyahRange) {
   if (range.to <= range.from) return '';
-  if (unit === 'page') return pagesShort(pagesOfRange(range));
+  if (unit === 'page' && isWholePages(range))
+    return pagesShort(pagesOfRange(range));
   if (unit === 'rub') {
     const n = rubOfAyah(range.from);
     if (same(range, rubRange(n))) return rubLabel(n);
@@ -118,7 +122,8 @@ export function rangeShort(unit: Unit, range: AyahRange) {
  */
 export function portionLabel(unit: Unit, range: AyahRange) {
   if (range.to <= range.from) return '';
-  if (unit === 'page') return pagesLabel(pagesOfRange(range));
+  if (unit === 'page' && isWholePages(range))
+    return pagesLabel(pagesOfRange(range));
   // A quarter or a surah is named as itself only when whole, as above.
   if (unit === 'rub') {
     const n = rubOfAyah(range.from);
@@ -138,7 +143,7 @@ export function portionLabel(unit: Unit, range: AyahRange) {
     which every reader of a Mushaf knows; a run of ayat has no shorter
     name that is still plain words, so it keeps its own. */
 export function portionNarrow(unit: Unit, range: AyahRange) {
-  return unit === 'page'
+  return unit === 'page' && isWholePages(range)
     ? pagesShort(pagesOfRange(range))
     : portionLabel(unit, range);
 }
@@ -190,7 +195,7 @@ export function placeChip(page: number) {
 /**
  * The quiet line under the reader's name at the top: what the turn reads,
  * when it is counted in something other than the page the chip beside it
- * names («الآيات ٥–٩»), and who reads after it («ثم عمر»). Nobody follows
+ * names, or is only part of it («الآيات ٥–٩»), and who reads after it («ثم عمر»). Nobody follows
  * in a circle of one, nor after the turn that ends the sitting.
  */
 export function stripDetail({
@@ -205,7 +210,8 @@ export function stripDetail({
   end: End | null;
 }) {
   return {
-    portion: unit === 'page' ? '' : portionLabel(unit, range),
+    portion:
+      unit === 'page' && isWholePages(range) ? '' : portionLabel(unit, range),
     after: next.name && !end ? `ثم ${next.name}` : '',
   };
 }
