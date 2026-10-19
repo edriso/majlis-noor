@@ -1034,6 +1034,13 @@ describe('an ayah on the page', () => {
     await startWith({ members: [you, omar], start: kahf5 });
     await markers();
     expect(underlined().size).toBe(0);
+    // A turn of pages begun part-way down one (al-A'la, under the end of
+    // at-Tariq) underlines where it begins, its first ayah, and no more.
+    cleanup();
+    const alAla = ayahIndex(87, 1);
+    await startWith({ members: [you, omar], start: alAla });
+    await markers();
+    expect(underlined()).toEqual(new Set([String(alAla)]));
   });
 
   it('covers the page on a reader’s turn, in a review from memory', async () => {

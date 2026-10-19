@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
-import { isWholePages, type AyahRange } from '@/data/mushaf';
+import {
+  firstAyahOfPage,
+  isWholePages,
+  pageOfAyah,
+  type AyahRange,
+} from '@/data/mushaf';
 import type { Prefs } from '@/halaqa/state';
 import type { Turn } from './useTurn';
 
@@ -41,9 +46,10 @@ function lowOnPage(ayah: number) {
  *
  * - `turn`, the turn's ayat to underline, only where a turn of ayat, a
  *   quarter or a surah covers part of a page. A turn of whole pages would
- *   underline every line, which says nothing and crowds the page; a turn
- *   of pages begun at a surah part-way down one is not underlined either,
- *   since the surah's header already shows where it begins.
+ *   underline every line, which says nothing and crowds the page. A turn
+ *   of pages begun part-way down one (at a surah, or a juz) underlines its
+ *   first ayah alone: a light sign of where to begin, not a rule under
+ *   the rest of the page.
  * - `follow`, the recitation to follow: an ayah heard alone first, since it
  *   plays over the rest, then a seated sheikh's turn, then «استمع».
  * - `chosen`, the ayah tapped, for the ayah bar; it belongs to the turn and
@@ -57,9 +63,13 @@ export function useMarks(turn: Turn, prefs: Prefs) {
   const { range, page, unit, reciter, ayah, listen, timings } = turn;
   const config = turn.session.config;
 
-  const whole = unit === 'page' || isWholePages(range);
+  const partway =
+    unit === 'page' &&
+    range.to > range.from &&
+    range.from !== firstAyahOfPage(pageOfAyah(range.from));
+  const whole = !partway && (unit === 'page' || isWholePages(range));
   const turnFrom = whole ? 0 : range.from;
-  const turnTo = whole ? 0 : range.to;
+  const turnTo = whole ? 0 : partway ? range.from + 1 : range.to;
   const turnMark = useMemo(
     () => (turnTo > turnFrom ? { from: turnFrom, to: turnTo } : null),
     [turnFrom, turnTo],

@@ -98,9 +98,9 @@ is printed on (`turnPages`). The Madani print ends every page on a whole
 ayah, so a turn of pages is whole ayat; a turn of a few ayat may run onto
 the next page, and then it has two. A turn of pages that is not whole pages
 (`isWholePages`: one begun at a surah, or cut by the goal) is named by its
-ayat («الآيات ١–١٠») and timed by them, as a turn of ayat is; it is not
-underlined on the page, where the surah's header already shows where it
-begins.
+ayat («الآيات ١–١٠») and timed by them, as a turn of ayat is. One begun
+part-way down a page underlines its first ayah alone, a light sign of where
+to begin, not a rule under the rest of the page (`useMarks`).
 
 Selectors the screens use: `currentRange`, `currentPages`, `currentPage`,
 `placeOf` (the first ayah the circle has not left behind),
