@@ -62,6 +62,15 @@ export type Follow = 'ayah' | 'word';
     whole page allows (WCAG 1.4.4: zooming the browser barely enlarges a
     page that is fitted to the window). */
 export type PageSize = 'fit' | 'width';
+/** Which picture «احفظ صورة» draws at the close of a sitting: the framed
+    card (4:5, for chats), a tall one for a status or a story (9:16), or a
+    plain square. The last one chosen is the next sitting's. */
+export type CardDesign = 'ornate' | 'status' | 'simple';
+export const cardDesigns: readonly CardDesign[] = [
+  'ornate',
+  'status',
+  'simple',
+];
 
 /** Eight seats: a family, a class, or a few readers and a sheikh. More
     would crowd the circle on a phone, and a bigger gathering has its own
@@ -137,6 +146,7 @@ export type Prefs = {
   follow: Follow;
   cue: Cue;
   pageSize: PageSize;
+  cardDesign: CardDesign;
 };
 
 export type Session = {
@@ -203,6 +213,7 @@ export const defaultPrefs: Prefs = {
   follow: 'ayah',
   cue: 'chime',
   pageSize: 'fit',
+  cardDesign: 'ornate',
 };
 
 export const initialState: State = {
@@ -922,6 +933,7 @@ export function sanitizeState(raw: unknown): State {
     follow: oneOf(p.follow, ['ayah', 'word'] as const, 'ayah'),
     cue: oneOf(p.cue, ['chime', 'none'] as const, 'chime'),
     pageSize: oneOf(p.pageSize, ['fit', 'width'] as const, 'fit'),
+    cardDesign: oneOf(p.cardDesign, cardDesigns, 'ornate'),
   };
   const config = sanitizeConfig(r.config);
   let session: Session | null = null;

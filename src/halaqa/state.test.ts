@@ -1257,6 +1257,21 @@ describe('a saved halaqa', () => {
     expect(s.prefs).toMatchObject({ theme: 'blue', pageSize: 'fit' });
   });
 
+  it('draws the framed card for a reader who never chose a picture', () => {
+    // Saved before the picture could be chosen.
+    const s = sanitizeState({ prefs: { theme: 'sand', pageSize: 'width' } });
+    expect(s.prefs).toMatchObject({ theme: 'sand', cardDesign: 'ornate' });
+  });
+
+  it('keeps the picture last chosen for the next sitting', () => {
+    for (const cardDesign of ['status', 'simple', 'ornate'] as const) {
+      const s = reduce(initialState, { type: 'prefs', prefs: { cardDesign } });
+      expect(
+        sanitizeState(JSON.parse(JSON.stringify(s))).prefs.cardDesign,
+      ).toBe(cardDesign);
+    }
+  });
+
   it('is repaired, never trusted', () => {
     const s = sanitizeState({
       prefs: {
@@ -1267,6 +1282,7 @@ describe('a saved halaqa', () => {
         follow: 'letter',
         cue: 'x',
         pageSize: 'huge',
+        cardDesign: 'neon',
       },
       config: { readers: 'x', pagesPerTurn: 9, startPage: 9000 },
       session: { turn: -3, anchor: { turn: 5, page: 0 }, config: {} },
@@ -1279,6 +1295,7 @@ describe('a saved halaqa', () => {
       follow: 'ayah',
       cue: 'chime',
       pageSize: 'fit',
+      cardDesign: 'ornate',
     });
     expect(s.config.size).toBe(1);
     expect(s.config.unit).toBe('page');
