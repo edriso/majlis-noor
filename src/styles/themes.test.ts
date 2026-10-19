@@ -60,6 +60,15 @@ describe('themes.ts and tokens.css', () => {
     },
   );
 
+  it.each(Object.entries(THEMES))(
+    '%s: the scheme is its color-scheme',
+    (theme, colours) => {
+      const start = tokens.indexOf(`:root[data-theme='${theme}']`);
+      const body = tokens.slice(start, tokens.indexOf('}', start));
+      expect(body).toContain(`color-scheme: ${colours.scheme};`);
+    },
+  );
+
   it('agree on the default, which a dark system’s first visit takes', () => {
     expect(DEFAULT_THEME).toBe(defaultPrefs.theme);
     expect(FIRST_VISIT.dark).toBe(DEFAULT_THEME);
@@ -105,7 +114,7 @@ describe('index.html as the build writes it', () => {
     ).toBe(THEMES[DEFAULT_THEME].ground);
   });
 
-  it('paints every theme’s ground and gold before the bundle loads', () => {
+  it('paints every theme’s ground, gold and scheme before the bundle loads', () => {
     const style = new DOMParser()
       .parseFromString(html, 'text/html')
       .querySelector('head style')?.textContent;
@@ -113,7 +122,7 @@ describe('index.html as the build writes it', () => {
       const selector =
         theme === DEFAULT_THEME ? 'html' : `html[data-theme='${theme}']`;
       expect(style).toContain(
-        `${selector} { background: ${c.ground}; --boot-gold: ${c.gold}; }`,
+        `${selector} { color-scheme: ${c.scheme}; background: ${c.ground}; --boot-gold: ${c.gold}; }`,
       );
     }
     expect(style).toContain('color: var(--boot-gold)');
