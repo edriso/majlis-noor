@@ -123,9 +123,64 @@ describe('a sheet', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('heading', { name: 'الثانية' }),
     );
+    // Back, to the control that stepped forward, not to the title.
     await user.click(screen.getByRole('button', { name: 'رجوع' }));
     expect(document.activeElement).toBe(
-      screen.getByRole('heading', { name: 'الأولى' }),
+      screen.getByRole('button', { name: 'إلى الثانية' }),
+    );
+    // Forward again is the title again.
+    await user.click(screen.getByRole('button', { name: 'إلى الثانية' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: 'الثانية' }),
+    );
+  });
+
+  it('finds the control again by its place once a choice has renamed it', async () => {
+    function Picking() {
+      const [open, setOpen] = useState(true);
+      const [picking, setPicking] = useState(false);
+      const [chosen, setChosen] = useState('الحصري');
+      return (
+        <Sheet
+          open={open}
+          onOpenChange={setOpen}
+          title={picking ? 'اختر الشيخ' : 'القائمة'}
+          onBack={picking ? () => setPicking(false) : undefined}
+        >
+          {picking ? (
+            ['المنشاوي', 'العفاسي'].map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => {
+                  setChosen(name);
+                  setPicking(false);
+                }}
+              >
+                {name}
+              </button>
+            ))
+          ) : (
+            <>
+              <button type="button">المظهر</button>
+              <button type="button" onClick={() => setPicking(true)}>
+                شيخ الاستماع: {chosen}
+              </button>
+              <button type="button">الصوت</button>
+            </>
+          )}
+        </Sheet>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Picking />);
+    await user.click(screen.getByRole('button', { name: /^شيخ الاستماع/ }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: 'اختر الشيخ' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'العفاسي' }));
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'شيخ الاستماع: العفاسي' }),
     );
   });
 

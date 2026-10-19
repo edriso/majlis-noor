@@ -734,6 +734,30 @@ describe('the menu and the jump', () => {
     const form = screen.getByRole('dialog', { name: 'عدّل الحلقة' });
     await user.click(within(form).getByRole('button', { name: 'رجوع' }));
     expect(menu()).toBeTruthy();
+    // Back where the hand was, not at the top of the menu.
+    expect(document.activeElement).toBe(
+      within(menu()).getByRole('button', { name: /^عدّل الحلقة/ }),
+    );
+  });
+
+  it('gives the focus back to the row that chose the listening sheikh', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(
+      within(menu()).getByRole('button', { name: /^شيخ الاستماع/ }),
+    );
+    const list = screen.getByRole('dialog', { name: 'شيخ الاستماع' });
+    expect(document.activeElement).toBe(
+      within(list).getByRole('heading', { name: 'شيخ الاستماع' }),
+    );
+    await user.click(
+      within(list).getByRole('button', { name: /^محمد صديق المنشاوي/ }),
+    );
+    expect(document.activeElement).toBe(
+      within(menu()).getByRole('button', {
+        name: /^شيخ الاستماع محمد صديق المنشاوي/,
+      }),
+    );
   });
 
   it('opens the circle’s form straight from the circle', async () => {

@@ -275,25 +275,21 @@ function TurnChangeField({
       />
       {config.turnChange === 'reciter' ? (
         <div className="turn-timed">
-          {/* Found again by the start screen, which brings the focus back
-              here when the sheikh has been chosen. */}
-          <div data-focus="timer">
-            <SummaryRow
-              leading={<ReciterAvatar reciter={reciter} size={40} />}
-              title={reciter.name}
-              detail={`يوقّت الدور · نحو ${clock(reciter.secondsPerPage * 1000)} للصفحة`}
-              spokenSuffix="، غيّر الشيخ"
-              onClick={() =>
-                onPickReciter({
-                  title: 'الشيخ الذي يوقّت الدور',
-                  description:
-                    'تُقاس بتلاوته مدة كل دور، وهو الذي يُسمَع في «استمع».',
-                  value: config.reciter,
-                  apply: (id) => set({ reciter: id }),
-                })
-              }
-            />
-          </div>
+          <SummaryRow
+            leading={<ReciterAvatar reciter={reciter} size={40} />}
+            title={reciter.name}
+            detail={`يوقّت الدور · نحو ${clock(reciter.secondsPerPage * 1000)} للصفحة`}
+            spokenSuffix="، غيّر الشيخ"
+            onClick={() =>
+              onPickReciter({
+                title: 'الشيخ الذي يوقّت الدور',
+                description:
+                  'تُقاس بتلاوته مدة كل دور، وهو الذي يُسمَع في «استمع».',
+                value: config.reciter,
+                apply: (id) => set({ reciter: id }),
+              })
+            }
+          />
           <div className="field">
             <Choice<Allowance>
               legend="مهلة الدور"

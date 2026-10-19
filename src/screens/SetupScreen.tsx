@@ -90,10 +90,8 @@ export function SetupScreen({
   };
   const pickReciter = (fromCircle: boolean) => (request: ReciterRequest) =>
     show({ kind: 'reciter', request, fromCircle });
-  const backToCircle = () => {
-    setPanel({ kind: 'circle' });
-    focusNext.current = 'dialog[open] [data-focus="timer"] button';
-  };
+  // The sheet gives the focus back to the row that opened the list.
+  const backToCircle = () => setPanel({ kind: 'circle' });
 
   const place = placeSummary(config.start, config.unit);
   const circle = circleSummary(config);
