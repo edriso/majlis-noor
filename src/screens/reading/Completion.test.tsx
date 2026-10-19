@@ -11,6 +11,7 @@ const card = (
     unit: Unit;
     pagesRead: number;
     ayatRead: number;
+    alone: boolean;
     back: { label: string; onClick: () => void } | null;
   }> = {},
 ) =>
@@ -38,6 +39,13 @@ describe('the card at the end of a sitting', () => {
   it('counts in ayat where less than a page was, never «no page read»', () => {
     card({ pagesRead: 0, ayatRead: 11 });
     expect(text()).toBe('تقبّل الله منكم. قرأتم ١١ آية في هذا المجلس.');
+  });
+
+  it('speaks to one reading alone as one', () => {
+    card({ alone: true, pagesRead: 2 });
+    expect(screen.getByRole('heading', { name: 'بلغتَ الغاية' })).toBeTruthy();
+    expect(text()).toBe('تقبّل الله منك. قرأتَ صفحتين في هذا المجلس.');
+    expect(screen.getByRole('button', { name: 'تابع' })).toBeTruthy();
   });
 
   it('says nothing of what was read when nothing was', () => {

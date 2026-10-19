@@ -10,7 +10,7 @@ import {
   Users,
 } from './icons';
 import type { ReactNode, Ref } from 'react';
-import { clock } from '@/data/arabic';
+import { clock, genitive } from '@/data/arabic';
 import type { Reciter } from '@/data/reciters';
 import {
   listenLabels,
@@ -272,7 +272,7 @@ export function RetryButton({
       type="button"
       className="action-secondary"
       onClick={onClick}
-      aria-label={`أعد المحاولة، تلاوة ${reciter}`}
+      aria-label={`أعد المحاولة، تلاوة ${genitive(reciter)}`}
       aria-keyshortcuts="Space"
     >
       <RotateCcw size={20} aria-hidden="true" />

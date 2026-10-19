@@ -167,6 +167,7 @@ export function ReadingScreen({
             unit={turn.unit}
             pagesRead={session.pagesRead}
             ayatRead={session.ayatRead}
+            alone={turn.alone}
             onRestart={actions.restart}
             onCarryOn={actions.carryOn}
             onEnd={() => setClosing(closeSitting())}

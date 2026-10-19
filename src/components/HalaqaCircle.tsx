@@ -1,4 +1,5 @@
 import { Check } from './icons';
+import { joinNames } from '@/data/arabic';
 import { reciterById } from '@/data/reciters';
 import {
   circleCenter,
@@ -106,11 +107,11 @@ export function HalaqaCircle({
 
       <figcaption className="visually-hidden">
         الحلقة بترتيبها:{' '}
-        {config.members
-          .map((m) =>
+        {joinNames(
+          config.members.map((m) =>
             m.kind === 'reciter' ? `الشيخ ${memberName(m)}` : memberName(m),
-          )
-          .join('، ')}
+          ),
+        )}
       </figcaption>
 
       {angles.map((angle, i) => {

@@ -6,9 +6,15 @@ import type { Unit } from '@/halaqa/schedule';
 /** What the sitting read, in its own unit, or in ayat where it read
     fewer than a page (a goal reached part-way down one): never «no page
     read yet» after eleven ayat. Null when it read nothing. */
-function readNote(unit: Unit, pagesRead: number, ayatRead: number) {
-  if (unit === 'page' && pagesRead) return sittingNote('page', pagesRead, 0);
-  if (ayatRead) return sittingNote('ayah', 0, ayatRead);
+function readNote(
+  unit: Unit,
+  pagesRead: number,
+  ayatRead: number,
+  alone: boolean,
+) {
+  if (unit === 'page' && pagesRead)
+    return sittingNote('page', pagesRead, 0, alone);
+  if (ayatRead) return sittingNote('ayah', 0, ayatRead, alone);
   return null;
 }
 
@@ -26,6 +32,8 @@ function Diamond() {
  * What replaces the page and the buttons once nothing is left to read: the
  * khatm, with a new one from al-Fatihah, or the goal the sitting set
  * itself, with «تابعوا» to read on past it. Either may end the sitting.
+ * One reading alone is spoken to as one: «بلغتَ», «تقبّل الله منك»,
+ * «تابع».
  * One quiet family: no card, the title in the Mushaf's own cartouche (as
  * a surah's header is drawn on the page) for the khatm, under a single
  * diamond for the goal, and two buttons. The title is said here alone;
@@ -42,6 +50,7 @@ export function Completion({
   unit,
   pagesRead,
   ayatRead,
+  alone = false,
   onRestart,
   onCarryOn,
   onEnd,
@@ -51,6 +60,8 @@ export function Completion({
   unit: Unit;
   pagesRead: number;
   ayatRead: number;
+  /** A circle of one. */
+  alone?: boolean;
   onRestart: () => void;
   onCarryOn: () => void;
   onEnd: () => void;
@@ -64,13 +75,13 @@ export function Completion({
     if (!at || at === document.body) first.current?.focus();
   }, [end]);
 
-  const read = readNote(unit, pagesRead, ayatRead);
+  const read = readNote(unit, pagesRead, ayatRead, alone);
   return (
     <div className="khatm" data-end={end}>
       {end === 'khatm' ? (
         <div className="khatm-cartouche">
           <Diamond />
-          <h2 className="khatm-title">{endTitle(end)}</h2>
+          <h2 className="khatm-title">{endTitle(end, alone)}</h2>
           <Diamond />
         </div>
       ) : (
@@ -78,11 +89,11 @@ export function Completion({
           <div className="khatm-rule" aria-hidden="true">
             <Diamond />
           </div>
-          <h2 className="khatm-title">{endTitle(end)}</h2>
+          <h2 className="khatm-title">{endTitle(end, alone)}</h2>
         </>
       )}
       <p className="khatm-text">
-        تقبّل الله منكم.
+        {alone ? 'تقبّل الله منك.' : 'تقبّل الله منكم.'}
         {read ? ` ${read}.` : ''}
       </p>
       <div className="khatm-actions">
@@ -92,7 +103,11 @@ export function Completion({
           className="button button-primary button-large"
           onClick={end === 'khatm' ? onRestart : onCarryOn}
         >
-          {end === 'khatm' ? 'ختمة جديدة من الفاتحة' : 'تابعوا'}
+          {end === 'khatm'
+            ? 'ختمة جديدة من الفاتحة'
+            : alone
+              ? 'تابع'
+              : 'تابعوا'}
         </button>
         <button type="button" className="button khatm-end" onClick={onEnd}>
           إنهاء المجلس

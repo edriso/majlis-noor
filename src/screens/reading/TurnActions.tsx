@@ -88,6 +88,7 @@ export function TurnActions({
       place: placeOf(session),
       from: session.from,
       until: session.until,
+      alone: turn.alone,
     }),
     // Its words shown on the way to a goal, as `sittingProgress` counts it.
     shown: session.until !== null && session.until > session.from,

@@ -23,7 +23,12 @@ export function CircleView({
       />
       <div className="sitting">
         <p className="sitting-note">
-          {sittingNote(turn.unit, session.pagesRead, session.ayatRead)}
+          {sittingNote(
+            turn.unit,
+            session.pagesRead,
+            session.ayatRead,
+            turn.alone,
+          )}
         </p>
         <button
           type="button"
