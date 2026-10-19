@@ -8,15 +8,17 @@ import {
   type Action,
   type Member,
 } from '@/halaqa/state';
+import type { CardDesign } from '@/halaqa/state';
 import {
+  ARCH,
+  archHalfWidth,
   balancedLines,
-  CARD_HEIGHT,
   clear,
-  CONTENT,
+  DESIGNS,
   facesOf,
   FAMILIES,
-  FRAME,
   layoutCard,
+  SAFE,
   wrapLines,
   type Measure,
   type Op,
@@ -102,6 +104,56 @@ describe('breaking a line', () => {
   });
 });
 
+const long = 'عبد الرحمن بن عبد العزيز الفلاني';
+const eight: Member[] = [
+  ...Array.from(
+    { length: 6 },
+    (_, i): Member => ({
+      id: `p${i + 1}`,
+      kind: 'person',
+      name: `${long} ${i + 1}`,
+    }),
+  ),
+  { id: 'r1', kind: 'reciter', reciter: 'husary-muallim' },
+  { id: 'r2', kind: 'reciter', reciter: 'abdulbasit' },
+];
+
+const designs: CardDesign[] = ['ornate', 'status', 'simple'];
+
+/** The sittings every design must hold: the brief's, one that read
+    nothing, and the longest circle there can be. */
+const sittings = {
+  brief: () => card(circle),
+  nothing: () => card(circle, 0),
+  eight: () => card(eight),
+};
+
+/** How far an op reaches up and down, and right and left. */
+function extent(op: Op) {
+  if (op.kind === 'text')
+    return {
+      top: op.y - op.height / 2,
+      bottom: op.y + op.height / 2,
+      right: op.x,
+      left: op.x - op.width,
+    };
+  if (op.kind === 'rule')
+    return op.style === 'diamond'
+      ? {
+          top: op.y - 18,
+          bottom: op.y + 18,
+          right: op.x + op.width / 2,
+          left: op.x - op.width / 2,
+        }
+      : { top: op.y - 2, bottom: op.y + 2, right: op.x, left: op.x - op.width };
+  return {
+    top: op.y - op.mark.size / 2,
+    bottom: op.y + op.mark.size / 2,
+    right: op.mark.x + op.mark.size,
+    left: op.name.x - op.name.width,
+  };
+}
+
 describe('laying out the card', () => {
   it('draws every line of the card, in order', () => {
     const text = card(circle);
@@ -110,6 +162,7 @@ describe('laying out the card', () => {
     expect(texts(ops).map(said)).toEqual([
       'ختام المجلس',
       ...text.dates,
+      text.time,
       ...text.read,
       text.amount,
       // «الشيخ الحصري» held together by a no-break space.
@@ -121,6 +174,34 @@ describe('laying out the card', () => {
       kind: 'brand',
       name: { text: 'مجلس نور' },
     });
+  });
+
+  it('says the same in every design', () => {
+    const text = card(circle);
+    const words = (d: CardDesign) =>
+      texts(layoutCard(text, fake, d).ops)
+        .map(said)
+        .join(' ')
+        .replaceAll(' · ', ' ');
+    for (const d of designs) {
+      expect(words(d)).toBe(words('ornate'));
+      expect(layoutCard(text, fake, d).ops.at(-1)!.kind).toBe('brand');
+    }
+    // The square puts the Gregorian date and the time on one line.
+    expect(texts(layoutCard(text, fake, 'simple').ops).map(said)).toContain(
+      `${text.dates[1]} · ${text.time}`,
+    );
+  });
+
+  it('draws each design at its own size', () => {
+    const text = card(circle);
+    const size = (d: CardDesign) => {
+      const { width, height } = layoutCard(text, fake, d);
+      return [width, height];
+    };
+    expect(size('ornate')).toEqual([1080, 1350]);
+    expect(size('status')).toEqual([1080, 1920]);
+    expect(size('simple')).toEqual([1080, 1080]);
   });
 
   it('sets the title and name in Reem Kufi, the supplication in Amiri', () => {
@@ -136,59 +217,83 @@ describe('laying out the card', () => {
     expect(present.ink).toBe('fg');
   });
 
-  it('centres every line and keeps it inside the frame', () => {
-    const { ops } = layoutCard(card(circle), fake);
-    for (const op of texts(ops)) {
-      expect(op.x - op.width / 2).toBeCloseTo(540);
-      expect(op.x).toBeLessThanOrEqual(CONTENT.right);
-      expect(op.x - op.width).toBeGreaterThanOrEqual(CONTENT.left);
-      expect(op.y).toBeGreaterThan(CONTENT.top);
-      expect(op.y).toBeLessThan(CONTENT.bottom);
-    }
-    const brand = ops.at(-1)!;
-    expect(brand.y).toBeGreaterThan(CONTENT.bottom);
-    expect(brand.y).toBeLessThan(CARD_HEIGHT - FRAME.inner);
+  it('centres the framed and the tall card, and sets the square from the right', () => {
+    const text = card(circle);
+    for (const d of ['ornate', 'status'] as const)
+      for (const op of texts(layoutCard(text, fake, d).ops))
+        expect(op.x - op.width / 2).toBeCloseTo(540);
+    for (const op of texts(layoutCard(text, fake, 'simple').ops))
+      expect(op.x).toBe(DESIGNS.simple.content.right);
   });
 
-  it('sits a short card in the middle of its frame', () => {
-    const { ops } = layoutCard(card(circle, 0), fake);
-    const lines = texts(ops);
-    const top = lines[0].y - CONTENT.top;
-    const bottom = CONTENT.bottom - lines.at(-1)!.y;
-    expect(Math.abs(top - bottom)).toBeLessThan(60);
-    expect(lines.map(said)).toContain('لم تكتمل قراءة بعد');
+  for (const d of designs)
+    for (const [name, make] of Object.entries(sittings))
+      it(`keeps every line of ${name} inside the ${d} card`, () => {
+        const text = make();
+        const { ops, height } = layoutCard(text, fake, d);
+        const box = DESIGNS[d].content;
+        for (const op of texts(ops)) {
+          const e = extent(op);
+          expect(e.right).toBeLessThanOrEqual(box.right + 0.01);
+          expect(e.left).toBeGreaterThanOrEqual(box.left - 0.01);
+          expect(e.top).toBeGreaterThanOrEqual(box.top - 0.01);
+          expect(e.bottom).toBeLessThanOrEqual(box.bottom + 0.01);
+        }
+        // The name sits under the words, on the page.
+        const brand = extent(ops.at(-1)!);
+        expect(brand.top).toBeGreaterThan(box.bottom);
+        expect(brand.bottom).toBeLessThan(height - 60);
+        // Every name is drawn, the lead on the first line only.
+        if (text.present) {
+          const flat = (t: string) => t.replaceAll(/\s+/g, ' ');
+          const drawn = flat(texts(ops).map(said).join(' '));
+          const { label, names } = text.present;
+          expect(drawn).toContain(flat(`${label}: ${names}`));
+          expect(texts(ops).filter((op) => op.lead)).toHaveLength(1);
+        }
+      });
+
+  it('keeps the tall card clear of what a status or a story lays over it', () => {
+    for (const make of Object.values(sittings)) {
+      const { ops } = layoutCard(make(), fake, 'status');
+      for (const op of ops) {
+        const e = extent(op);
+        expect(e.top).toBeGreaterThanOrEqual(SAFE.top);
+        expect(e.bottom).toBeLessThanOrEqual(SAFE.bottom);
+      }
+    }
+  });
+
+  it('keeps the tall card’s words under its arch', () => {
+    for (const make of Object.values(sittings)) {
+      const { ops } = layoutCard(make(), fake, 'status');
+      for (const op of texts(ops)) {
+        const e = extent(op);
+        // Measured where the arch is narrowest for the line, its top.
+        const half = archHalfWidth(e.top);
+        expect(e.right - 540).toBeLessThanOrEqual(half - 24);
+        expect(540 - e.left).toBeLessThanOrEqual(half - 24);
+      }
+    }
+    expect(archHalfWidth(ARCH.apex)).toBe(0);
+    expect(archHalfWidth(1200)).toBe((ARCH.right - ARCH.left) / 2);
+  });
+
+  it('sits a short card in the middle of its room', () => {
+    for (const d of designs) {
+      const { ops } = layoutCard(card(circle, 0), fake, d);
+      const lines = texts(ops);
+      const box = DESIGNS[d].content;
+      const top = extent(lines[0]).top - box.top;
+      const bottom = box.bottom - extent(lines.at(-1)!).bottom;
+      expect(Math.abs(top - bottom)).toBeLessThan(2);
+      expect(lines.map(said)).toContain('لم تكتمل قراءة بعد');
+    }
   });
 
   it('shrinks the type for the longest circle until it fits', () => {
-    const long = 'عبد الرحمن بن عبد العزيز الفلاني';
-    const eight: Member[] = [
-      ...Array.from(
-        { length: 6 },
-        (_, i): Member => ({
-          id: `p${i + 1}`,
-          kind: 'person',
-          name: `${long} ${i + 1}`,
-        }),
-      ),
-      { id: 'r1', kind: 'reciter', reciter: 'husary-muallim' },
-      { id: 'r2', kind: 'reciter', reciter: 'abdulbasit' },
-    ];
-    const text = card(eight);
-    const { ops, scale } = layoutCard(text, fake);
-    expect(scale).toBeLessThan(1);
-    const lines = texts(ops);
-    for (const op of lines) {
-      expect(op.x).toBeLessThanOrEqual(CONTENT.right);
-      expect(op.x - op.width).toBeGreaterThanOrEqual(CONTENT.left);
-      expect(op.y).toBeLessThan(CONTENT.bottom);
-    }
-    // Every name is drawn, the lead on the first line only.
-    const names = lines
-      .filter((op) => op.font.includes(FAMILIES.ui))
-      .map(said)
-      .join(' ');
-    expect(names).toContain(`الحاضرون: ${text.present!.names}`);
-    expect(lines.filter((op) => op.lead)).toHaveLength(1);
+    expect(layoutCard(card(eight), fake, 'ornate').scale).toBeLessThan(1);
+    expect(layoutCard(card(eight), fake, 'simple').scale).toBeLessThan(1);
   });
 });
 
