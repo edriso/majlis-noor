@@ -262,6 +262,16 @@
   margin: 0;
   text-wrap: balance;
 }
+/* The note's words at the interface's least size wherever the note has
+   room for them in two lines beside its button, a page 300px wide and up.
+   Below that (a phone, held upright, with the bars shown) they keep 11px:
+   at 14px they would take a fourth line, and the note's height is part of
+   `--page-height`, which it may not outgrow. */
+@container (min-width: 300px) {
+  .mushaf-note {
+    font-size: max(var(--text-xs), 3.2cqi);
+  }
+}
 
 /* The page's data could not load: the frame says so, at the size of the
    lines it stands in for. */
@@ -293,7 +303,9 @@
   background: transparent;
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: clamp(13px, 3.4cqi, 16px);
+  /* 14px fits beside the note on the smallest page, whose note is 45px
+     tall and holds the note's words in three lines of 11px. */
+  font-size: clamp(var(--text-xs), 3.4cqi, 16px);
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
