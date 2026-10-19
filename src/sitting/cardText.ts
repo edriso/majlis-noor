@@ -23,6 +23,9 @@ export type CardText = {
       is left out where the browser has no Umm al-Qura calendar, rather than
       showing the Gregorian twice. */
   dates: string[];
+  /** When it sat, under the date: «من الساعة ٧:٠٠ إلى ٧:٢٥ م», or only
+      when it closed, «الساعة ٧:٢٥ م», where its start is not known. */
+  time: string;
   /** From where to where; where the circle stopped, when a jump broke
       off what it read; or one gentle line when nothing was finished. */
   read: string[];
@@ -100,6 +103,58 @@ export function cardDates(at: number) {
   return [...hijri, gregorianFormat.format(day)].map((d) =>
     d.replace(/ هـ$/, `${NBSP}هـ`),
   );
+}
+
+const clockFormat = new Intl.DateTimeFormat('ar', {
+  numberingSystem: 'arab',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
+/**
+ * The time of day on a twelve-hour clock, as an Arabic phone shows it:
+ * «٧:٢٥» and «م» (ص before noon). From Intl where it gives Arabic-Indic
+ * digits and ص or م; built by hand where a browser's Arabic data is thin.
+ */
+export function clockTime(at: number) {
+  const day = new Date(at);
+  const parts = clockFormat.formatToParts(day);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  const [hour, minute, period] = [
+    part('hour'),
+    part('minute'),
+    part('dayPeriod'),
+  ];
+  if (/^[٠-٩]{1,2}$/.test(hour) && /^[٠-٩]{2}$/.test(minute))
+    if (period === 'ص' || period === 'م')
+      return { time: `${hour}:${minute}`, period };
+  const h = day.getHours();
+  const m = day.getMinutes();
+  return {
+    time: `${arabic(h % 12 || 12)}:${m < 10 ? arabic(0) : ''}${arabic(m)}`,
+    period: h < 12 ? 'ص' : 'م',
+  };
+}
+
+/**
+ * «من الساعة ٧:٠٠ إلى ٧:٢٥ م», the period said once where both ends share
+ * it and at each end where they do not (١١:٥٠ ص إلى ١٢:٢٠ م). Only the
+ * close, «الساعة ٧:٢٥ م», when how long it sat is not known (`lasted` is
+ * null) or under a minute, which would read «من ٧:٢٥ إلى ٧:٢٥». A time
+ * keeps its period and «الساعة» its time, on one line.
+ */
+export function timeLine(endedAt: number, lasted: number | null) {
+  const end = clockTime(endedAt);
+  const ended = `${end.time}${NBSP}${end.period}`;
+  if (lasted === null || lasted < 60_000) return `الساعة${NBSP}${ended}`;
+  const start = clockTime(endedAt - lasted);
+  const from =
+    start.period === end.period
+      ? start.time
+      : `${start.time}${NBSP}${start.period}`;
+  return `من الساعة${NBSP}${from} إلى ${ended}`;
 }
 
 /** «من سورة آل عمران، الآية ١ (الصفحة ٥٠)». */
@@ -184,6 +239,12 @@ export function cardText(summary: Summary, endedAt: number): CardText {
   return {
     title: CARD_TITLE,
     dates: cardDates(endedAt),
+    // The span only for one sitting; a halaqa taken up another day has no
+    // start the card can honestly give (see LONGEST).
+    time: timeLine(
+      endedAt,
+      sittingLength(summary.durationMs) ? summary.durationMs : null,
+    ),
     read: !summary.to
       ? [NOTHING_READ]
       : summary.from

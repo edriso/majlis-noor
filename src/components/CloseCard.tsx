@@ -145,6 +145,7 @@ export function CloseCard({
                 {d}
               </p>
             ))}
+            <p className="close-day-other close-time">{text.time}</p>
           </div>
           <Ornament />
           <div className="close-read">

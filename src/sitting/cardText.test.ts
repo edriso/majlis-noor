@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { joinNames } from '@/data/arabic';
 import { AYAH_COUNT, ayahIndex, firstAyahOfPage } from '@/data/mushaf';
 import {
@@ -13,10 +13,12 @@ import {
 import {
   cardDates,
   cardText,
+  clockTime,
   NOTHING_READ,
   presentLine,
   sittingLength,
   SUPPLICATION,
+  timeLine,
 } from './cardText';
 
 /* Every summary here is made the way the reading screen will make one:
@@ -70,6 +72,7 @@ describe('the close of a sitting', () => {
     expect(text).toEqual({
       title: 'ختام المجلس',
       dates: [g('الأحد، ٧ جمادى الأولى ١٤٤٨~هـ'), '١٨ أكتوبر ٢٠٢٦'],
+      time: g('من الساعة~٧:٠٠ إلى ٧:٢٥~م'),
       read: [
         g('من سورة آل عمران، الآية~١ (الصفحة~٥٠)'),
         g('إلى سورة آل عمران، الآية~٢٩ (الصفحة~٥٣)'),
@@ -135,6 +138,7 @@ describe('the close of a sitting', () => {
       cardText(summaryOf(state.session!, at(20, 0)), at(20, 0)),
     );
     expect(card.amount).toBe('صفحة واحدة · ٧ آيات');
+    expect(card.time).toBe('الساعة ٨:٠٠ م');
   });
 
   it('reads a khatm to the last ayah of the Mushaf', () => {
@@ -299,5 +303,63 @@ describe('who sat', () => {
       ...finish(1),
     );
     expect(named.present).toEqual({ label: 'في المجلس', names: 'مريم' });
+  });
+});
+
+describe('the time it closed', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('reads a twelve-hour clock in Arabic-Indic digits, with ص or م', () => {
+    expect(clockTime(at(19, 25))).toEqual({ time: '٧:٢٥', period: 'م' });
+    expect(clockTime(at(7, 5))).toEqual({ time: '٧:٠٥', period: 'ص' });
+    expect(clockTime(at(0, 10))).toEqual({ time: '١٢:١٠', period: 'ص' });
+    expect(clockTime(at(12, 0))).toEqual({ time: '١٢:٠٠', period: 'م' });
+    expect(clockTime(at(23, 59))).toEqual({ time: '١١:٥٩', period: 'م' });
+  });
+
+  it('builds the same by hand where Intl gives no Arabic clock', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([
+      { type: 'hour', value: '7' },
+      { type: 'literal', value: ':' },
+      { type: 'minute', value: '05' },
+      { type: 'literal', value: ' ' },
+      { type: 'dayPeriod', value: 'PM' },
+    ]);
+    expect(clockTime(at(19, 5))).toEqual({ time: '٧:٠٥', period: 'م' });
+    expect(clockTime(at(0, 30))).toEqual({ time: '١٢:٣٠', period: 'ص' });
+    expect(clockTime(at(10, 45))).toEqual({ time: '١٠:٤٥', period: 'ص' });
+  });
+
+  it('says from when to when, the period once where both ends share it', () => {
+    expect(timeLine(at(19, 25), 25 * 60_000)).toBe(
+      g('من الساعة~٧:٠٠ إلى ٧:٢٥~م'),
+    );
+    expect(timeLine(at(12, 20), 30 * 60_000)).toBe(
+      g('من الساعة~١١:٥٠~ص إلى ١٢:٢٠~م'),
+    );
+    // Past midnight, the day on the card is the day it closed.
+    expect(timeLine(at(0, 15), 40 * 60_000)).toBe(
+      g('من الساعة~١١:٣٥~م إلى ١٢:١٥~ص'),
+    );
+  });
+
+  it('says only when it closed when its start is unknown or a moment ago', () => {
+    expect(timeLine(at(19, 25), null)).toBe(g('الساعة~٧:٢٥~م'));
+    expect(timeLine(at(19, 25), 30_000)).toBe(g('الساعة~٧:٢٥~م'));
+  });
+
+  it('gives no start for a halaqa taken up again another day', () => {
+    const state = reduce(
+      reduce(initialState, {
+        type: 'start',
+        config: { ...defaultConfig, members: [you, fatima] },
+        at: START,
+      }),
+      { type: 'finishTurn' },
+    );
+    const nextDay = START + 26 * 60 * 60_000;
+    expect(cardText(summaryOf(state.session!, nextDay), nextDay).time).toBe(
+      g('الساعة~٩:٠٠~م'),
+    );
   });
 });
