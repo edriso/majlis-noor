@@ -13,7 +13,7 @@ import {
   Square,
   X,
 } from '@/components/icons';
-import { arabic } from '@/data/arabic';
+import { arabic, timesCount } from '@/data/arabic';
 import { pageOfAyah, surah, verseKey, verseOf } from '@/data/mushaf';
 import { reciterById } from '@/data/reciters';
 import {
@@ -252,7 +252,7 @@ export function AyahBar({
               })}
             >
               {icon(play.repeat, <RotateCcw size={20} aria-hidden="true" />)}
-              {action(play.repeat, `كرّر ${arabic(REPEAT)}`)}
+              {action(play.repeat, `كرّر ${timesCount(REPEAT)}`)}
             </button>
             {wordStart !== null ? (
               <button

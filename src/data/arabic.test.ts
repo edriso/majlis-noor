@@ -9,6 +9,7 @@ import {
   minutesCount,
   pagesCount,
   surahsCount,
+  timesCount,
 } from './arabic';
 
 describe('numbers', () => {
@@ -67,6 +68,13 @@ describe('counted time', () => {
     expect(hoursCount(2)).toBe('ساعتان');
     expect(hoursCount(3)).toBe('٣ ساعات');
     expect(hoursCount(11)).toBe('١١ ساعة');
+  });
+
+  it('counts times after a verb, in the accusative', () => {
+    expect(timesCount(1)).toBe('مرة واحدة');
+    expect(timesCount(2)).toBe('مرتين');
+    expect(timesCount(3)).toBe('٣ مرات');
+    expect(timesCount(11)).toBe('١١ مرة');
   });
 });
 

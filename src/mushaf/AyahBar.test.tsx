@@ -95,7 +95,7 @@ describe('the ayah bar', () => {
     expect(pageOfAyah(ayah)).toBe(50);
     await user.click(button('استمع'));
     expect(listen.play).toHaveBeenLastCalledWith('3:7', once);
-    await user.click(button('كرّر ٣'));
+    await user.click(button('كرّر ٣ مرات'));
     expect(listen.play).toHaveBeenLastCalledWith('3:7×3', once, { times: 3 });
   });
 

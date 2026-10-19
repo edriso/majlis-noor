@@ -64,6 +64,11 @@ export const minutesCount = (n: number) =>
 export const hoursCount = (n: number) =>
   counted(n, { one: 'ساعة واحدة', two: 'ساعتان', few: 'ساعات', many: 'ساعة' });
 
+/** Times, after a verb, «كرّر ٣ مرات», so the dual is the accusative
+    «مرتين». */
+export const timesCount = (n: number) =>
+  counted(n, { one: 'مرة واحدة', two: 'مرتين', few: 'مرات', many: 'مرة' });
+
 /** Seats in the circle, as a label. */
 export const seatsCount = (n: number) =>
   counted(n, { one: 'مقعد واحد', two: 'مقعدان', few: 'مقاعد', many: 'مقعدًا' });
