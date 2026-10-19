@@ -791,6 +791,10 @@ describe('the menu and the jump', () => {
       within(menu()).getByRole('button', { name: /إخفاء الأزرار/ }),
     );
     expect(document.querySelector('.reading[data-quiet]')).toBeTruthy();
+    // The menu's button went with the bars; the focus is on the way back.
+    expect(document.activeElement).toBe(
+      document.querySelector('.quiet-return'),
+    );
     // Whose turn it is is still said.
     expect(said()).toContain('دورك');
     act(() => {

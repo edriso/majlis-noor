@@ -1,4 +1,4 @@
-import { useId, useState, type Dispatch, type ReactNode } from 'react';
+import { useId, useRef, useState, type Dispatch, type ReactNode } from 'react';
 import { reciterById } from '@/data/reciters';
 import {
   placeOf,
@@ -76,12 +76,24 @@ export function SettingsPanel({
   const setPrefs = (p: Partial<Prefs>) => dispatch({ type: 'prefs', prefs: p });
   const configure = (config: Config) => dispatch({ type: 'configure', config });
 
+  // «إخفاء الأزرار» hides the menu's own button with the bars, so the
+  // focus the sheet gives back to it would fall to the page; once the
+  // menu has gone, it goes to the small button that brings the bars back.
+  const quieting = useRef(false);
+  const closed = () => {
+    if (quieting.current) {
+      quieting.current = false;
+      document.querySelector<HTMLElement>('.quiet-return')?.focus();
+    }
+    onClosed?.();
+  };
+
   if (picking)
     return (
       <Sheet
         open={open}
         onOpenChange={onOpenChange}
-        onClosed={onClosed}
+        onClosed={closed}
         title={picking.title}
         description={picking.description}
         onBack={() => setPicking(null)}
@@ -101,7 +113,7 @@ export function SettingsPanel({
       <Sheet
         open={open}
         onOpenChange={onOpenChange}
-        onClosed={onClosed}
+        onClosed={closed}
         title="عدّل الحلقة"
         description="من في الحلقة وكيف تقرأ. يُطبَّق كل تغيير فور اختياره، ويكمل صاحب الدور من موضعه."
         onBack={start === 'menu' ? () => setPlace('menu') : undefined}
@@ -120,7 +132,7 @@ export function SettingsPanel({
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      onClosed={onClosed}
+      onClosed={closed}
       title="القائمة"
       description="المجلس، والمظهر، والصوت. يُطبَّق كل اختيار فور اختياره."
     >
@@ -142,6 +154,7 @@ export function SettingsPanel({
         prefs={prefs}
         onChange={setPrefs}
         onQuiet={() => {
+          quieting.current = true;
           onOpenChange(false);
           onQuiet();
         }}
