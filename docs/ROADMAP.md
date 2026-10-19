@@ -10,6 +10,14 @@ each passing the four checks, each updating the documents it changes in the
 same pass (AGENTS.md, the area's AGENTS.md, the README's feature list in
 Arabic, NOTICE). Tick an item when it is merged.
 
+## Where it stands
+
+19 October 2026. Every phase is done but one item, 1.6, the content
+security policy. 1,030 tests pass, and the main script is 113 KB of
+JavaScript gzipped, under the budget below, though the app does a great
+deal more; the stylesheet is 13 KB. What is still open, and what is known
+to be rough, is listed under *Still open* at the end.
+
 ## Where we start
 
 October 2026. 196 tests pass, lint and format are clean, the build is 114 KB
@@ -37,15 +45,15 @@ four themes, and reading what the community wrote:
 3. **Ending a halaqa loses the place.** `end` drops the session, and the next
    halaqa starts where the last one *began*.
 4. **The start screen is a long form.** Six groups of choices, all with
-   defaults, put «ابدأ الحلقة» 1,034px down a phone on a first visit.
+   defaults, put the start button 1,034px down a phone on a first visit.
 5. **Whose turn it is is quiet.** «دورك» is 14px in the corner of the top
    bar; on a desktop it sits 1,100px from the controls, and nothing marks
    the moment a turn passes, which is what the app exists for.
 6. **Wide screens waste their room.** At 1440×900 the page takes 28% of the
    width; the rest is wallpaper.
 7. **Settings has become a drawer for everything**: the halaqa form again,
-   the jump again, appearance, sound, keyboard, about, and «إنهاء الحلقة»
-   at the bottom of 2,700px on a phone.
+   the jump again, appearance, sound, keyboard, about, and the end of the
+   sitting at the bottom of 2,700px on a phone.
 8. **Four hosts at run time**, two of them Google's, one render-blocking.
 9. **The data's terms have changed.** Quran Foundation, which runs
    Quran.com and QuranicAudio, updated its
@@ -66,12 +74,13 @@ Itqan community. The README thanks each of them by name.
 | Request | From | Where |
 | --- | --- | --- |
 | Mark the word or phrase being read, using recitation timings | علي ملص، دينا أحمد | 3.4, 5.2 |
-| Turns by ayah or surah, not only by page | علي ملص، دينا أحمد | 3.2 |
+| Turns by ayah or surah, not only by page | علي ملص | 3.2 |
+| Turns by ayat or by hizb quarter, for those beginning | دينا أحمد | 3.2 |
 | Turns by a number of ayat | خالد بن أحمد، علا صالح | 3.2 |
 | More than four in the circle | علي ملص | 4.3 |
 | A teaching circle: the sheikh recites, the students repeat; stop at a place and repeat it | دينا أحمد | 3.5, 3.6 |
 | Two readers alternating ayat, swapping who starts each page or surah | علا صالح | 4.4 |
-| Where a sitting starts and ends, and a summary at its close kept on the device without an account | علا صالح | 4.1, 4.2 |
+| Where a sitting starts and ends, and a summary at its close (from where to where, pages or ayat, how long, who was there) kept on the device without an account | علا صالح | 4.1, 4.2 |
 | The close of a sitting saved as a picture on the device | محمد إدريس | 4.2 |
 | Hear one ayah alone when unsure how a word is read | محمد إدريس | 3.5 |
 | Turns by phrase or by topic; timings from Munajjam; reading together from several devices | علي ملص، خالد بن أحمد، هادي الأحمد | *Not in this revamp* |
@@ -103,7 +112,7 @@ Sharpened:
 - **Two hosts at run time, both Quran Foundation's:** the recordings, which
   are too large to carry, and the page fonts. Everything else comes from
   the app's own origin.
-- **No run-time dependency but React.** Base UI and lucide go in phase 1.
+- **No run-time dependency but React.** Base UI and lucide went in phase 1.
   A dependency added later needs a reason in AGENTS.md why there was no way
   around it.
 - **The app keeps no history.** The close of a sitting shows what was read,
@@ -146,39 +155,48 @@ Small fixes, first, because every later phase builds on them.
 - [x] **0.3 A page that cannot load says so.** `usePage.ts` swallows the
   error and leaves the skeleton up with `aria-busy` forever. Show «هذه
   الصفحة غير محفوظة على جهازك بعد» with a retry.
-- [ ] **0.4 Ending keeps the place.** `end` writes the current page into
-  `config.startPage`, so the next halaqa starts where this one stopped
-  (`state.ts:238`, test in `state.test.ts`). Until 4.2 exists, «إنهاء
-  الحلقة» asks once.
-- [ ] **0.5 Playback edges.** The timer says «بقي أقل من ثانية» while
+- [x] **0.4 Ending keeps the place.** `end` writes where the circle
+  stopped (`nextStart`, al-Fatihah after a khatm) into `config.start`, so
+  the next sitting starts there (test in `state.test.ts`). «إنهاء المجلس»
+  no longer asks once: it opens the close card (4.2), whose «إنهاء» ends
+  the sitting.
+- [x] **0.5 Playback edges.** The timer says «بقي أقل من ثانية» while
   timings are still loading (`ActionBar.tsx:245`); `prime()` returns early
   once primed, so a later `blocked` is not resumed by a tap anywhere
   (`player.ts:215`); a sample that fails says nothing
   (`useRecitation.ts:308`); a reciter's turn whose audio fails stalls with
-  no hint to skip.
-- [ ] **0.6 What screen readers and reduced motion miss.** Under reduced
+  no hint to skip. Now: «جارٍ تحميل التوقيت»; any press plays a blocked
+  recitation; a sample that fails says so on its row; a failed turn
+  offers «تخطَّ» and a retry, and 20 seconds with nothing arriving counts
+  as failed.
+- [x] **0.6 What screen readers and reduced motion miss.** Under reduced
   motion the round toast ends on its last keyframe, opacity 0, so it is
   never seen (`reading.css:358`). Round completion and recitation errors
   are not announced (`ReadingScreen.tsx:245`). The repeat mode's `skipped`
-  seat is computed and never shown or said (`HalaqaCircle.tsx:105`).
-- [ ] **0.7 Focus survives a turn change.** The main button is a different
+  seat is computed and never shown or said (`HalaqaCircle.tsx:105`). Now
+  the toast shows without motion, a notice region says rounds and errors,
+  and the seat says «لم تُقرأ».
+- [x] **0.7 Focus survives a turn change.** The main button is a different
   component on a reader's turn and a reciter's, so passing between them
   drops focus to `body`. Keep one element and change what it says.
-- [ ] **0.8 Label in name (WCAG 2.5.3).** The pages-per-turn radios show
+- [x] **0.8 Label in name (WCAG 2.5.3).** The pages-per-turn radios show
   «١» and are named «صفحة واحدة»; the recitation, listen and timer buttons
   are named differently from what they show. The accessible name starts
   with the visible words. `app.test.tsx` gains the check.
-- [ ] **0.9 Hygiene.**
+- [x] **0.9 Hygiene.**
   - The repository's address is written into `SettingsPanel.tsx:158,169`.
     The workflow passes it as `VITE_REPO_URL`, as it does the site's.
   - Theme colours are written in five places. Keep one map in TypeScript
-    and let Vite write `index.html`'s from it.
-  - Remove what nothing uses: `isPastEnd`, `surahTitle`, `LINES_PER_PAGE`,
-    `readersCount`, `averagePage`, the `Sheet` `wide` prop,
-    `.field-label-small`, the `matchMedia` shim in `test-setup.ts`.
-    `rubOfPage` and the quarter field in `mushaf.json` are unused too, but
-    3.1 needs them; keep them until then.
-  - `mushaf.css:30` writes a colour of its own; take it from a token.
+    (`src/styles/themes.ts`) and let Vite write `index.html`'s from it.
+  - Remove what nothing uses: `isPastEnd`, `LINES_PER_PAGE`,
+    `readersCount`, the `Sheet` `wide` prop, `.field-label-small`, and the
+    quarter field in `mushaf.json`, which 3.1 replaced. Kept, because they
+    came back into use: `surahTitle` (the labels), `averagePage` (an
+    untimed page's length) and `rubOfPage`. The `matchMedia` shim in
+    `test-setup.ts` stays: `Sheet` and `saveImage` call `matchMedia`, and
+    jsdom has none.
+  - `mushaf.css:30` writes a colour of its own; take it from a token
+    (`--paper-edge`).
 
 Done when each has its test, and a phone in airplane mode opens the app and
 the last pages read, after one online visit.
@@ -206,7 +224,7 @@ Fewer hosts, fewer packages, nothing render-blocking.
   `font-display: swap` for the interface, `unicode-range` to split Arabic
   from Latin, and a preload (through `%BASE_URL%`, with `crossorigin`) only
   for Reem Kufi, which draws the boot screen, and the body weight.
-- [ ] **1.2 The page fonts (D3).** The 604 QCF v2 fonts are 93 MiB in
+- [x] **1.2 The page fonts (D3).** The 604 QCF v2 fonts are 93 MiB in
   all, 41 KB to 227 KB each (170 KB median), served byte for byte the same
   by Quran.com's and Tarteel's hosts, with open CORS and a year's cache. The
   King Fahd Complex lets its fonts be used, copied and distributed free,
@@ -219,7 +237,9 @@ Fewer hosts, fewer packages, nothing render-blocking.
   every page font it has fetched. If Quran Foundation later agrees to more,
   the deploy workflow can download the fonts, check each against a
   committed list of SHA-256 hashes, and put them in the built site without
-  ever committing them to git.
+  ever committing them to git. Done for this revamp: fetched with two
+  retries, the honest fallback, and a service worker cache no version
+  drops. Carrying them waits on Quran Foundation (*Not in this revamp*).
 - [x] **1.3 A native dialog.** `Sheet.tsx` is the only use of Base UI, and
   Base UI is 9 packages and about 53 KB of the bundle. A `<dialog>` opened
   with `showModal()` (every browser since Safari 15.4 and Firefox 98) gives
@@ -255,6 +275,9 @@ Fewer hosts, fewer packages, nothing render-blocking.
   made from. So the timings files record each surah file's length and
   `last-modified`, `check:audio` compares them, and a weekly workflow runs
   it: a replaced or moved recording is found before a reader finds it.
+  The timings also keep how long each file plays, measured from its first
+  frames, and list the surah files that no longer fit their timings and
+  the ayat misplaced in those that do, which the app never plays.
 
 Done when the app's only run-time host besides its own origin is the audio
 host (and the page fonts' if D3 says so), and `package.json` lists React
@@ -270,7 +293,7 @@ above the page; one generous action below it. Gold only for the current
 reader and the main action. Type a size larger than feels necessary for
 Arabic. No duplicate controls.
 
-- [ ] **2.1 Tokens.** A type scale with a floor of 15px for text and 14px
+- [x] **2.1 Tokens.** A type scale with a floor of 15px for text and 14px
   for metadata (today notes are 13px and hints 12.5px); a line height of
   1.7 for prose and 1.4 inside controls, which ends the orphans in the
   choice cards; a spacing scale; no `letter-spacing` on Arabic. The carpet
@@ -278,57 +301,65 @@ Arabic. No duplicate controls.
   screen loses it, the start screen keeps one faint motif at most. Sand
   gets a deeper ground so the page keeps its edge. `contrast.test.ts`
   covers every new pair, including `color-mix()` results.
-- [ ] **2.2 A start screen that fits.** On a 390×844 phone, a first visit
+- [x] **2.2 A start screen that fits.** On a 390×844 phone, a first visit
   shows everything needed above the fold: a one-line header, «من أين
-  نبدأ؟», the circle, and «ابدأ الحلقة», which sticks to the bottom. How
+  نبدأ؟», the circle, and «ابدأ المجلس», which sticks to the bottom. How
   the circle reads (continue or repeat, how much per turn, manual or
-  timed, the allowance) folds into one summary row, «التتابع · صفحة · يدوي»,
+  timed, the allowance) folds into one summary row, «كلٌّ يُكمل · صفحة ·
+  بضغطة «تمّ»»,
   that opens a sheet. A lone «أنت» shows no disabled arrows, and its field
   says «اسمك (اختياري)». The resume card stays first.
-- [ ] **2.3 One word for each thing.** «قارئ» is always a person in the
+- [x] **2.3 One word for each thing.** «قارئ» is always a person in the
   room, «شيخ» always a recording. «بتوقيت قارئ» becomes «بتوقيت الشيخ»;
   the listening and timing sheikh is chosen inside the timed option and
   from «استمع», not as a separate row; the teaching recording is named
   «الحصري (المعلّم)». Also: «الدور على: أنت» → «دورك»; reading alone,
   «تمّ — متابعة» → «الصفحة التالية»; «بداية المجلس» → «لم تُقرأ صفحة بعد».
-- [ ] **2.4 The turn, visible.** A turn strip above the page (beside it on
+  And «المجلس» is the sitting («ابدأ المجلس»، «إنهاء المجلس»), «الحلقة»
+  the people («أهل الحلقة»، «عدّل الحلقة»); the two ways of reading are
+  «كلٌّ يُكمل» and «كلٌّ يكرّر», and a manual turn passes «بضغطة «تمّ»».
+- [x] **2.4 The turn, visible.** A turn strip above the page (beside it on
   a wide screen): the current reader's avatar and name at 20–24px, «ثم
   فاطمة» muted after it. When the turn passes, the strip changes with one
   400ms motion and the gold ring moves; under reduced motion it changes at
   once. The jump gets a visible chip, «ص ٥٠», instead of an invisible
   button the width of the bar.
-- [ ] **2.5 One of each control.** The page row beside «تمّ» becomes a slim
+- [x] **2.5 One of each control.** The page row beside «تمّ» becomes a slim
   progress line; a timed turn shows its clock once, not three times;
   «القارئ السابق» is not shown on the first turn; swipe turns the page the
   way an Arabic book turns, as the arrow keys do. The keyboard list shows
   only on devices with a fine pointer.
-- [ ] **2.6 Wide screens (D5).** When the room is wide, two pages side by
+- [x] **2.6 Wide screens (D5).** When the room is wide, two pages side by
   side as the Mushaf opens: the odd page on the right, as print has it, the
   turn's pages marked. Controls scale with `clamp()` instead of staying at
   14px on a 2560px screen. The jump opens as a centred dialog on a
   desktop, not a full-height drawer.
-- [ ] **2.7 Settings on a diet.** Settings keeps appearance, sound and
+- [x] **2.7 Settings on a diet.** Settings keeps appearance, sound and
   about. The circle is changed from the circle view («عدّل الحلقة»), the
-  place from the jump, and «إنهاء المجلس» moves to the top bar.
-- [ ] **2.8 Reading at any size (WCAG 1.4.4).** Today the page fits its
+  place from the jump. «إنهاء المجلس» went to the top of the menu, under
+  «المجلس», rather than to the top bar, where it would sit beside the turn.
+- [x] **2.8 Reading at any size (WCAG 1.4.4).** Today the page fits its
   room whole, so browser zoom barely enlarges it. A page-size setting,
   «الصفحة كاملة» or «بعرض الشاشة», lets the page fill the width and scroll.
-- [ ] **2.9 Quiet modes.** A button hides the bars (a tap on the page is
-  kept for 3.5's ayah); a phone on its side hides them on its own; the
-  Fullscreen API where the browser has it.
-- [ ] **2.10 Follow the system.** A first visit takes sand if the system is
+- [x] **2.9 Quiet modes.** A button hides the bars (a tap on the page is
+  kept for 3.5's ayah), and the Fullscreen API where the browser has it.
+  A phone on its side first hid them on its own; that left whose turn it
+  was out of sight, so it keeps them instead, as rails beside the page.
+- [x] **2.10 Follow the system.** A first visit takes sand if the system is
   light and green if it is dark (`prefers-color-scheme`, in the inline boot
-  script); `<meta name="color-scheme">` and a `theme-color` per scheme.
+  script); `<meta name="color-scheme">` and a `theme-color` that follows
+  the theme's ground.
   Forced colours: the active seat, progress and every new highlight use
   system colours (`Highlight`, `Mark`) with an outline, never a background
   alone.
-- [ ] **2.11 The khatm.** The most meaningful moment in the app gets the
+- [x] **2.11 The khatm.** The most meaningful moment in the app gets the
   Mushaf's own ornament and a quiet layout, not a generic card.
-- [ ] **2.12 Code that fits in a head.** `ReadingScreen.tsx` (546 lines)
+- [x] **2.12 Code that fits in a head.** `ReadingScreen.tsx` (546 lines)
   splits into a `useTurn` hook (what the turn is, its clock, recitation and
   listen), `useReadingKeys` (one listener, with `useEffectEvent`, bound
   once instead of on every render), and `TopBar`, `TurnStrip`,
-  `MushafView`, `CircleView`, `TurnActions`, `JumpSheet` and `Khatm`. The
+  `MushafView`, `CircleView`, `TurnActions`, `JumpSheet` and the end's
+  card (`Completion`). The
   clock's four ticks a second re-render only the clock (a
   `useSyncExternalStore` subscription), not the page. The announcement
   text moves into `labels.ts` and gets tests. `reading.css` (780 lines) and
@@ -356,7 +387,7 @@ times; `build-timings.ts` reads them and keeps only page stretches.
   recording, about 15 KB gzipped per reciter; the API's own `duration`
   field is wrong in places (negative for al-Shatri and al-Husary at 1:1),
   so ends come from the timestamps. The Quran's text is not touched.
-- [ ] **3.2 Units.** `schedule.ts` counts in units instead of pages:
+- [x] **3.2 Units.** `schedule.ts` counts in units instead of pages:
   `Plan = { readers, mode, unit, size }` with `unit` one of `page`,
   `ayah`, `rub` or `surah`, and `Anchor = { turn, at }`. A new pure
   `rangeOf(plan, anchor, turn)` gives the turn's ayat as a half-open range,
@@ -364,24 +395,25 @@ times; `build-timings.ts` reads them and keeps only page stretches.
   do not change. `sanitizeState()` reads the old shape (`pagesPerTurn`,
   `anchor.page`) as `unit: 'page'`. The repeat branch of `configure` is the
   delicate part: its cases are copied for each unit. In the interface the
-  choice stays small: «صفحة» (one to three), «آيات» (one, three or five),
-  «ربع حزب», «سورة».
-- [ ] **3.3 The turn on the page.** The turn's ayat are marked on the page
+  choice stays small: «صفحة» (one to three), «آيات» (one, two, three,
+  five or ten), «ربع حزب», «سورة».
+- [x] **3.3 The turn on the page.** The turn's ayat are marked on the page
   with a soft underline (lines are justified edge to edge, so a background
   would leave gaps). The turn strip says «الآيات ٥–٩». When a turn of ayat
   runs onto the next page, the page turns with it.
-- [ ] **3.4 Following the sheikh.** During a sheikh's turn and «استمع», the
+- [x] **3.4 Following the sheikh.** During a sheikh's turn and «استمع», the
   ayah being recited is marked. The player exposes its position; the
   per-ayah times map it to a verse key. Timings are good to about 300ms,
   so the mark leads softly and fades rather than snapping; under reduced
   motion it does not fade.
-- [ ] **3.5 One ayah alone.** Tap a word and its ayah is selected; a small
-  bar offers «استمع إلى الآية» and «كرّر ثلاثًا», and closes with Escape or
-  a tap outside. A sheikh's turn pauses for it and carries on after, as a
+- [x] **3.5 One ayah alone.** Tap a word and its ayah is selected; a small
+  bar offers «استمع» and «كرّر ٣ مرات» (and «انسخ الآية», which copies its
+  text and where it is), and closes with Escape or a tap outside. A sheikh's turn pauses for it and carries on after, as a
   sample does today. For the keyboard and screen readers, each ayah's end
-  marker is a button named «الآية ٧، آل عمران: استمع» (an inline target,
+  marker is a button named «الآية ٧ من سورة آل عمران — استمع إليها» (an
+  inline target,
   which WCAG 2.5.8 allows).
-- [ ] **3.6 The teaching circle, obvious.** Repeat mode, ayat as the unit,
+- [x] **3.6 The teaching circle, obvious.** Repeat mode, ayat as the unit,
   and «الحصري (المعلّم)» in the first seat already make talqeen: the sheikh
   recites a few ayat, then each student reads them. Offer it as one choice
   on the start screen, «حلقة تلقين», that sets those three.
@@ -392,38 +424,43 @@ fall inside their page's stretch, and every new control has a name.
 
 ## Phase 4. The sitting
 
-- [ ] **4.1 Start and end.** `start` records the time and place it began
+- [x] **4.1 Start and end.** `start` records the time and place it began
   (the time comes in the action, so the reducer stays pure). An optional
   goal, «إلى أين؟»: the end of the surah, the end of the juz, a page, or
   none. The 604 cut-off generalises to the goal; reaching it shows
-  «بلغتم الغاية» with «تابعوا» and «اختموا المجلس».
-- [ ] **4.2 The close.** «إنهاء المجلس» shows a summary card: from where to
-  where (surah, ayah and page), how many pages and ayat, how long, and who
-  sat. The close of a gathering has its own supplication, «سبحانك اللهم
+  «بلغتم الغاية» with «تابعوا» and «إنهاء المجلس».
+- [x] **4.2 The close.** «إنهاء المجلس» shows a summary card, «ختام
+  المجلس»: from where to where (surah, ayah and page; «وقفتم عند …» when
+  a jump broke what was read), how many pages and ayat, how long, from
+  what time to what time, the Hijri and Gregorian dates, and who sat. The close of a gathering has its own supplication, «سبحانك اللهم
   وبحمدك، أشهد أن لا إله إلا أنت، أستغفرك وأتوب إليك», which ends the card.
   «احفظ صورة» draws the same card on a `<canvas>` (no library: the page's
   own fonts, right to left) and hands the picture to the system's share
   sheet where it takes files, or downloads it as a PNG otherwise, so it
   lands in the reader's photos or files. It is made on the device and sent
-  nowhere. The app keeps nothing once the card is closed (D2).
-- [ ] **4.3 More seats (D1).** `MAX_MEMBERS` becomes eight. Member ids are
+  nowhere. Three designs, chosen on the card and kept on the device: مزخرفة
+  (framed, 4:5), حالة (9:16, inside a status's safe band) and بسيطة (a
+  square). The app keeps nothing once the card is closed (D2).
+- [x] **4.3 More seats (D1).** `MAX_MEMBERS` becomes eight. Member ids are
   checked by `^[pr]\d+$` and a bound, not a character class that breaks at
   ten. Seat angles are computed (`90 - 180/n`, then `360/n` apart), which
-  reproduces today's four. From seven on a phone the circle shows names
-  only for the current and next reader and initials for the rest.
-- [ ] **4.4 Swapping who starts.** For two or more readers taking ayat in
+  reproduces today's four. Narrow circles show short names, the seats at
+  either side of a large circle are named beside their faces, and under
+  300px those show faces alone. A face's initial looks past «أبو», «عبد»
+  and the article, and each reader has a tint, so two alike still differ.
+- [x] **4.4 Swapping who starts.** For two or more readers taking ayat in
   turn: «بدّل البادئ مع كل صفحة» (or surah). This is the one feature that
   breaks the rule that the reader is `turn % members`. Do it in the reducer
   instead: at the first turn of a new page, skip the turn counter forward
   to the seat after the last page's first reader and re-anchor there; give
   «القارئ السابق» across that line its own tests.
-- [ ] **4.5 From memory.** For review circles like the Somali one: on a
-  reader's turn the page is covered, and a tap or a key uncovers it to
-  check. One choice in the circle's sheet.
+- [x] **4.5 From memory.** For review circles like the Somali one: on a
+  reader's turn the page is covered, saying where the turn begins, and a
+  tap or a key uncovers it to check. One choice in the circle's sheet.
 
 ## Phase 5. Word by word
 
-- [ ] **5.1 The data.** The response `build-timings.ts`
+- [x] **5.1 The data.** The response `build-timings.ts`
   already fetches carries word segments for all ten reciters,
   `[word, fromMs, toMs]` per ayah, with absolute times in the surah file.
   Two things to know: when a reciter stops and goes back (waqf and
@@ -442,18 +479,22 @@ fall inside their page's stretch, and every new control has a name.
   | al-Shatri | 6,009 | weakest: 4,154 gaps over 300ms |
 
   The script drops malformed entries, clamps each word to its ayah, keeps
-  repeats in time order, and writes one file per reciter per page (about
-  1 KB, 450 bytes gzipped) so a page loads only its own. Where an ayah's
+  repeats in time order, and writes one file per reciter per surah
+  (`public/words`, 1,140 files, 2.8 MB gzipped in all), fetched only when a
+  recitation is followed word by word. The coverage built, which
+  `timings.test.ts` holds as a floor, runs from 5,993 ayat (al-Afasy) to
+  6,222 (al-Dosari). Where an ayah's
   words are not fully covered, that ayah falls back to the ayah mark of
   3.4; the timings test reports coverage per reciter so a regression shows.
   Internally the script works in the shape of QUD³'s open benchmark (a
   time-ordered list of `{ word: "84:1:1", start, end }`), so its results
   can be scored against it.
-- [ ] **5.2 Following the word.** An option, «تتبّع الكلمة»: during a
+- [x] **5.2 Following the word.** An option, «تتبّع الكلمة»: during a
   sheikh's recitation the word being read is marked, with the same soft
   lead as the ayah (word timings are good to about 300ms, the benchmark's
   own tolerance). Off while paused, still under reduced motion.
-- [ ] **5.3 Play from a word.** In 3.5's bar: «استمع من هذه الكلمة».
+- [x] **5.3 Play from a word.** In 3.5's bar: «من هذه الكلمة».
+
 ## Not in this revamp
 
 Each of these was asked for and is a good idea; each was left out on
@@ -487,7 +528,7 @@ purpose, so the reason is written down.
 
 ## Dependencies
 
-| Today | After | Why |
+| Before | Now | Why |
 | --- | --- | --- |
 | React, React DOM | kept | the app |
 | `@base-ui/react` (dialog) | native `<dialog>` (1.3) | one component, 9 packages |
@@ -511,12 +552,15 @@ These hold for every pull request in every phase.
   the Chrome installed on the machine, as `make-assets.ts` already does,
   through its DevTools protocol (Node has `WebSocket` built in), so it adds
   no dependency. It checks the sizes AGENTS.md lists (320×568 to
-  2560×1440), in each view and turn kind: no horizontal overflow, the page
-  whole, no seat off the screen, the main button's words whole, and in
-  text mode no clipped line (0.1). Run it before any layout change.
-- **A budget.** The main script does not grow past today's 114 KB gzipped,
-  though the app does more: Base UI and the page map leave room for what
-  comes. The page is drawn within two seconds on a mid phone on 4G.
+  2560×1440, three of them a phone on its side), in each view and turn
+  kind, 99 screens: no horizontal overflow, the page whole, the spread, no
+  seat off the screen, the main button's words whole, targets and type in
+  the bars, and in text mode no clipped line (0.1). Run it before any
+  layout change.
+- **A budget.** The main script does not grow past 114 KB gzipped, the
+  size it started the revamp at (113 KB at its end), though the app does
+  more: Base UI and the page map left room for what came. The page is
+  drawn within two seconds on a mid phone on 4G.
 - **The documents move with the code,** in the same pull request.
 
 ## Order
@@ -535,3 +579,21 @@ summary counts ayat. Phase 5 follows 3.4.
 | 3. By the ayah | large | 2, for 3.3 to 3.6 |
 | 4. The sitting | medium; 4.4 is delicate | 3 |
 | 5. Word by word | medium | 3.4 |
+
+## Still open
+
+- **1.6, a content security policy.** Not started.
+- **The data's terms.** The maintainer's letter to Quran Foundation (point
+  9 above), and with its answer, whether the page fonts may be carried
+  (D3).
+- **The README's screenshots** are being taken afresh for the new screens.
+- **Known rough edges:**
+  - the reciter list loads every reciter's timings as it opens, about
+    230 KB gzipped, to show each pace and sample al-Fatiha;
+  - a reciter whose timings are still downloading when the close card is
+    opened starts when they arrive;
+  - a second tab left on an old version may fail to load a file the new
+    version's deploy removed (rare: the worker waits for every old tab);
+  - the ayah markers add 10 to 27 Tab stops a page;
+  - Safari and Firefox have not been tested by hand; Safari before 17.5
+    opens a sheet without its entry animation.
