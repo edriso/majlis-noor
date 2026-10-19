@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { joinNames } from '@/data/arabic';
 import { AYAH_COUNT, ayahIndex, firstAyahOfPage } from '@/data/mushaf';
 import {
   defaultConfig,
@@ -12,7 +13,6 @@ import {
 import {
   cardDates,
   cardText,
-  joinNames,
   NOTHING_READ,
   presentLine,
   sittingLength,
@@ -64,7 +64,7 @@ describe('the close of a sitting', () => {
         'إلى سورة آل عمران، الآية ٢٩ (الصفحة ٥٣)',
       ],
       amount: '٤ صفحات · ٢٩ آية · ٢٥ دقيقة',
-      present: { label: 'الحاضرون', names: 'أنت، فاطمة، والشيخ الحصري' },
+      present: { label: 'الحاضرون', names: 'أنت وفاطمة والشيخ الحصري' },
       supplication: [
         'سبحانك اللهم وبحمدك،',
         'أشهد أن لا إله إلا أنت،',
@@ -238,7 +238,11 @@ describe('who sat', () => {
   it('joins names as Arabic lists them', () => {
     expect(joinNames(['أنت'])).toBe('أنت');
     expect(joinNames(['أنت', 'فاطمة'])).toBe('أنت وفاطمة');
-    expect(joinNames(['أنت', 'فاطمة', 'عمر'])).toBe('أنت، فاطمة، وعمر');
+    // Every name after the first takes «و», not a comma.
+    expect(joinNames(['أبو أحمد', 'سارة', 'الشيخ الحصري'])).toBe(
+      'أبو أحمد وسارة والشيخ الحصري',
+    );
+    expect(joinNames([])).toBe('');
   });
 
   it('names sheikhs as sheikhs, and one seated twice once', () => {
@@ -249,7 +253,7 @@ describe('who sat', () => {
     }));
     expect(presentLine(sitters)).toEqual({
       label: 'الحاضرون',
-      names: 'أنت، فاطمة، عمر، والشيخ الحصري',
+      names: 'أنت وفاطمة وعمر والشيخ الحصري',
     });
     expect(
       presentLine([

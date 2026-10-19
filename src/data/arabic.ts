@@ -105,3 +105,9 @@ export const ordinal = (n: number) => ordinals[n - 1] ?? arabic(n);
  */
 export const genitive = (name: string) =>
   name.replace(/(^|\s)(و?)أبو(?=\s)/g, '$1$2أبي');
+
+/** «أنت وفاطمة», «أبو أحمد وسارة والشيخ الحصري»: a list of names as Arabic
+    says it, every one after the first joined by «و», not by commas. */
+export function joinNames(names: readonly string[]) {
+  return names.join(' و');
+}

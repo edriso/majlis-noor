@@ -102,7 +102,7 @@ describe('laying out the card', () => {
       ...text.dates,
       ...text.read,
       text.amount,
-      'الحاضرون: أنت، فاطمة، والشيخ الحصري',
+      'الحاضرون: أنت وفاطمة والشيخ الحصري',
       ...text.supplication,
     ]);
     expect(ops.filter((op) => op.kind === 'rule')).toHaveLength(2);

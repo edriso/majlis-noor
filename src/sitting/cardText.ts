@@ -10,6 +10,7 @@ import {
   arabic,
   ayatCount,
   hoursCount,
+  joinNames,
   minutesCount,
   pagesCount,
 } from '@/data/arabic';
@@ -116,14 +117,6 @@ export function sittingLength(ms: number | null) {
   const h = hours === 1 ? 'ساعة' : hoursCount(hours);
   if (!minutes) return hours === 1 ? hoursCount(1) : h;
   return `${h} و${minutes === 1 ? 'دقيقة' : minutesCount(minutes)}`;
-}
-
-/** «أنت وفاطمة», «أنت، فاطمة، والشيخ الحصري»: the Arabic list, whose last
-    item takes «و». */
-export function joinNames(names: readonly string[]) {
-  if (names.length <= 1) return names.join('');
-  if (names.length === 2) return `${names[0]} و${names[1]}`;
-  return `${names.slice(0, -1).join('، ')}، و${names[names.length - 1]}`;
 }
 
 /** Whether the circle is only the unnamed «أنت». */
