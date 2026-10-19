@@ -185,7 +185,7 @@ describe('where the sitting starts', () => {
     expect(goalNote({ to: 'page', page: 10 }, imran)).toMatch(
       /^هذه الصفحة قبل موضع البدء/,
     );
-    expect(goalNote({ to: 'none' }, imran)).toBe('يقرأ المجلس حتى تنهوه أنتم.');
+    expect(goalNote({ to: 'none' }, imran)).toBe('تقرؤون حتى تُنهوا المجلس.');
   });
 });
 

@@ -16,7 +16,7 @@ const startWith = async (config: object = {}) => {
   localStorage.setItem('majlis-noor:v1', JSON.stringify({ config }));
   const user = userEvent.setup();
   render(<App />);
-  await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+  await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
   return user;
 };
 
@@ -60,8 +60,8 @@ describe('closing a sitting from the menu', () => {
     await endFromMenu(user);
     await user.click(within(card()).getByRole('button', { name: 'إنهاء' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByRole('button', { name: /ابدأ الحلقة/ })).toBeTruthy();
-    expect(screen.queryByRole('region', { name: 'تابع حلقتك' })).toBeNull();
+    expect(screen.getByRole('button', { name: /ابدأ المجلس/ })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'تابع مجلسك' })).toBeNull();
     expect(
       screen.getByRole('button', { name: /غيّر موضع البدء$/ }).textContent,
     ).toContain('الصفحة ٢');
@@ -155,6 +155,6 @@ describe('closing a sitting at its end', () => {
     await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
     expect(card().textContent).toContain('إلى سورة الناس، الآية ٦ (الصفحة ٦٠٤)');
     await user.click(within(card()).getByRole('button', { name: 'إنهاء' }));
-    expect(screen.getByRole('button', { name: /ابدأ الحلقة/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /ابدأ المجلس/ })).toBeTruthy();
   });
 });

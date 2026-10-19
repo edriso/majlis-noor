@@ -33,11 +33,11 @@ type Panel =
 
 /**
  * The first screen, every time the app opens: the name, and the three
- * questions a halaqa needs answered, each with a default, so «ابدأ الحلقة»
+ * questions a halaqa needs answered, each with a default, so «ابدأ المجلس»
  * works on arrival. Where to start and how the circle reads are one row
  * each, showing what is chosen and opening where it is changed; who sits is
  * on the screen itself, since that is what changes from one sitting to the
- * next. «ابدأ الحلقة» stays at the foot of the screen however long the
+ * next. «ابدأ المجلس» stays at the foot of the screen however long the
  * circle grows. On a phone, a first visit fits without scrolling.
  *
  * A halaqa left open (the page refreshed, the phone locked) is offered first,
@@ -193,7 +193,7 @@ export function SetupScreen({
               type="submit"
               className="button button-primary button-block button-large"
             >
-              ابدأ الحلقة
+              ابدأ المجلس
               <ArrowLeft size={20} aria-hidden="true" />
             </button>
           </div>
@@ -295,7 +295,7 @@ function Resume({
   return (
     <section className="resume" aria-labelledby="resume-title">
       <h2 id="resume-title" className="resume-title">
-        تابع حلقتك
+        تابع مجلسك
       </h2>
       <p className="resume-summary">
         <span className="resume-page">{place}</span>

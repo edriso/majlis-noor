@@ -69,7 +69,7 @@ describe('a new version of the app', () => {
     expect(screen.getByText(NOTICE).closest('output')).toBeTruthy();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+    await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
     expect(screen.queryByText(NOTICE)).toBeNull();
     expect(button()).toBeNull();
   });

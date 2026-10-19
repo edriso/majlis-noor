@@ -50,7 +50,7 @@ const startWith = async (config: object) => {
   localStorage.setItem('majlis-noor:v1', JSON.stringify({ config }));
   const user = userEvent.setup();
   render(<App />);
-  await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+  await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
   return user;
 };
 
@@ -69,7 +69,7 @@ const start = async () => {
   render(<App />);
   await addReader(user);
   await addReader(user);
-  await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+  await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
   return user;
 };
 
@@ -160,7 +160,7 @@ describe('the start screen', () => {
         name: /^محمد صديق المنشاوي/,
       }),
     );
-    // Closed before «ابدأ الحلقة» was ever pressed.
+    // Closed before «ابدأ المجلس» was ever pressed.
     cleanup();
     render(<App />);
     const seats = screen.getAllByRole('listitem');
@@ -211,7 +211,7 @@ describe('the start screen', () => {
         .getAttribute('aria-disabled'),
     ).toBe('true');
 
-    await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+    await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
     expect(status()).toContain('يتلو المنشاوي');
     expect(screen.getByRole('button', { name: /تلاوة المنشاوي/ })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /^تخطَّ إلى أنت/ }));
@@ -278,7 +278,7 @@ describe('the start screen', () => {
         }) as HTMLInputElement
       ).value,
     ).toBe('عمر');
-    await user.click(screen.getByRole('button', { name: /ابدأ الحلقة/ }));
+    await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
     expect(status()).toContain('دور عمر');
   });
 });
@@ -330,7 +330,7 @@ describe('a halaqa', () => {
     await user.click(screen.getByRole('button', { name: /^تمّ — التالي/ }));
     cleanup();
     render(<App />);
-    const card = screen.getByRole('region', { name: 'تابع حلقتك' });
+    const card = screen.getByRole('region', { name: 'تابع مجلسك' });
     expect(within(card).getByText(/الصفحة ٢ · سورة البقرة/)).toBeTruthy();
     await user.click(within(card).getByRole('button', { name: /متابعة/ }));
     expect(status()).toContain('دور القارئ الثاني');

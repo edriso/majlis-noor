@@ -156,7 +156,7 @@ export function placeSummary(start: number, unit: Unit) {
  * is no goal at all, and the model drops it; the reader is told so.
  */
 export function goalNote(goal: Goal, from: number) {
-  if (goal.to === 'none') return 'يقرأ المجلس حتى تنهوه أنتم.';
+  if (goal.to === 'none') return 'تقرؤون حتى تُنهوا المجلس.';
   const end = goalEnd(goal, from);
   if (end === null)
     return 'هذه الصفحة قبل موضع البدء، فلا غاية بها. اختاروا صفحة بعده.';

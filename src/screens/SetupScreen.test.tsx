@@ -57,7 +57,7 @@ describe('a first visit', () => {
     expect(seats()).toHaveLength(1);
     expect(shows(circleRow())).toBe('صفحة · يدوي');
     expect(
-      screen.getByRole('button', { name: /^ابدأ الحلقة/ }).getAttribute('type'),
+      screen.getByRole('button', { name: /^ابدأ المجلس/ }).getAttribute('type'),
     ).toBe('submit');
     // Not a photo anywhere before the photos setting can be reached.
     expect(document.querySelector('img')).toBeNull();
@@ -119,7 +119,7 @@ describe('where to start', () => {
     await user.type(field, '٣٠٠{Enter}');
     expect(placeRow().textContent).toContain('الصفحة ٣٠٠');
     // Still the start screen: the sheet's form did not submit this one.
-    expect(screen.getByRole('button', { name: /^ابدأ الحلقة/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^ابدأ المجلس/ })).toBeTruthy();
   });
 });
 
@@ -345,10 +345,10 @@ describe('a sitting left open', () => {
 
   it('is offered first, and starting over is a press away and back', async () => {
     const user = open({ config: session.config, session });
-    const card = screen.getByRole('region', { name: 'تابع حلقتك' });
+    const card = screen.getByRole('region', { name: 'تابع مجلسك' });
     expect(within(card).getByText('الآيات ١٠–١٤ · سورة الكهف')).toBeTruthy();
     expect(within(card).getByText('دور عمر')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^ابدأ الحلقة/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^ابدأ المجلس/ })).toBeNull();
     await user.click(
       within(card).getByRole('button', { name: 'ابدأ مجلسًا جديدًا' }),
     );
