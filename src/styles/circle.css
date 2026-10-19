@@ -262,7 +262,7 @@
   font-size: clamp(var(--text-xs), 3.4cqi, var(--text-md));
 }
 /* Passed over in a round by a jump made after their turn: a broken ring,
-   as a gap in the round, with «لم يقرأها» under the name. */
+   as a gap in the round, with «لم تُقرأ» under the name. */
 .halaqa-seat[data-skipped] .seat-avatar {
   box-shadow: none;
   outline: 1.5px dashed var(--control-border);

@@ -555,8 +555,8 @@ describe('the circle', () => {
     expect(seatStatus({ ...seat, reciter: true, active: true })).toBe(
       'يتلو الآن',
     );
-    expect(seatStatus({ ...seat, round: 'done' })).toBe('قرأ');
-    expect(seatStatus({ ...seat, round: 'skipped' })).toBe('لم يقرأها');
+    expect(seatStatus({ ...seat, round: 'done' })).toBe('تمّ');
+    expect(seatStatus({ ...seat, round: 'skipped' })).toBe('لم تُقرأ');
     expect(seatStatus({ ...seat, reciter: true, round: 'skipped' })).toBe(
       'لم يتلُها',
     );

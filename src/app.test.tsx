@@ -449,7 +449,7 @@ describe('a halaqa', () => {
     const seats = [...document.querySelectorAll('.halaqa-seat')].map(
       (s) => s.textContent,
     );
-    expect(seats[0]).toContain('لم يقرأها');
+    expect(seats[0]).toContain('لم تُقرأ');
     expect(seats[1]).toContain('الآن');
   });
 
