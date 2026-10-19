@@ -9,13 +9,21 @@
    glyphs' own size, so the marks scale with the page. The glyph's box is
    one em tall, centred in a line 1.74em high (9.6cqi over 5.52cqi), and
    its ink reaches past the box both ways, the marks over the letters and
-   the tails and kasras under them. */
+   the tails and kasras under them.
 
+   Ink reaches past the box sideways too. A word's box is its advance, and
+   the justified line leaves a few hundredths of an em between two boxes,
+   but a tail such as the ر of «فَٱنظُرْ» (378:1) sweeps 0.4em on, under
+   the word after it. So every mark of the page lies in one layer under
+   every glyph of the page: the lines are where marks stack, not each word,
+   or the mark of «كَيْفَ» would be drawn over that tail and look as if it
+   were on «فَٱنظُرْ». The layer is still in front of the paper. */
+
+.mushaf-lines {
+  isolation: isolate;
+}
 .mushaf-words > [data-ayah] {
-  /* Its own stacking context, so a mark drawn behind the glyph is still in
-     front of the paper. Neither moves it. */
   position: relative;
-  z-index: 0;
 }
 .mushaf-words > [data-ayah]::before,
 .mushaf-words > [data-ayah]::after {
@@ -30,6 +38,8 @@
    ink. It fades in and out, so a mark that leads the voice by a moment
    arrives rather than snaps; reduced motion stills it (reset.css). */
 .mushaf-words > [data-ayah]::before {
+  /* Under the wash, which wins where a word's pill meets the next. */
+  z-index: -2;
   inset: -0.3em -0.08em;
   border-radius: 0.36em;
   background-color: transparent;
@@ -39,11 +49,15 @@
 }
 /* A chosen ayah lies on a tint of the turn's colour, quieter than the
    recitation's wash, which wins where both fall. A ring round each word
-   was tried and drew a chain of boxes that crowded the line. */
+   was tried and drew a chain of boxes that crowded the line. The tint is
+   solid, mixed into the paper: two words' pills overlap by more than the
+   line leaves between them, and a see-through tint doubled there, a
+   darker seam between every two words. */
 .mushaf-words > [data-selected]::before {
-  background-color: color-mix(in srgb, var(--mark-turn) 20%, transparent);
+  background-color: color-mix(in srgb, var(--mark-turn) 20%, var(--paper));
 }
 .mushaf-words > [data-recite]::before {
+  z-index: -1;
   background-color: var(--mark-recite);
 }
 
@@ -70,7 +84,6 @@
   all: unset;
   display: inline-block;
   position: relative;
-  z-index: 0;
   border-radius: var(--radius-pill);
   cursor: pointer;
 }
