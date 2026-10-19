@@ -7,7 +7,7 @@ the files named `use*.ts`.
 | ------------------ | -------------------------------------------------------------- |
 | `schedule.ts`      | pure functions: a turn number in, a seat and pages out         |
 | `state.ts`         | the whole halaqa as one value, the reducer, `sanitizeState()`  |
-| `storage.ts`       | `localStorage`, one key (and the old name's), never throws     |
+| `storage.ts`       | `localStorage`, one key, never throws                          |
 | `labels.ts`        | «الصفحة ٢٤»، «الصفحتان ٢٤ و٢٥»، «ص ٢٤»                           |
 | `player.ts`        | the one audio element, and the recitation playing on it        |
 | `useHalaqa.ts`     | the reducer, saved after every change                          |
