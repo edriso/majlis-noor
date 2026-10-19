@@ -45,3 +45,52 @@ export function pageWords(page: Page): GlyphWord[][] {
 export const ayatOfLine = (words: readonly GlyphWord[]) => [
   ...new Set(words.map((w) => w.ayah)),
 ];
+
+/* A line's text is its entries' Uthmani text joined by spaces, so it is
+   split back into them, but some entries hold a space of their own: a
+   pause mark the print sets after a word (ۚ ۖ ۗ and the rest, and the
+   prostration's ۩) is drawn with that word, a hizb quarter's ۞ with the
+   word after it, and three words are written in two parts. A part with
+   no letter or digit in it is a mark; the three words are named, and
+   compared composed, since the text writes آ as ا and its madda apart.
+   words.test.ts holds every line of the Mushaf to its entries. */
+const LETTER = /[\p{L}\p{Nd}]/u;
+const QUARTER = '۞';
+const IN_TWO = new Set(
+  ['بَعْدَ مَا', 'دَآئِرَ ةٌۭ', 'إِلْ يَاسِينَ'].map((w) => w.normalize()),
+);
+
+/** The Uthmani text of each of a line's entries, index for index with its
+    `w`: a word with any mark drawn with it, or an ayah's number as the
+    line's text writes it, in its brackets (﴿١٤﴾). */
+export function entryTexts(x: string): string[] {
+  const out: string[] = [];
+  let quarter = '';
+  for (const part of x.split(' ')) {
+    if (!part) continue;
+    const last = out.length - 1;
+    if (part.startsWith(QUARTER)) quarter += `${part} `;
+    else if (last >= 0 && !quarter && !LETTER.test(part))
+      out[last] += ` ${part}`;
+    else if (last >= 0 && IN_TWO.has(`${out[last]} ${part}`.normalize()))
+      out[last] += ` ${part}`;
+    else {
+      out.push(quarter + part);
+      quarter = '';
+    }
+  }
+  return out;
+}
+
+/** An ayah's Uthmani text as its page has it, its number at its end
+    (﴿١٤﴾), or '' if the page does not hold it. */
+export function ayahText(page: Page, ayah: number): string {
+  const words = pageWords(page);
+  return page.lines
+    .flatMap((line, i) =>
+      line.t === 'text'
+        ? entryTexts(line.x).filter((_, j) => words[i][j]?.ayah === ayah)
+        : [],
+    )
+    .join(' ');
+}

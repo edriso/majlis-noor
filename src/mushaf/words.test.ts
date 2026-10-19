@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { digits } from '@/data/arabic';
+import { arabic, digits } from '@/data/arabic';
 import type { WordsFile } from '@/data/audio';
 import {
   ayahIndex,
@@ -11,7 +11,13 @@ import {
   type Page,
 } from '@/data/mushaf';
 import { readWords } from '@/data/timings';
-import { ayatOfLine, pageWords, type GlyphWord } from './words';
+import {
+  ayahText,
+  ayatOfLine,
+  entryTexts,
+  pageWords,
+  type GlyphWord,
+} from './words';
 
 const root = join(import.meta.dirname, '../../public');
 const pages: Page[] = Array.from(
@@ -135,5 +141,79 @@ describe('ayatOfLine', () => {
     const lines = pageWords(pages[0]);
     expect(ayatOfLine(lines[3])).toEqual([3, 4]);
     expect(ayatOfLine(lines[0])).toEqual([]);
+  });
+});
+
+/* Words written here are compared composed: the Mushaf's text writes آ as
+   ا and its madda apart, and orders some marks otherwise than a keyboard. */
+const composed = (texts: string[]) => texts.map((t) => t.normalize());
+
+describe('entryTexts', () => {
+  it('gives every entry of every line of the Mushaf its words, and only them', () => {
+    let entries = 0;
+    for (const page of pages)
+      page.lines.forEach((line, i) => {
+        if (line.t !== 'text') return;
+        const at = `page ${page.page}, line ${i + 1}`;
+        const texts = entryTexts(line.x);
+        expect(texts, at).toHaveLength(line.w.length);
+        const words = pageWords(page)[i];
+        texts.forEach((text, j) => {
+          // A word has letters; a marker is its ayah's number.
+          if (words[j].word === null)
+            expect(text, at).toBe(`﴿${arabic(verseOf(words[j].ayah).ayah)}﴾`);
+          else expect(text, at).toMatch(/^(۞ )?\S*\p{L}/u);
+        });
+        // Nothing left out and nothing added: joined, they are the line
+        // (which has two spaces in one place, on page 225).
+        expect(texts.join(' '), at).toBe(line.x.replace(/ +/g, ' '));
+        entries += texts.length;
+      });
+    expect(entries).toBe(83_665);
+  });
+
+  it('keeps a pause mark with its word, and a quarter’s ۞ with the next', () => {
+    // The top of page 378, an-Naml 14.
+    const top = pages[377].lines[0];
+    if (top.t !== 'text') throw new Error('not text');
+    expect(composed(entryTexts(top.x))).toEqual(
+      composed([
+        'وَجَحَدُوا۟',
+        'بِهَا',
+        'وَٱسْتَيْقَنَتْهَآ',
+        'أَنفُسُهُمْ',
+        'ظُلْمًۭا',
+        'وَعُلُوًّۭا ۚ',
+        'فَٱنظُرْ',
+        'كَيْفَ',
+      ]),
+    );
+    expect(entryTexts('عِلْمٍ ﴿٢٥﴾ ۞ إِنَّ ٱلَّذِينَ')).toEqual([
+      'عِلْمٍ',
+      '﴿٢٥﴾',
+      '۞ إِنَّ',
+      'ٱلَّذِينَ',
+    ]);
+  });
+
+  it('keeps the three words written in two parts whole', () => {
+    expect(entryTexts('سَلَـٰمٌ عَلَىٰٓ إِلْ يَاسِينَ ﴿١٣٠﴾')).toEqual([
+      'سَلَـٰمٌ',
+      'عَلَىٰٓ',
+      'إِلْ يَاسِينَ',
+      '﴿١٣٠﴾',
+    ]);
+  });
+});
+
+describe('ayahText', () => {
+  it('gives an ayah whole, over its lines, ending in its number', () => {
+    expect(ayahText(pages[377], ayahIndex(27, 14)).normalize()).toBe(
+      'وَجَحَدُوا۟ بِهَا وَٱسْتَيْقَنَتْهَآ أَنفُسُهُمْ ظُلْمًۭا وَعُلُوًّۭا ۚ فَٱنظُرْ كَيْفَ كَانَ عَـٰقِبَةُ ٱلْمُفْسِدِينَ ﴿١٤﴾'.normalize(),
+    );
+    expect(ayahText(pages[0], 1).normalize()).toBe(
+      'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ ﴿١﴾'.normalize(),
+    );
+    expect(ayahText(pages[0], 8)).toBe('');
   });
 });
