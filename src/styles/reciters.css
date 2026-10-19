@@ -1,5 +1,5 @@
-/* The reciters: the row that opens their list, and the list itself, banded
-   by pace, each with a sample to hear before choosing (ReciterPicker.tsx). */
+/* The reciters' list, banded by pace, each with a sample to hear before
+   choosing (ReciterPicker.tsx). */
 
 .reciter-text {
   display: grid;
@@ -11,7 +11,6 @@
 .reciter-name {
   font-weight: 600;
 }
-.reciter-caption,
 .reciter-meta {
   color: var(--muted);
   font-size: var(--text-xs);
@@ -20,27 +19,6 @@
 .reciter-failed {
   color: var(--danger);
   font-size: var(--text-xs);
-}
-
-.reciter-button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 64px;
-  padding: 10px 14px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-md);
-  background: var(--well);
-  color: var(--fg);
-  text-align: start;
-  transition: border-color var(--duration-short) var(--ease);
-}
-.reciter-button:hover {
-  border-color: var(--gold);
-}
-.reciter-button svg {
-  color: var(--muted);
 }
 
 .reciter-picker {

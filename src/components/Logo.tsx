@@ -33,12 +33,3 @@ export function LogoMark({ size = 40 }: { size?: number }) {
     </svg>
   );
 }
-
-export function Brand({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className={compact ? 'brand brand-compact' : 'brand'}>
-      <LogoMark size={compact ? 30 : 40} />
-      <span className="brand-name">مجلس نور</span>
-    </span>
-  );
-}

@@ -45,24 +45,6 @@ a:hover {
   color: var(--on-gold);
 }
 
-/* ---------- Brand ---------- */
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--gold);
-}
-.brand-name {
-  font-family: var(--font-brand);
-  font-weight: 600;
-  font-size: var(--text-xl);
-  line-height: 1;
-}
-.brand-compact .brand-name {
-  font-size: var(--text-lg);
-}
-
 kbd {
   display: inline-grid;
   place-items: center;
