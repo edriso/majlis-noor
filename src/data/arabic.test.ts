@@ -7,6 +7,7 @@ import {
   hoursCount,
   minutesCount,
   pagesCount,
+  surahsCount,
 } from './arabic';
 
 describe('numbers', () => {
@@ -30,6 +31,14 @@ describe('counted nouns', () => {
     expect(pagesCount(11)).toBe('١١ صفحة');
     expect(pagesCount(103)).toBe('١٠٣ صفحات');
     expect(pagesCount(120)).toBe('١٢٠ صفحة');
+  });
+  it('counts surahs the same way', () => {
+    expect(surahsCount(1)).toBe('سورة واحدة');
+    expect(surahsCount(2)).toBe('سورتان');
+    expect(surahsCount(3)).toBe('٣ سور');
+    expect(surahsCount(10)).toBe('١٠ سور');
+    expect(surahsCount(11)).toBe('١١ سورة');
+    expect(surahsCount(114)).toBe('١١٤ سورة');
   });
   it('counts ayat the same way', () => {
     expect(ayatCount(1)).toBe('آية واحدة');

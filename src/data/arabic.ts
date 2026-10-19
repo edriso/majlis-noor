@@ -43,6 +43,10 @@ export function counted(n: number, forms: CountedForms) {
 export const pagesCount = (n: number) =>
   counted(n, { one: 'صفحة واحدة', two: 'صفحتان', few: 'صفحات', many: 'صفحة' });
 
+/** Surahs, as a label: «سورة واحدة», «سورتان», «٣ سور», «١١ سورة». */
+export const surahsCount = (n: number) =>
+  counted(n, { one: 'سورة واحدة', two: 'سورتان', few: 'سور', many: 'سورة' });
+
 /** Ayat, as a label: «آية واحدة», «آيتان», «٣ آيات», «١١ آية». */
 export const ayatCount = (n: number) =>
   counted(n, { one: 'آية واحدة', two: 'آيتان', few: 'آيات', many: 'آية' });

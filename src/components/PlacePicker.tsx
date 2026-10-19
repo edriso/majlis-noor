@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { arabic, counted, digits } from '@/data/arabic';
+import { arabic, digits, surahsCount } from '@/data/arabic';
 import {
   ayatOfPage,
   firstAyahOfPage,
@@ -79,9 +79,6 @@ export function findSurahs(query: string): Surah[] {
   if (!words) return surahs;
   return surahs.filter((_, i) => names[i].includes(words));
 }
-
-const surahsCount = (n: number) =>
-  counted(n, { one: 'سورة واحدة', two: 'سورتان', few: 'سور', many: 'سورة' });
 
 /**
  * Where to read: a surah, a juz or a page. The one chooser the start
