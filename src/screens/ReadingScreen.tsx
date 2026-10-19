@@ -77,7 +77,7 @@ export function ReadingScreen({
   const closeSitting = (): Closing => {
     const endedAt = Date.now();
     actions.hush();
-    // The ayah bar goes with what it played, which the hush has paused.
+    // The ayah bar goes with what it played, which the hush has stopped.
     marks.unchoose();
     return { summary: summaryOf(session, endedAt), endedAt };
   };

@@ -38,10 +38,30 @@ Object.assign(HTMLDialogElement.prototype, {
 });
 
 // jsdom has media elements but plays nothing; a recitation here only ever
-// starts, and the player is tested on its own with a fake element.
+// starts, and the player is tested on its own with a fake element. One
+// habit of a real element is kept: a pause before a play has settled cuts
+// it short with an `AbortError`, so the pause stands.
+const starting = new WeakMap<HTMLMediaElement, () => void>();
 Object.assign(HTMLMediaElement.prototype, {
-  play: () => Promise.resolve(),
-  pause: () => {},
+  play(this: HTMLMediaElement) {
+    return new Promise<void>((resolve, reject) => {
+      const abort = () => {
+        const error = new Error('interrupted');
+        error.name = 'AbortError';
+        reject(error);
+      };
+      starting.set(this, abort);
+      queueMicrotask(() => {
+        if (starting.get(this) !== abort) return;
+        starting.delete(this);
+        resolve();
+      });
+    });
+  },
+  pause(this: HTMLMediaElement) {
+    starting.get(this)?.();
+    starting.delete(this);
+  },
   load: () => {},
 });
 

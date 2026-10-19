@@ -800,6 +800,56 @@ describe('an ayah on the page', () => {
     expect(ayahBar()).toBeNull();
   });
 
+  it('stops the ayah it played when the sitting is closed by the keyboard', async () => {
+    const user = await startWith({ members: [you, omar] });
+    const [marker] = await markers();
+    marker.focus();
+    await user.keyboard('{Enter}');
+    await act(() => vi.dynamicImportSettled());
+    // The focus is on the bar's «استمع».
+    await user.keyboard('{Enter}');
+    expect(player.getState().key).toMatch(/^ayah:/);
+    // No pointer pressed outside the bar, which would have closed it.
+    screen.getByRole('button', { name: 'القائمة' }).focus();
+    await user.keyboard('{Enter}');
+    screen.getByRole('button', { name: 'إنهاء المجلس' }).focus();
+    await user.keyboard('{Enter}');
+    (await screen.findByRole('button', { name: 'تابعوا القراءة' })).focus();
+    await user.keyboard('{Enter}');
+    expect(ayahBar()).toBeNull();
+    expect(player.getState().key).not.toMatch(/^ayah:/);
+    // Space has nothing hidden to play again.
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard(' ');
+    expect(player.getState().status).not.toBe('playing');
+    expect(player.getState().status).not.toBe('loading');
+  });
+
+  it('leaves the sheikh it played over paused when the sitting is closed', async () => {
+    const user = await startWith({ members: [minshawi, you] });
+    await act(() => vi.dynamicImportSettled());
+    expect(player.getState().key).toMatch(/^turn:/);
+    const [marker] = await markers();
+    marker.focus();
+    await user.keyboard('{Enter}');
+    await user.keyboard('{Enter}');
+    expect(player.getState()).toMatchObject({
+      key: expect.stringMatching(/^ayah:/),
+      waiting: { key: expect.stringMatching(/^turn:/) },
+    });
+    screen.getByRole('button', { name: 'القائمة' }).focus();
+    await user.keyboard('{Enter}');
+    screen.getByRole('button', { name: 'إنهاء المجلس' }).focus();
+    await user.keyboard('{Enter}');
+    (await screen.findByRole('button', { name: 'تابعوا القراءة' })).focus();
+    await user.keyboard('{Enter}');
+    expect(player.getState()).toMatchObject({
+      key: expect.stringMatching(/^turn:/),
+      status: 'paused',
+      waiting: null,
+    });
+  });
+
   it('underlines a turn of a few ayat, and never a turn of whole pages', async () => {
     await startWith({
       members: [you, omar],

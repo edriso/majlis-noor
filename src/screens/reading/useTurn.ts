@@ -36,6 +36,7 @@ import {
 import { turnDuration } from '@/halaqa/turnAudio';
 import { useAyahListen } from '@/halaqa/useAyahListen';
 import {
+  player,
   useListen,
   useReciterTurn,
   useTimings,
@@ -355,12 +356,20 @@ export function useTurn({
           the close of the sitting opens over the page, and if the circle
           goes back to reading, it carries on when someone asks. (A
           reciter whose timings are still on their way starts when they
-          arrive; only a slow first load ever leaves them on their way.) */
+          arrive; only a slow first load ever leaves them on their way.)
+
+          The ayah heard alone is stopped, not paused: its bar goes with
+          the close, and an ayah left paused with no bar would be found
+          by Space and played again. Stopping it puts back what waited
+          under it, so what plays is paused after, read from the player
+          rather than from what was drawn before the ayah stopped. */
       hush: () => {
-        if (recitation.status === 'playing' || recitation.status === 'loading')
-          recitation.toggle();
+        ayah.stop();
+        // A «استمع» still waiting for its timings is let go.
         listen.pause();
-        ayah.pause();
+        const now = player.getState();
+        if (now.status === 'playing' || now.status === 'loading')
+          player.pause();
         if (timed && !clock.paused) clock.pause();
       },
     },
