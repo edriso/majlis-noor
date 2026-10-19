@@ -278,7 +278,11 @@ export const ayatDuration = (
 
 /** Binary search: how many items of `list` start at or before `ms`, for a
     list whose starts never go back. */
-function startedBy<T>(list: readonly T[], start: (x: T) => number, ms: number) {
+export function startedBy<T>(
+  list: readonly T[],
+  start: (x: T) => number,
+  ms: number,
+) {
   let lo = 0;
   let hi = list.length;
   while (lo < hi) {

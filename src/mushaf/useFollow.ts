@@ -4,6 +4,7 @@ import {
   ayahAt,
   ayahTimes,
   loadWords,
+  startedBy,
   surahAudioUrl,
   wordAt,
   wordsCovered,
@@ -19,19 +20,6 @@ import type { Recited } from './MushafPage';
     (marks.css), is fully drawn as the word is heard, where one a moment
     late reads as the page lagging behind the voice. */
 export const LEAD_MS = 150;
-
-/** Where in a list whose starts never go back the items started by `ms`
-    end: how many have. */
-function startedBy<T>(list: readonly T[], start: (x: T) => number, ms: number) {
-  let lo = 0;
-  let hi = list.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (start(list[mid]) <= ms) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
 
 /** The ayah of a surah recited `ms` into its file, and in the pause
     between two ayat the one just recited, so the mark stays where the
