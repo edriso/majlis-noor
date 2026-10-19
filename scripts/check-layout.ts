@@ -10,16 +10,24 @@
    elsewhere) through its DevTools protocol, with Node's own WebSocket and
    fetch, so the repository carries no browser dependency. A halaqa of four
    (two readers, two reciters) is put in localStorage and opened from the
-   start screen, on a timed reader's turn and on a reciter's, and at each
-   size it checks, in the page view and the circle view:
+   start screen, on a timed reader's turn and on a reciter's, and a circle
+   of eight on a reader's turn; at each size it checks, in the page view
+   and the circle view:
 
      overflow  the document is no wider than the window
-     page      the Mushaf page is whole in its room, nothing scrolled, but
-               where the page keeps its 220px floor (a phone on its side)
+     page      every page shown is whole in its room, nothing scrolled, but
+               where a page keeps its 220px floor
+     spread    two pages side by side where the room is wider than 1.2
+               times its height, the odd one on the right; one otherwise
      seats     every seat of the circle is inside the circle's room
      button    the main button is at least 140px wide, its words whole
+     targets   every button in the bars is at least 44 by 44
+     type      no words in the bars under 14px
      lines     with the page font host blocked, the page is drawn from its
                text, and no line is wider than the page or clipped
+
+   A phone on its side hides the bars by itself: there the button, the
+   targets and the type are not measured, and the way back must be shown.
 
    It prints a table, and exits 1 if any check failed. Run it before and
    after any change to the layout. */
@@ -40,9 +48,16 @@ const SELECTORS = {
   /** The page's room, and the page, whose accessible name begins with
       the page it is: «الصفحة ٢٩٣، …». */
   stage: '.mushaf-stage',
-  page: '.mushaf-page',
+  page: '.mushaf-leaf[data-current] .mushaf-page',
+  /** Every page drawn on the stage: one, or a spread of two, the one
+      beside hidden where the room has no space for it. */
+  pages: '.mushaf-leaf .mushaf-page',
+  /** The bars above and below, and the way back when they are hidden. */
+  bars: '.topbar, .action-bar',
+  quiet: '.reading[data-quiet]',
+  quietReturn: '.quiet-return',
   /** The page's lines, once drawn; `data-font` says glyphs or text. */
-  lines: '.mushaf-lines[data-font]',
+  lines: '.mushaf-leaf[data-current] .mushaf-lines[data-font]',
   /** One line's readable text, which is the line itself in text mode. */
   lineText: '.mushaf-text',
   /** The circle's room, and each seat in it. */
@@ -64,6 +79,7 @@ const SIZES: [number, number][] = [
   [360, 640],
   [375, 667],
   [390, 844],
+  [844, 390],
   [820, 1180],
   [1100, 700],
   [1440, 900],
@@ -76,13 +92,14 @@ const FIRST_PAGE = 293;
     clock, turn 1 a reciter. Long names keep the top line, the button and
     the seats honest, and page 293 has the longest lines of fallback text.
     Anything this gets wrong, the app's sanitizeState() repairs. */
-function halaqa(turn: number) {
+function halaqa(turn: number, seats = 4) {
   const config = {
     members: [
       { id: 'p1', kind: 'person', name: '' },
       { id: 'r1', kind: 'reciter', reciter: 'abdulbasit' },
       { id: 'p2', kind: 'person', name: 'عبد الرحمن' },
       { id: 'r2', kind: 'reciter', reciter: 'minshawi' },
+      ...circleOfEight.slice(0, seats - 4),
     ],
     mode: 'continue',
     pagesPerTurn: 1,
@@ -110,9 +127,18 @@ function halaqa(turn: number) {
   };
 }
 
+/** The four more who make a circle of eight, the most it seats. */
+const circleOfEight = [
+  { id: 'p3', kind: 'person', name: 'فاطمة' },
+  { id: 'r3', kind: 'reciter', reciter: 'husary' },
+  { id: 'p4', kind: 'person', name: '' },
+  { id: 'p5', kind: 'person', name: 'مريم' },
+];
+
 const TURNS = [
-  { name: 'reader', turn: 0 },
-  { name: 'reciter', turn: 1 },
+  { name: 'reader', turn: 0, seats: 4 },
+  { name: 'reciter', turn: 1, seats: 4 },
+  { name: 'eight', turn: 2, seats: 8 },
 ];
 
 const args = process.argv.slice(2);
@@ -300,8 +326,25 @@ class Tab {
 type Selectors = typeof SELECTORS;
 /** Each check's complaints: none is a pass, null is not measured here. */
 type Findings = Record<Check, string[] | null>;
-type Check = 'overflow' | 'page' | 'seats' | 'button' | 'lines';
-const CHECKS: Check[] = ['overflow', 'page', 'seats', 'button', 'lines'];
+type Check =
+  | 'overflow'
+  | 'page'
+  | 'spread'
+  | 'seats'
+  | 'button'
+  | 'targets'
+  | 'type'
+  | 'lines';
+const CHECKS: Check[] = [
+  'overflow',
+  'page',
+  'spread',
+  'seats',
+  'button',
+  'targets',
+  'type',
+  'lines',
+];
 
 /** Runs in the page, so it uses nothing from this file. */
 function measure({
@@ -323,9 +366,16 @@ function measure({
   const found: Record<string, string[] | null> = {
     overflow: [],
     page: null,
+    spread: null,
     seats: null,
     button: [],
+    targets: null,
+    type: null,
     lines: null,
+  };
+  const shown = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
   };
 
   const root = document.documentElement;
@@ -337,29 +387,50 @@ function measure({
 
   if (view === 'page') {
     found.page = [];
+    found.spread = [];
     const stage = document.querySelector(sel.stage);
-    const page = document.querySelector(sel.page);
-    if (!stage || !page) found.page.push('no page');
+    const pages = [...document.querySelectorAll(sel.pages)].filter(shown);
+    if (!stage || !pages.length) found.page.push('no page');
     else {
       const room = stage.getBoundingClientRect();
-      const p = page.getBoundingClientRect();
-      // Too short a room for a page anyone can read: it keeps 220px of
-      // width and the room scrolls, as AGENTS.md says it may.
-      const floor =
-        p.height > room.height + 1 &&
-        Math.abs(p.width - Math.min(room.width, 220)) < 1;
-      if (floor) {
-        if (p.left < room.left - 1 || p.right > room.right + 1)
-          found.page.push(`the page is wider than its room (${box(room)})`);
-      } else {
-        if (outside(p, room))
+      for (const page of pages) {
+        const p = page.getBoundingClientRect();
+        const name = page.getAttribute('aria-label')?.split('،')[0];
+        // Too short a room for a page anyone can read: it keeps 220px of
+        // width and the room scrolls.
+        const floor = p.height > room.height + 1 && p.width <= 221;
+        if (floor) {
+          if (p.left < room.left - 1 || p.right > room.right + 1)
+            found.page.push(`${name} is wider than its room (${box(room)})`);
+        } else if (outside(p, room))
           found.page.push(
-            `the page (${box(p)}) is outside its room (${box(room)})`,
+            `${name} (${box(p)}) is outside its room (${box(room)})`,
           );
-        if (stage.scrollHeight > stage.clientHeight + 1)
-          found.page.push(
-            `the room scrolls (${px(stage.scrollHeight)} in ${px(stage.clientHeight)})`,
-          );
+      }
+      const floored = pages.some(
+        (page) => page.getBoundingClientRect().height > room.height + 1,
+      );
+      if (!floored && stage.scrollHeight > stage.clientHeight + 1)
+        found.page.push(
+          `the room scrolls (${px(stage.scrollHeight)} in ${px(stage.clientHeight)})`,
+        );
+      // The spread follows the room's shape, and opens as the Mushaf does.
+      const wide = room.width > room.height * 1.2;
+      if (pages.length !== (wide ? 2 : 1))
+        found.spread.push(`${pages.length} pages in a room of ${box(room)}`);
+      if (pages.length === 2) {
+        const [a, b] = pages.map((page) => ({
+          n: Number(
+            (page.getAttribute('aria-label') ?? '')
+              .split('،')[0]
+              .replace(/[^٠-٩]/g, '')
+              .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))),
+          ),
+          x: page.getBoundingClientRect().left,
+        }));
+        const right = a.x > b.x ? a : b;
+        if (right.n % 2 !== 1)
+          found.spread.push(`page ${right.n} is on the right`);
       }
     }
   }
@@ -374,8 +445,11 @@ function measure({
     else
       seats.forEach((seat, i) => {
         // Its avatar, name and status, not the box around them, which is
-        // wider than its words.
-        const parts = [...seat.children].map((c) => c.getBoundingClientRect());
+        // wider than its words; and only what is drawn, since a large
+        // circle on a phone hides most seats' names.
+        const parts = [...seat.children]
+          .filter(shown)
+          .map((c) => c.getBoundingClientRect());
         const r = new DOMRect(
           Math.min(...parts.map((b) => b.left)),
           Math.min(...parts.map((b) => b.top)),
@@ -391,8 +465,17 @@ function measure({
       });
   }
 
+  const quiet = document.querySelector(sel.quiet);
   const button = document.querySelector<HTMLElement>(sel.primary);
-  if (!button) found.button!.push('no main button');
+  if (quiet) {
+    // The bars hidden: nothing in them to measure, but a way back.
+    found.button = null;
+    const back = document.querySelector(sel.quietReturn);
+    if (!back || !shown(back)) found.overflow!.push('no way back to the bars');
+  } else measureBars(sel, found);
+  if (quiet) {
+    // Measured above.
+  } else if (!button) found.button!.push('no main button');
   else {
     const { width } = button.getBoundingClientRect();
     if (width < 140) found.button!.push(`the main button is ${px(width)} wide`);
@@ -438,6 +521,36 @@ function measure({
   }
 
   return found;
+
+  /** Every control in the bars a finger can hit, and every word in them a
+      reader can read. Declared inside `measure`, which runs in the page. */
+  function measureBars(s: Selectors, out: Record<string, string[] | null>) {
+    const targets: string[] = [];
+    const type: string[] = [];
+    for (const bar of document.querySelectorAll(s.bars)) {
+      for (const el of bar.querySelectorAll<HTMLElement>('button')) {
+        if (!shown(el) || getComputedStyle(el).visibility === 'hidden')
+          continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 43.5 || r.height < 43.5)
+          targets.push(
+            `«${el.getAttribute('aria-label') ?? el.textContent?.trim()}» is ${box(r)}`,
+          );
+      }
+      const walker = document.createTreeWalker(bar, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const el = n.parentElement!;
+        if (!n.textContent?.trim() || el.closest('.visually-hidden')) continue;
+        // Words kept for screen readers alone are clipped to a pixel.
+        const r = el.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1) continue;
+        const size = parseFloat(getComputedStyle(el).fontSize);
+        if (size < 13.9) type.push(`«${n.textContent.trim()}» is ${px(size)}`);
+      }
+    }
+    out.targets = targets;
+    out.type = type;
+  }
 }
 
 /* ---------- The run ---------- */
@@ -572,7 +685,7 @@ async function main() {
     });
 
     for (const [width, height] of SIZES)
-      for (const { name, turn } of TURNS) {
+      for (const { name, turn, seats } of TURNS) {
         const size = `${width}×${height}`;
         const label = `${size} ${name}${text ? ' text' : ''}`;
         try {
@@ -582,7 +695,7 @@ async function main() {
             deviceScaleFactor: 1,
             mobile: false,
           });
-          await tab.seed(STORAGE_KEY, JSON.stringify(halaqa(turn)));
+          await tab.seed(STORAGE_KEY, JSON.stringify(halaqa(turn, seats)));
           await tab.go(url);
           await tab.until(
             'the start screen',
