@@ -42,6 +42,17 @@ describe('the cover of a review from memory', () => {
     expect(reveal());
   });
 
+  it('says where the turn begins', () => {
+    // Al-Mulk 13, the first ayah of page 563.
+    render(
+      <MemoryCover cover="turn:1" start={5254}>
+        {page}
+      </MemoryCover>,
+    );
+    expect(screen.getByText('سورة الملك · من الآية ١٣'));
+    expect(reveal().className).not.toContain('button-primary');
+  });
+
   it('never covers without a value, and names both pages of a spread', () => {
     const { rerender } = render(<MemoryCover cover={null}>{page}</MemoryCover>);
     expect(screen.getByRole('article'));

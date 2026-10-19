@@ -97,3 +97,25 @@
     border-radius: 4px;
   }
 }
+
+/* ---------- From memory ---------- */
+
+/* On the cover over the pages (MemoryCover.tsx; the cover itself is in
+   marks.css): where the turn begins, and the way to uncover it, an
+   outline, since the gold button below is the one that passes the turn. */
+.memory-cover-from {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+}
+.memory-cover-reveal {
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--fg);
+  font-weight: 500;
+}
+.memory-cover-reveal:hover {
+  border-color: var(--gold);
+  background: var(--hover);
+}

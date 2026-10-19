@@ -185,6 +185,7 @@ export function ReadingScreen({
             selected={marks.chosen?.ayah ?? null}
             onAyahTap={marks.choose}
             cover={marks.cover}
+            coverStart={placeOf(session)}
           />
         )}
         {marks.chosen && showing === 'mushaf' && !turn.end ? (

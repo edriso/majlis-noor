@@ -40,6 +40,7 @@ export const MushafView = memo(function MushafView({
   selected,
   onAyahTap,
   cover,
+  coverStart = null,
 }: {
   page: number;
   /** The first and last page of the turn: those not dimmed. */
@@ -57,6 +58,8 @@ export const MushafView = memo(function MushafView({
   /** Covers the pages for a review from memory; a new value covers them
       again. */
   cover: string | null;
+  /** The ayah the turn begins with, which the cover names. */
+  coverStart?: number | null;
 }) {
   const stage = useRef<HTMLElement>(null);
   const stroke = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -114,7 +117,11 @@ export const MushafView = memo(function MushafView({
         onPointerUp={up}
         onPointerCancel={cancel}
       >
-        <MemoryCover cover={cover} pages={pages.length === 2 ? 2 : 1}>
+        <MemoryCover
+          cover={cover}
+          start={coverStart}
+          pages={pages.length === 2 ? 2 : 1}
+        >
           <Spread
             pages={pages}
             page={page}
