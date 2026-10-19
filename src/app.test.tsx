@@ -787,6 +787,19 @@ describe('an ayah on the page', () => {
     expect(document.querySelector('.mushaf-words [data-selected]')).toBeNull();
   });
 
+  it('lets the ayah bar go when the sitting is being closed', async () => {
+    const user = await startWith({ members: [you, omar] });
+    const [marker] = await markers();
+    await user.click(marker);
+    expect(ayahBar()).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'تابعوا القراءة' }),
+    );
+    expect(ayahBar()).toBeNull();
+  });
+
   it('underlines a turn of a few ayat, and never a turn of whole pages', async () => {
     await startWith({
       members: [you, omar],
