@@ -149,28 +149,38 @@ describe('ayatOfLine', () => {
 const composed = (texts: string[]) => texts.map((t) => t.normalize());
 
 describe('entryTexts', () => {
+  // Reads every word of the Mushaf: slow when the machine is busy. What
+  // is wrong is gathered and checked once, not one expect a word.
   it('gives every entry of every line of the Mushaf its words, and only them', () => {
     let entries = 0;
-    for (const page of pages)
+    const wrong: string[] = [];
+    for (const page of pages) {
+      const words = pageWords(page);
       page.lines.forEach((line, i) => {
         if (line.t !== 'text') return;
         const at = `page ${page.page}, line ${i + 1}`;
         const texts = entryTexts(line.x);
-        expect(texts, at).toHaveLength(line.w.length);
-        const words = pageWords(page)[i];
+        if (texts.length !== line.w.length) wrong.push(`${at}: count`);
         texts.forEach((text, j) => {
           // A word has letters; a marker is its ayah's number.
-          if (words[j].word === null)
-            expect(text, at).toBe(`﴿${arabic(verseOf(words[j].ayah).ayah)}﴾`);
-          else expect(text, at).toMatch(/^(۞ )?\S*\p{L}/u);
+          const w = words[i][j];
+          const ok = !w
+            ? false
+            : w.word === null
+              ? text === `﴿${arabic(verseOf(w.ayah).ayah)}﴾`
+              : /^(۞ )?\S*\p{L}/u.test(text);
+          if (!ok) wrong.push(`${at}, entry ${j + 1}: ${text}`);
         });
         // Nothing left out and nothing added: joined, they are the line
         // (which has two spaces in one place, on page 225).
-        expect(texts.join(' '), at).toBe(line.x.replace(/ +/g, ' '));
+        if (texts.join(' ') !== line.x.replace(/ +/g, ' '))
+          wrong.push(`${at}: text`);
         entries += texts.length;
       });
+    }
+    expect(wrong).toEqual([]);
     expect(entries).toBe(83_665);
-  });
+  }, 30_000);
 
   it('keeps a pause mark with its word, and a quarter’s ۞ with the next', () => {
     // The top of page 378, an-Naml 14.
