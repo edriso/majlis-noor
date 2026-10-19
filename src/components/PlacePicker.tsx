@@ -41,7 +41,7 @@ const juzStart = (j: number): PlaceChoice => {
  * Arabic as a reader types it, made comparable with a surah's name as the
  * Mushaf spells it: no vowel marks or tatweel, every alif with a hamza as a
  * bare alif, a lone hamza dropped, and the letters a keyboard swaps (ة and
- * ه, ى and ي) made one. So «النبأ», «النبإ» and «النبا» all find النبإ, and
+ * ه, ى and ي) made one. So «النبأ», «النبإ» and «النبا» all find النبأ, and
  * «ابراهيم» finds إبراهيم however it is spelt. A leading «سورة» is left
  * out, since every name would match it.
  */

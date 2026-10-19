@@ -308,12 +308,27 @@ if (marked.some((a) => !rubStarts.includes(a)))
 if (unmarked.some((a) => !order[a - 1].endsWith(':1')))
   throw new Error('a quarter begins with neither a ۞ nor a surah');
 
+/* The API's surah names are spelt as the rasm of the Mushaf spells some of
+   them (سبإ، النبإ) and lose or misplace a hamza in others. The interface
+   writes them as a modern standard list does, with the hamza of «إبراهيم»
+   and «الإنسان» and without the one «الانفطار» and «الانشقاق» do not
+   take: they begin with a connecting alif. Only the names change; the
+   Mushaf's own text is never touched. */
+const NAMES: Record<number, string> = {
+  14: 'إبراهيم',
+  34: 'سبأ',
+  76: 'الإنسان',
+  78: 'النبأ',
+  82: 'الانفطار',
+  84: 'الانشقاق',
+};
+
 const index = {
   source:
     'Quran.com API v4, King Fahd Complex Madani Mushaf (1421H), QCF v2 glyph codes. Built by scripts/build-mushaf.ts.',
   surahs: chapters.map((c) => ({
     n: c.id,
-    name: c.name_arabic,
+    name: NAMES[c.id] ?? c.name_arabic,
     ayat: c.verses_count,
     page: surahStart.get(c.id)!,
     place: c.revelation_place,

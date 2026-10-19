@@ -159,6 +159,22 @@ describe('the Mushaf', () => {
     expect(juzOfPage(604)).toBe(30);
   });
 
+  it('spells surah names as a modern list does, hamzas and all', () => {
+    const name = (n: number) => surahs[n - 1].name;
+    expect(name(14)).toBe('إبراهيم');
+    expect(name(34)).toBe('سبأ');
+    expect(name(76)).toBe('الإنسان');
+    expect(name(78)).toBe('النبأ');
+    // A connecting alif, which takes no hamza.
+    expect(name(82)).toBe('الانفطار');
+    expect(name(84)).toBe('الانشقاق');
+    // No bare alif where a hamza belongs, at the head of a name after «ال».
+    const bare = surahs.filter((s) =>
+      s.name.replace(/^ال/, '').startsWith('ا'),
+    );
+    expect(bare.map((s) => s.name)).toEqual(['الانفطار', 'الانشقاق']);
+  });
+
   it('marks the fifteen prostrations of recitation', () => {
     const sajdah = pages.flatMap((p) => p.sajdah ?? []);
     expect(sajdah).toHaveLength(15);
