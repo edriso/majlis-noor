@@ -11,8 +11,7 @@ import type { FollowSource } from './useMarks';
 /**
  * The Mushaf, as large as its room allows: one page fitted whole, or, where
  * the room is wider than 1.2 times its height, two side by side as the
- * Mushaf opens (`spreadOf`), the page outside the turn drawn quietly
- * dimmed. Whether there is room for two is the room's own shape, decided
+ * Mushaf opens (`spreadOf`), the page outside the turn in a softer ink. Whether there is room for two is the room's own shape, decided
  * in CSS (stage.css), so both pages are in the tree and the one beside is
  * hidden where there is no room for it. With the page drawn as wide as the
  * screen (`size` «width»), one page, scrolled down.

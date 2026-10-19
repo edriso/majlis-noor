@@ -13,6 +13,9 @@
    since a page drawn from its text is a little taller. */
 
 .mushaf-view {
+  /* A size container too, so the stage can tell whether a page can ever
+     be taller than it (below). */
+  container: view / size;
   display: grid;
   min-height: 0;
 }
@@ -29,6 +32,15 @@
   /* The browser keeps scrolling and pinching; a stroke across is the
      page's to read (MushafView). */
   touch-action: pan-y pinch-zoom;
+}
+/* A room at least 400px tall never has a page taller than it (the floor
+   of 220px makes one at most 396px tall, drawn from its text), so there it
+   need not scroll, nor clip: a clipped room cut the shadow under the page
+   short, which drew a darker strip below it on a phone. */
+@container view (min-height: 400px) {
+  .mushaf-stage:not([data-size='width']) {
+    overflow: visible;
+  }
 }
 
 .mushaf-spread {
@@ -61,12 +73,13 @@
       min((100cqw - var(--spread-gap)) / 2, 220px)
     );
   }
-  /* The page beside that is not the turn's, drawn but stepped back. Its
-     ink keeps AA against its own paper over every ground: 0.7 of the
-     page over the sand ground, the lightest, still leaves 6.6:1. */
+  /* The page beside that is not the turn's: the same paper, its words in
+     the softer ink of the running head (7.6:1 on the paper), so the
+     turn's page is the one in full black without the other looking
+     switched off. A wash over the whole page read as disabled, and turned
+     the ivory grey on a dark ground. */
   .mushaf-leaf[data-dim] .mushaf-page {
-    opacity: 0.7;
-    box-shadow: none;
+    --ink: var(--ink-soft);
   }
 }
 
