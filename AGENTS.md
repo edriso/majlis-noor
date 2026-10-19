@@ -592,7 +592,8 @@ Bump `VERSION` to drop every cache it made but the page fonts. Tests:
   moves the number on while the reader carries on.
 - **jsdom has no `matchMedia`, `<dialog>` methods or playback.**
   `test-setup.ts` stands in for them; its media stub cuts a pending play
-  short when paused, as a browser does. The two tests that read every word
-  of the Mushaf take longer than the default timeout under load.
+  short when paused, as a browser does. Each test has 15 seconds
+  (`vite.config.ts`), since the app's tests drive whole screens and a CI
+  runner is slow; the ones that read every word of the Mushaf have 30.
 - **`useMarks` reads the page as drawn** (`.mushaf-stage`, `[data-ayah]`)
   to dock the ayah bar; rename those and it docks blind.
