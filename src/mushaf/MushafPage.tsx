@@ -177,7 +177,7 @@ export const MushafPage = memo(function MushafPage({
           <div className="mushaf-missing">
             {/* Said by the status below, so a screen reader hears it once. */}
             <p aria-hidden="true">{PAGE_MISSING}</p>
-            <RetryButton retrying={missing.retrying} onClick={missing.retry} />
+            <PageRetry retrying={missing.retrying} onClick={missing.retry} />
           </div>
         ) : (
           <div className="mushaf-lines mushaf-skeleton" aria-hidden="true">
@@ -195,7 +195,7 @@ export const MushafPage = memo(function MushafPage({
         // the note needs the room more.
         <div className="mushaf-note">
           <p id={noteId}>{FONT_NOTE}</p>
-          <RetryButton
+          <PageRetry
             retrying={ready.retrying}
             onClick={ready.retryFont}
             describedBy={noteId}
@@ -286,7 +286,7 @@ function useTap(
   }, [lines, drawn, onAyahTap]);
 }
 
-function RetryButton({
+function PageRetry({
   retrying,
   onClick,
   describedBy,
