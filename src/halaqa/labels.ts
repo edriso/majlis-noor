@@ -591,7 +591,8 @@ export function circleCenter(
 /**
  * What a seat in the circle says under its name: reading now, read (or
  * passed over, in repeat mode, by a jump made after their turn), next, or
- * what its next turn reads.
+ * what its next turn reads. A reader's turn is «الآن», which says it of
+ * a man or a woman alike; «يقرأ الآن» spoke of every reader as a man.
  */
 export function seatStatus(seat: {
   reciter: boolean;
@@ -602,7 +603,7 @@ export function seatStatus(seat: {
   /** Its next turn, short, in continue mode. */
   upcoming: string;
 }) {
-  if (seat.active) return seat.reciter ? 'يتلو الآن' : 'يقرأ الآن';
+  if (seat.active) return seat.reciter ? 'يتلو الآن' : 'الآن';
   if (seat.round === 'done') return seat.reciter ? 'تلا' : 'قرأ';
   if (seat.round === 'skipped') return seat.reciter ? 'لم يتلُها' : 'لم يقرأها';
   if (seat.next) return 'التالي';

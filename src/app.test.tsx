@@ -450,7 +450,7 @@ describe('a halaqa', () => {
       (s) => s.textContent,
     );
     expect(seats[0]).toContain('لم يقرأها');
-    expect(seats[1]).toContain('يقرأ الآن');
+    expect(seats[1]).toContain('الآن');
   });
 
   it('says a seat’s next page in words, and tells faces apart', async () => {
@@ -524,7 +524,7 @@ describe('a circle that reads by the ayah', () => {
     await user.click(screen.getByRole('button', { name: 'الحلقة' }));
     expect(
       [...document.querySelectorAll('.halaqa-seat')].map((s) => s.textContent),
-    ).toEqual(['أنتالتالي', 'ععمريقرأ الآن']);
+    ).toEqual(['أنتالتالي', 'ععمرالآن']);
     expect(screen.getByText('قرأتم ٥ آيات في هذا المجلس')).toBeTruthy();
   });
 

@@ -551,7 +551,7 @@ describe('the circle', () => {
       next: false,
       upcoming: 'ص ٢٥',
     };
-    expect(seatStatus({ ...seat, active: true })).toBe('يقرأ الآن');
+    expect(seatStatus({ ...seat, active: true })).toBe('الآن');
     expect(seatStatus({ ...seat, reciter: true, active: true })).toBe(
       'يتلو الآن',
     );
