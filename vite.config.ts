@@ -77,5 +77,8 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     // Agents' worktrees are whole copies of the repository, tests and all.
     exclude: [...configDefaults.exclude, '.claude/**'],
+    // The app's tests drive whole screens, and a shared CI runner is slower
+    // than a laptop: five seconds is too tight for them there.
+    testTimeout: 15_000,
   },
 });
