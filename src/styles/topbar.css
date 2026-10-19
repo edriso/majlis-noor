@@ -1,13 +1,20 @@
 /* The top bar of the reading screen (TopBar.tsx, TurnStrip.tsx): who reads
    now, large, with who reads after under it; then the place, the switch
-   between the page and the circle, and the menu. One line. */
+   between the page and the circle, and the menu.
+
+   One line wherever the turn has room beside the controls. Where it has
+   not, with the reader's text made large, the controls go down a line, to
+   the left, rather than any name being cut or drawn over the place: the
+   turn's share of the line is in rem, so it grows with the text. On a
+   phone on its side the bar is a rail beside the page (reading.css). */
 
 .topbar {
   flex: none;
   z-index: var(--z-top);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
   min-height: var(--topbar-h);
   padding-block: var(--space-2);
   padding-inline: max(var(--space-4), env(safe-area-inset-right))
@@ -24,7 +31,7 @@
 .turn-strip {
   container-type: inline-size;
   display: block;
-  flex: 1;
+  flex: 1 1 7rem;
   min-width: 0;
 }
 .turn-strip-shown {
@@ -83,9 +90,12 @@
   font-size: var(--screen-text-xl);
   font-weight: 600;
   text-wrap: balance;
+  /* A word longer than the room breaks rather than run over the place. */
+  overflow-wrap: break-word;
 }
 /* What the turn reads and who reads after: two parts that keep their
-   words together and wrap between them, never cut. */
+   words together and wrap between them, never cut. The dot between them
+   ends the first, so a line never starts with it. */
 .turn-detail {
   display: flex;
   flex-wrap: wrap;
@@ -96,8 +106,18 @@
 .turn-detail > span {
   white-space: nowrap;
 }
-.turn-detail > span + span::before {
-  content: '· ';
+.turn-portion:not(:last-child)::after {
+  content: ' ·';
+}
+/* The narrowest phones give up who reads after first: the button below
+   names them, and the circle shows them. */
+@media (max-width: 359px) {
+  .turn-after {
+    display: none;
+  }
+  .turn-portion::after {
+    content: none;
+  }
 }
 /* Beside the controls on a narrow phone: a smaller face and name, and a
    long name wraps onto a second line rather than losing its end. */
@@ -123,6 +143,8 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
+  /* At the left, on the turn's line or, gone down a line, under it. */
+  margin-inline-start: auto;
 }
 
 /* «ص ٥٠»: the place, and the way to another. */

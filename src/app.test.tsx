@@ -678,7 +678,8 @@ describe('the end of a sitting', () => {
     expect(primary().textContent).toContain('وبه تبلغ الغاية');
     await user.click(primary());
     expect(screen.getByRole('heading', { name: /^بلغت/ })).toBeTruthy();
-    expect(status()).toMatch(/^بلغت/);
+    // Drawn once, on the card; the strip still says it aloud.
+    expect(status()).toBe('');
     expect(said()).toBe('بلغتَ الغاية. تقبّل الله منك.');
     // The buttons it replaced had the focus; the card takes it.
     const carryOn = screen.getByRole('button', { name: 'تابعوا' });

@@ -1,5 +1,5 @@
 import { MemberFace } from '@/components/HalaqaCircle';
-import { endTitle, stripDetail } from '@/halaqa/labels';
+import { stripDetail } from '@/halaqa/labels';
 import { turnPhrase } from '@/halaqa/state';
 import type { Turn } from './useTurn';
 
@@ -16,6 +16,10 @@ import type { Turn } from './useTurn';
  * When the turn passes, what is drawn is drawn afresh (keyed by the turn),
  * which lets it slide in from the side the turn moves to and the ring draw
  * itself round the new reader; reduced motion stills both.
+ *
+ * Once nothing is left to read, it draws nothing: the card in the middle
+ * says «خُتم المصحف» or «بلغتم الغاية», once, and this still says it to a
+ * screen reader.
  */
 export function TurnStrip({ turn }: { turn: Turn }) {
   const { member, end, session } = turn;
@@ -27,36 +31,35 @@ export function TurnStrip({ turn }: { turn: Turn }) {
         next: turn.next,
         end: turn.nextEnd,
       });
-  const parts = detail ? [detail.portion, detail.after].filter(Boolean) : [];
   return (
     <output className="turn-strip" aria-live="polite">
-      <span
-        key={end ?? `${session.turn}:${member.id}`}
-        className="turn-strip-shown"
-        data-end={end ?? undefined}
-        aria-hidden="true"
-      >
-        {end ? null : (
+      {detail ? (
+        <span
+          key={`${session.turn}:${member.id}`}
+          className="turn-strip-shown"
+          aria-hidden="true"
+        >
           <span className="turn-face">
             <MemberFace member={member} />
             <svg className="turn-ring" viewBox="0 0 48 48">
               <circle cx="24" cy="24" r="23" pathLength="100" />
             </svg>
           </span>
-        )}
-        <span className="turn-text">
-          <span className="turn-name">
-            {end ? endTitle(end) : turnPhrase(member)}
+          <span className="turn-text">
+            <span className="turn-name">{turnPhrase(member)}</span>
+            {detail.portion || detail.after ? (
+              <span className="turn-detail">
+                {detail.portion ? (
+                  <span className="turn-portion">{detail.portion}</span>
+                ) : null}
+                {detail.after ? (
+                  <span className="turn-after">{detail.after}</span>
+                ) : null}
+              </span>
+            ) : null}
           </span>
-          {parts.length ? (
-            <span className="turn-detail">
-              {parts.map((part) => (
-                <span key={part}>{part}</span>
-              ))}
-            </span>
-          ) : null}
         </span>
-      </span>
+      ) : null}
       <span className="visually-hidden">{turn.announcement}</span>
     </output>
   );
