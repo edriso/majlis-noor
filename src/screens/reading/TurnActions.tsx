@@ -26,8 +26,9 @@ import type { Turn } from './useTurn';
  * recitation failed. The primary button stays in the same place in the
  * tree whatever the turn, so it stays the same element and keeps focus.
  *
- * Along the top runs the sitting's progress. A timed turn's clock is shown
- * once, on its pause button, and drains as a line along the main button.
+ * Along the top runs the sitting's progress, with what is left written on
+ * it when the sitting has a goal. A timed turn's clock is shown once, on
+ * its pause button, and drains as a line along the main button.
  */
 export function TurnActions({
   turn,
@@ -80,13 +81,17 @@ export function TurnActions({
         }),
       };
 
-  const progress = sittingProgress({
-    unit: turn.unit,
-    page: turn.page,
-    place: placeOf(session),
-    from: session.from,
-    until: session.until,
-  });
+  const progress = {
+    ...sittingProgress({
+      unit: turn.unit,
+      page: turn.page,
+      place: placeOf(session),
+      from: session.from,
+      until: session.until,
+    }),
+    // Its words shown on the way to a goal, as `sittingProgress` counts it.
+    shown: session.until !== null && session.until > session.from,
+  };
 
   return (
     <ActionBar progress={progress}>

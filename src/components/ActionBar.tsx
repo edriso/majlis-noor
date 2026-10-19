@@ -46,21 +46,36 @@ export function ActionBar({
   );
 }
 
-/** How far the sitting has come: what `sittingProgress` says. */
-export type Progress = { name: string; text: string; share: number };
+/** How far the sitting has come: what `sittingProgress` says, and whether
+    its words are shown as well as heard. */
+export type Progress = {
+  name: string;
+  text: string;
+  share: number;
+  shown?: boolean;
+};
 
 /** The slim line along the bar's top edge: the way to the goal, or the
     place in the Mushaf. A screen reader hears its words rather than a
-    percentage. */
-function ProgressLine({ name, text, share }: Progress) {
+    percentage. On the way to a goal they are written on the line too,
+    small («٢٤ آية إلى الغاية»), since a line alone does not say what it
+    measures; the place in the Mushaf is the chip at the top already. */
+function ProgressLine({ name, text, share, shown }: Progress) {
   return (
-    <progress
-      className="progress-line"
-      aria-label={name}
-      aria-valuetext={text}
-      max={1000}
-      value={Math.round(share * 1000)}
-    />
+    <>
+      <progress
+        className="progress-line"
+        aria-label={name}
+        aria-valuetext={text}
+        max={1000}
+        value={Math.round(share * 1000)}
+      />
+      {shown ? (
+        <span className="progress-label" aria-hidden="true">
+          {text}
+        </span>
+      ) : null}
+    </>
   );
 }
 

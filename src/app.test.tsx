@@ -391,6 +391,8 @@ describe('a halaqa', () => {
     await startWith({ members: [you], start: ayahIndex(3, 1) });
     const line = screen.getByRole('progressbar', { name: 'الموضع في المصحف' });
     expect(line.getAttribute('aria-valuetext')).toBe('الصفحة ٥٠ من ٦٠٤');
+    // The place is the chip's to show; the line keeps its words unseen.
+    expect(document.querySelector('.progress-label')).toBeNull();
     cleanup();
     await startWith({
       members: [you],
@@ -402,6 +404,10 @@ describe('a halaqa', () => {
         .getByRole('progressbar', { name: 'الطريق إلى الغاية' })
         .getAttribute('aria-valuetext'),
     ).toBe('٣ صفحات إلى الغاية');
+    // On the way to a goal the words are written on the line as well.
+    expect(document.querySelector('.progress-label')?.textContent).toBe(
+      '٣ صفحات إلى الغاية',
+    );
   });
 
   it('announces whose turn it is to a screen reader', async () => {

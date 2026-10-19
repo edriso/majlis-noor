@@ -47,6 +47,23 @@
 .progress-line::-moz-progress-bar {
   background: var(--gold);
 }
+/* On the way to a goal, what is left, written small on the line at its
+   start, on a patch of the ground so the line seems to pass behind it. It
+   takes no room: half over the bar's own margin, half over the room's. */
+.progress-label {
+  position: absolute;
+  top: -1px;
+  inset-inline-start: var(--space-4);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
 
 /* ---------- The primary button ---------- */
 
