@@ -169,6 +169,12 @@ the print is; see `src/mushaf/AGENTS.md`.
 lives in `localStorage` under one key and nowhere else. The close card is
 made on the device and goes only where the reader sends it.
 
+**Two hosts, and no more.** The content security policy, a `<meta>` written
+into the built `index.html` by `vite.config.ts`, lets the page reach only its
+own origin, `static.qurancdn.com` (page fonts) and `download.quranicaudio.com`
+(recitations); a new host or an inline script is blocked until it is added
+there.
+
 **The storage key is a contract.** It is `majlis-noor:v1`, read by
 `src/halaqa/storage.ts` and again by the inline script in `index.html` that
 paints the theme before the bundle loads (`bootScript()` in

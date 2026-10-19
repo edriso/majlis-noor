@@ -48,6 +48,7 @@
          gold are written in at build time from src/styles/themes.ts. */
       %THEME_GROUNDS%
       body { margin: 0; }
+      .no-script { color: #f3ead8; text-align: center; font-family: system-ui; padding: 24px; }
       .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; color: var(--boot-gold); font: 600 28px/1.5 'Reem Kufi', system-ui, sans-serif; }
     </style>
     <!-- Paints the saved theme, or on a first visit the system's, before
@@ -60,7 +61,7 @@
   <body>
     <div id="root"><div class="boot" role="status">مجلس نور</div></div>
     <noscript>
-      <p style="color:#f3ead8;text-align:center;font-family:system-ui;padding:24px">يحتاج مجلس نور إلى تفعيل جافاسكربت.</p>
+      <p class="no-script">يحتاج مجلس نور إلى تفعيل جافاسكربت.</p>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

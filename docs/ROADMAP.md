@@ -12,8 +12,7 @@ Arabic, NOTICE). Tick an item when it is merged.
 
 ## Where it stands
 
-19 October 2026. Every phase is done but one item, 1.6, the content
-security policy. 1,030 tests pass, and the main script is 113 KB of
+19 October 2026. Every phase is done. 1,048 tests pass, and the main script is 113 KB of
 JavaScript gzipped, under the budget below, though the app does a great
 deal more; the stylesheet is 13 KB. What is still open, and what is known
 to be rough, is listed under *Still open* at the end.
@@ -264,10 +263,13 @@ Fewer hosts, fewer packages, nothing render-blocking.
   `import.meta.glob` map is about 36 KB of the main script. Write the pages
   to `public/pages/<n>.json` and fetch them by address, which also makes
   0.2's list simpler.
-- [ ] **1.6 A content security policy.** A `<meta>` policy that allows the
+- [x] **1.6 A content security policy.** A `<meta>` policy that allows the
   app's own origin, the audio host and, until 1.2 is done, the page fonts'
   host, and nothing else. It enforces this phase and documents it in one
-  line.
+  line. Done: `vite.config.ts` writes it into the built page, with the
+  inline boot script and style allowed by their hashes, worked out from the
+  page as built; the dev server goes without it, for its hot reload. AGENTS.md
+  says it under *Rules you must not break*.
 - [x] **1.7 Watch the one host left.** QuranicAudio is a Quran
   Foundation project with open CORS and range requests, and there is no
   byte-identical mirror. Its files are replaced in place (al-Husary's carry
@@ -582,7 +584,6 @@ summary counts ayat. Phase 5 follows 3.4.
 
 ## Still open
 
-- **1.6, a content security policy.** Not started.
 - **The data's terms.** The maintainer's letter to Quran Foundation (point
   9 above), and with its answer, whether the page fonts may be carried
   (D3).
