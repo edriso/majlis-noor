@@ -11,7 +11,6 @@ import index from './mushaf.json';
 import { arabic } from './arabic';
 
 export const PAGE_COUNT = 604;
-export const LINES_PER_PAGE = 15;
 
 export type Surah = {
   n: number;
@@ -151,14 +150,6 @@ export const juzOfPage = (p: number) =>
   juzOfAyah(firstAyahOfPage(clampPage(p)));
 export const rubOfPage = (p: number) =>
   rubOfAyah(firstAyahOfPage(clampPage(p)));
-
-/** The first page whose first ayah is in each juz, 1 to 30. Four juz begin
-    part-way down a page (4, 7, 11 and 26); this names the page after it,
-    the first one the margin gives to the juz. `juzRange` has the ayah. */
-export const juzStarts: number[] = Array.from({ length: JUZ_COUNT }, (_, i) => {
-  const first = pageOfAyah(starts.juz[i]);
-  return firstAyahOfPage(first) === starts.juz[i] ? first : first + 1;
-});
 
 /**
  * Where a hizb quarter sits, as the margin of the Mushaf names it: the hizb,

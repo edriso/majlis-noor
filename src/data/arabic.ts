@@ -64,10 +64,6 @@ export const hoursCount = (n: number) =>
 export const seatsCount = (n: number) =>
   counted(n, { one: 'مقعد واحد', two: 'مقعدان', few: 'مقاعد', many: 'مقعدًا' });
 
-/** Readers, as a label. */
-export const readersCount = (n: number) =>
-  counted(n, { one: 'قارئ واحد', two: 'قارئان', few: 'قرّاء', many: 'قارئًا' });
-
 /**
  * A duration as «د:ثث», in Arabic-Indic digits. Guarded at both ends because
  * it renders every second off a number the clock computes: a negative or NaN
@@ -78,31 +74,6 @@ export function clock(ms: number) {
   const minutes = Math.floor(total / 60);
   const seconds = arabic(total % 60).padStart(2, '٠');
   return `${arabic(minutes)}:${seconds}`;
-}
-
-/** A duration in words for a screen reader and for labels: «دقيقة و٢٠ ثانية». */
-export function durationWords(ms: number) {
-  const total = Number.isFinite(ms) ? Math.max(0, Math.round(ms / 1000)) : 0;
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  const m = minutes
-    ? counted(minutes, {
-        one: 'دقيقة',
-        two: 'دقيقتان',
-        few: 'دقائق',
-        many: 'دقيقة',
-      })
-    : '';
-  const s = seconds
-    ? counted(seconds, {
-        one: 'ثانية',
-        two: 'ثانيتان',
-        few: 'ثوانٍ',
-        many: 'ثانية',
-      })
-    : '';
-  if (m && s) return `${m} و${s}`;
-  return m || s || 'أقل من ثانية';
 }
 
 /** Ordinals, for the default reader names: «القارئ الثاني». */

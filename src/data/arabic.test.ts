@@ -4,11 +4,9 @@ import {
   ayatCount,
   clock,
   digits,
-  durationWords,
   hoursCount,
   minutesCount,
   pagesCount,
-  readersCount,
 } from './arabic';
 
 describe('numbers', () => {
@@ -32,7 +30,6 @@ describe('counted nouns', () => {
     expect(pagesCount(11)).toBe('١١ صفحة');
     expect(pagesCount(103)).toBe('١٠٣ صفحات');
     expect(pagesCount(120)).toBe('١٢٠ صفحة');
-    expect(readersCount(3)).toBe('٣ قرّاء');
   });
   it('counts ayat the same way', () => {
     expect(ayatCount(1)).toBe('آية واحدة');
@@ -69,10 +66,5 @@ describe('durations', () => {
     expect(clock(5_000)).toBe('٠:٠٥');
     expect(clock(-1)).toBe('٠:٠٠');
     expect(clock(Number.NaN)).toBe('٠:٠٠');
-  });
-  it('says it in words', () => {
-    expect(durationWords(80_000)).toBe('دقيقة و٢٠ ثانية');
-    expect(durationWords(120_000)).toBe('دقيقتان');
-    expect(durationWords(0)).toBe('أقل من ثانية');
   });
 });

@@ -12,7 +12,6 @@ import {
   juzOfAyah,
   juzOfPage,
   juzRange,
-  juzStarts,
   loadedPage,
   loadPage,
   PAGE_COUNT,
@@ -156,9 +155,6 @@ describe('the Mushaf', () => {
     expect(surahs[1]).toMatchObject({ name: 'البقرة', page: 2, ayat: 286 });
     expect(surahs[17].page).toBe(293);
     expect(surahs[113].page).toBe(604);
-    expect(juzStarts[0]).toBe(1);
-    expect(juzStarts[29]).toBe(582);
-    expect(juzStarts).toEqual([...juzStarts].sort((a, b) => a - b));
     expect(surahOfPage(24).name).toBe('البقرة');
     expect(juzOfPage(604)).toBe(30);
   });
@@ -267,16 +263,7 @@ describe('the index, checked against the pages', () => {
       expect(juzOfAyah(juzRange(j).from)).toBe(j);
     }
     expect(juzRange(30).to).toBe(AYAH_COUNT + 1);
-    // `juzStarts` names the first page the margin gives each juz, so a juz
-    // that begins part-way down a page is found on the page after it.
-    expect(juzStarts).toEqual(
-      Array.from(
-        { length: 30 },
-        (_, j) => pages.findIndex((p) => p.juz === j + 1) + 1,
-      ),
-    );
     expect(verseKey(juzRange(4).from)).toBe('3:93');
-    expect(juzStarts[3]).toBe(pageOfAyah(juzRange(4).from) + 1);
   });
 
   it('finds the pages a stretch of ayat is read on', () => {
