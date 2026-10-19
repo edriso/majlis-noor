@@ -97,9 +97,10 @@ the end of the Mushaf and at `until`, and its pages are the pages that range
 is printed on (`turnPages`). The Madani print ends every page on a whole
 ayah, so a turn of pages is whole ayat; a turn of a few ayat may run onto
 the next page, and then it has two. A turn of pages that is not whole pages
-(`isWholePages`: one begun at a surah, or cut by the goal) is underlined on
-the page, named by its ayat («الآيات ١–١٠») and timed by them, as a turn
-of ayat is.
+(`isWholePages`: one begun at a surah, or cut by the goal) is named by its
+ayat («الآيات ١–١٠») and timed by them, as a turn of ayat is; it is not
+underlined on the page, where the surah's header already shows where it
+begins.
 
 Selectors the screens use: `currentRange`, `currentPages`, `currentPage`,
 `placeOf` (the first ayah the circle has not left behind),

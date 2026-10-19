@@ -39,9 +39,11 @@ function lowOnPage(ayah: number) {
 /**
  * What the reading screen marks on the page and what a tap on it does:
  *
- * - `turn`, the turn's ayat to underline, only where the turn covers part
- *   of a page. A turn of whole pages would underline every line, which
- *   says nothing and crowds the page.
+ * - `turn`, the turn's ayat to underline, only where a turn of ayat, a
+ *   quarter or a surah covers part of a page. A turn of whole pages would
+ *   underline every line, which says nothing and crowds the page; a turn
+ *   of pages begun at a surah part-way down one is not underlined either,
+ *   since the surah's header already shows where it begins.
  * - `follow`, the recitation to follow: an ayah heard alone first, since it
  *   plays over the rest, then a seated sheikh's turn, then «استمع».
  * - `chosen`, the ayah tapped, for the ayah bar; it belongs to the turn and
@@ -52,10 +54,10 @@ function lowOnPage(ayah: number) {
  * nothing.
  */
 export function useMarks(turn: Turn, prefs: Prefs) {
-  const { range, page, reciter, ayah, listen, timings } = turn;
+  const { range, page, unit, reciter, ayah, listen, timings } = turn;
   const config = turn.session.config;
 
-  const whole = isWholePages(range);
+  const whole = unit === 'page' || isWholePages(range);
   const turnFrom = whole ? 0 : range.from;
   const turnTo = whole ? 0 : range.to;
   const turnMark = useMemo(
