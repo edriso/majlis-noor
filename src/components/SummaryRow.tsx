@@ -4,9 +4,9 @@ import { ChevronLeft } from './icons';
 /**
  * A choice already made, shown as one row that opens where it is changed:
  * «من أين نبدأ؟» showing «سورة آل عمران» over «الصفحة ٥٠ · الجزء ٣»,
- * «طريقة الحلقة» showing «التتابع · صفحة · يدوي», «عدّل الحلقة». The full
- * width is the target. The chevron points left, the way a right-to-left
- * page goes on.
+ * «طريقة الحلقة» showing «كلٌّ يُكمل · صفحة · بضغطة «تمّ»», «عدّل
+ * الحلقة». The full width is the target. The chevron points left, the way
+ * a right-to-left page goes on.
  *
  * A button, named by what it shows, the title and then the detail, with
  * `spokenSuffix` after them for what pressing it does, so the name a

@@ -21,7 +21,7 @@ export type Option<T extends string | number> = {
  * "1 of 3, selected" with nothing written to make it so.
  *
  * Each radio is named by its label alone and described by its hint, so a
- * card is heard as «التتابع» and then why, rather than as one long name.
+ * card is heard as «كلٌّ يُكمل» and then why, rather than as one long name.
  */
 export function Choice<T extends string | number>({
   legend,

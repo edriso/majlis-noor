@@ -34,13 +34,13 @@ describe('a summary row', () => {
   it('keeps what leads it, and its chevron, out of its name', () => {
     render(
       <SummaryRow
-        title="التتابع · صفحة · يدوي"
+        title="كلٌّ يُكمل · صفحة · بضغطة «تمّ»"
         leading={<span>صورة</span>}
         onClick={() => {}}
       />,
     );
     expect(
-      screen.getByRole('button', { name: 'التتابع · صفحة · يدوي' }),
+      screen.getByRole('button', { name: 'كلٌّ يُكمل · صفحة · بضغطة «تمّ»' }),
     ).toBeTruthy();
     expect(
       document.querySelector('.summary-row svg')?.getAttribute('aria-hidden'),

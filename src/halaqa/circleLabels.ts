@@ -110,17 +110,19 @@ export function goalWords(goal: Goal) {
 
 /**
  * The circle's way of reading as one row: what it does on every turn in
- * the title, «التتابع · صفحة · يدوي», and what it does besides in the
- * detail, «إلى آخر السورة · من الحفظ». Only what applies: a circle of one
- * has no mode, a circle of sheikhs alone no turn to time and nothing to
- * read from memory.
+ * the title, «كلٌّ يُكمل · صفحة · بضغطة «تمّ»», and what it does besides
+ * in the detail, «إلى آخر السورة · من الحفظ». Only what applies: a circle
+ * of one has no mode, a circle of sheikhs alone no turn to time and
+ * nothing to read from memory. Each part is said in words a newcomer
+ * knows, the words its choice shows, rather than a name for it («التتابع»,
+ * «يدوي») that has to be learnt.
  */
 export function circleSummary(c: Config): { title: string; detail: string } {
   const people = c.members.some((m) => m.kind === 'person');
   const title = [
-    c.members.length > 1 ? (c.mode === 'repeat' ? 'التكرار' : 'التتابع') : '',
+    c.members.length > 1 ? (c.mode === 'repeat' ? 'كلٌّ يكرّر' : 'كلٌّ يُكمل') : '',
     sizeWords(c.unit, c.size),
-    people ? (c.turnChange === 'reciter' ? 'بتوقيت الشيخ' : 'يدوي') : '',
+    people ? (c.turnChange === 'reciter' ? 'بتوقيت الشيخ' : 'بضغطة «تمّ»') : '',
   ];
   const detail = [
     goalWords(c.goal),

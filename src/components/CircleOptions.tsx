@@ -62,12 +62,12 @@ export function CircleOptions({
           options={[
             {
               value: 'continue',
-              label: 'التتابع',
+              label: 'كلٌّ يُكمل',
               hint: 'يقرأ كل واحد ما بعد الذي قبله.',
             },
             {
               value: 'repeat',
-              label: 'التكرار',
+              label: 'كلٌّ يكرّر',
               hint: 'يقرأ الجميع المقدار نفسه، ثم ينتقلون.',
             },
           ]}
@@ -263,7 +263,7 @@ function TurnChangeField({
         options={[
           {
             value: 'manual',
-            label: 'يدوي',
+            label: 'بضغطة «تمّ»',
             hint: 'يضغط القارئ «تمّ» حين ينتهي.',
           },
           {

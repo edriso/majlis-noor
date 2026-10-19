@@ -107,12 +107,12 @@ describe('the summary row', () => {
 
   it('says only what applies', () => {
     expect(circleSummary(config())).toEqual({
-      title: 'صفحة · يدوي',
+      title: 'صفحة · بضغطة «تمّ»',
       detail: '',
     });
     expect(
       circleSummary(config({ members: [you, fatima], unit: 'ayah', size: 2 })),
-    ).toEqual({ title: 'التتابع · آيتان · يدوي', detail: '' });
+    ).toEqual({ title: 'كلٌّ يُكمل · آيتان · بضغطة «تمّ»', detail: '' });
     expect(
       circleSummary(
         config({
@@ -124,7 +124,7 @@ describe('the summary row', () => {
         }),
       ),
     ).toEqual({
-      title: 'التكرار · صفحة · بتوقيت الشيخ',
+      title: 'كلٌّ يكرّر · صفحة · بتوقيت الشيخ',
       detail: 'إلى آخر السورة · من الحفظ',
     });
     // A circle of sheikhs alone has no turn to time or read from memory.

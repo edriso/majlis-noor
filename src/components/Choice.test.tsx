@@ -51,9 +51,9 @@ const mislabelled = () =>
 
 describe('a choice', () => {
   const options: Option<string>[] = [
-    { value: 'a', label: 'التتابع', hint: 'يقرأ كل واحد ما بعد صاحبه.' },
+    { value: 'a', label: 'كلٌّ يُكمل', hint: 'يقرأ كل واحد ما بعد صاحبه.' },
     { value: 'b', label: '٣', spokenSuffix: 'آيات' },
-    { value: 'c', label: 'التكرار' },
+    { value: 'c', label: 'كلٌّ يكرّر' },
   ];
 
   it('is a group of native radios named by its legend', () => {
@@ -61,14 +61,14 @@ describe('a choice', () => {
     const group = screen.getByRole('group', { name: 'الاختيار' });
     expect(within(group).getAllByRole('radio')).toHaveLength(3);
     expect(
-      (screen.getByRole('radio', { name: 'التتابع' }) as HTMLInputElement)
+      (screen.getByRole('radio', { name: 'كلٌّ يُكمل' }) as HTMLInputElement)
         .checked,
     ).toBe(true);
   });
 
   it('names an option by what it shows, and hears its hint as a description', () => {
     render(<Harness options={options} />);
-    const radio = screen.getByRole('radio', { name: 'التتابع' });
+    const radio = screen.getByRole('radio', { name: 'كلٌّ يُكمل' });
     const hint = document.getElementById(
       radio.getAttribute('aria-describedby')!,
     );
@@ -84,14 +84,14 @@ describe('a choice', () => {
   it('moves with the arrow keys and marks the chosen option', async () => {
     const user = userEvent.setup();
     render(<Harness options={options} />);
-    await user.click(screen.getByRole('radio', { name: 'التتابع' }));
+    await user.click(screen.getByRole('radio', { name: 'كلٌّ يُكمل' }));
     await user.keyboard('{ArrowDown}');
     const chosen = screen.getByRole('radio', { name: '٣ آيات' });
     expect((chosen as HTMLInputElement).checked).toBe(true);
     expect(chosen.closest('label')!.hasAttribute('data-checked')).toBe(true);
     expect(
       screen
-        .getByRole('radio', { name: 'التتابع' })
+        .getByRole('radio', { name: 'كلٌّ يُكمل' })
         .closest('label')!
         .hasAttribute('data-checked'),
     ).toBe(false);

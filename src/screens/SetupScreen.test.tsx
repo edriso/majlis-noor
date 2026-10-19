@@ -55,7 +55,7 @@ describe('a first visit', () => {
     );
     expect(shows(placeRow())).toBe('سورة الفاتحة | الصفحة ١ · الجزء ١');
     expect(seats()).toHaveLength(1);
-    expect(shows(circleRow())).toBe('صفحة · يدوي');
+    expect(shows(circleRow())).toBe('صفحة · بضغطة «تمّ»');
     expect(
       screen.getByRole('button', { name: /^ابدأ المجلس/ }).getAttribute('type'),
     ).toBe('submit');
@@ -170,12 +170,12 @@ describe('the way the circle reads', () => {
         .checked,
     ).toBe(true);
     // Repeat mode keeps no swapping at all.
-    await user.click(within(sheet()).getByRole('radio', { name: 'التكرار' }));
+    await user.click(within(sheet()).getByRole('radio', { name: 'كلٌّ يكرّر' }));
     expect(
       within(sheet()).queryByRole('group', { name: 'بدّل البادئ' }),
     ).toBeNull();
     await close(user);
-    expect(shows(circleRow())).toBe('التكرار · صفحة · يدوي');
+    expect(shows(circleRow())).toBe('كلٌّ يكرّر · صفحة · بضغطة «تمّ»');
   });
 
   it('names each size of a turn by the numeral it shows, then its words', async () => {
@@ -196,7 +196,7 @@ describe('the way the circle reads', () => {
     ).toHaveProperty('checked', true);
     await user.click(within(sheet()).getByRole('radio', { name: '١٠ آيات' }));
     await close(user);
-    expect(shows(circleRow())).toBe('١٠ آيات · يدوي');
+    expect(shows(circleRow())).toBe('١٠ آيات · بضغطة «تمّ»');
   });
 
   it('chooses the timing sheikh inside the timed option, and comes back to it', async () => {
@@ -247,7 +247,7 @@ describe('the way the circle reads', () => {
     expect(
       (
         within(sheet()).getByRole('radio', {
-          name: 'التكرار',
+          name: 'كلٌّ يكرّر',
         }) as HTMLInputElement
       ).checked,
     ).toBe(true);
@@ -257,7 +257,7 @@ describe('the way the circle reads', () => {
     await close(user);
     expect(seats()[0].textContent).toContain('الشيخ الحصري المعلّم');
     expect(seats()).toHaveLength(3);
-    expect(shows(circleRow())).toBe('التكرار · ٣ آيات · يدوي');
+    expect(shows(circleRow())).toBe('كلٌّ يكرّر · ٣ آيات · بضغطة «تمّ»');
   });
 
   it('finds no seat for the teaching sheikh in a full circle', async () => {
@@ -313,7 +313,9 @@ describe('the way the circle reads', () => {
     );
     await user.click(within(sheet()).getByRole('switch', { name: 'من الحفظ' }));
     await close(user);
-    expect(shows(circleRow())).toBe('صفحة · يدوي | إلى الصفحة ٦٠ · من الحفظ');
+    expect(shows(circleRow())).toBe(
+      'صفحة · بضغطة «تمّ» | إلى الصفحة ٦٠ · من الحفظ',
+    );
     expect(saved().config).toMatchObject({
       goal: { to: 'page', page: 60 },
       fromMemory: true,
@@ -412,7 +414,7 @@ describe('the form in the settings of a sitting', () => {
     );
     expect(screen.getByRole('group', { name: /^أهل الحلقة/ })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'طريقة القراءة' })).toBeTruthy();
-    await user.click(screen.getByRole('radio', { name: 'التكرار' }));
+    await user.click(screen.getByRole('radio', { name: 'كلٌّ يكرّر' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...config, mode: 'repeat' });
     expect(misnamed()).toEqual([]);
   });
