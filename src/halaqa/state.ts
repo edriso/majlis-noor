@@ -156,8 +156,15 @@ export type Session = {
   /** When the sitting began, as the start action carried it (ms since the
       epoch); null for one saved before the app kept it. */
   startedAt: number | null;
-  /** The first ayah the sitting read. */
+  /** Where the sitting's reading runs unbroken from: where it began, or
+      where a jump took the circle. What the circle finished since is one
+      stretch, from here to `lastRead`. */
   from: number;
+  /** The last ayah finished before that run began, when a jump broke off
+      what the circle had read; 0 while the sitting has read in one run.
+      What was read is then not one stretch, and the close does not say it
+      is. */
+  before: number;
   /** The ayah at which the sitting's goal is reached, exclusive (the goal
       read, this ayah is not); null for none. Worked out when the sitting
       starts, from where it starts. */
@@ -425,6 +432,22 @@ function keepOpen(s: Session, next: Session) {
 }
 
 /**
+ * The sitting's run of reading once the circle has moved to `next`'s turn
+ * other than by reading on: a jump, or a step back to a turn it did not
+ * finish. With nothing finished yet, the run begins again where the circle
+ * now is. A turn that begins just after the last ayah of the run reads on
+ * unbroken. Anywhere else (or from a run broken off before it read
+ * anything), what was read is broken off where it stopped, and a new run
+ * begins here.
+ */
+function withRun(s: Session, next: Session): Session {
+  const at = Math.min(currentRange(next).from, AYAH_COUNT);
+  if (!s.lastRead) return { ...next, from: at };
+  if (at === s.lastRead + 1 && s.lastRead !== s.before) return next;
+  return { ...next, from: at, before: s.lastRead };
+}
+
+/**
  * Moves the current turn so it begins on the unit holding ayah `a`, with
  * the page that ayah is on open. Re-anchoring keeps the turn number, so the
  * same member keeps the turn. A jump to or past the sitting's goal leaves
@@ -441,10 +464,10 @@ function jumpTo(s: Session, a: number): Session {
     until: passed ? null : s.until,
     pageInTurn: 0,
   };
-  return {
+  return withRun(s, {
     ...next,
     pageInTurn: Math.max(0, currentPages(next).indexOf(pageOfAyah(ayah))),
-  };
+  });
 }
 
 export function reduce(state: State, action: Action): State {
@@ -472,6 +495,7 @@ export function reduce(state: State, action: Action): State {
         lastRead: 0,
         startedAt: Number.isFinite(action.at) ? action.at : null,
         from: unitStart(config.unit, anchor.at),
+        before: 0,
         // From the place chosen, not the start of the unit holding it: a
         // quarter that opens in the surah before is still a sitting in the
         // surah that was chosen.
@@ -520,16 +544,24 @@ export function reduce(state: State, action: Action): State {
       const turn = turnBefore(plan, s.anchor, s.turn);
       if (turn < 0 || isBeforeStart(plan, s.anchor, turn)) return state;
       const undone = finishedBy(s, turn);
-      const pagesRead = Math.max(0, s.pagesRead - undone.pages);
-      const ayatRead = Math.max(0, s.ayatRead - undone.ayat);
-      // What was finished before the turn stepped back to ends where it
-      // begins, unless nothing was.
-      const lastRead = !undone.ayat
-        ? s.lastRead
-        : pagesRead || ayatRead
-          ? undone.range.from - 1
-          : 0;
-      return set({ ...s, turn, pageInTurn: 0, pagesRead, ayatRead, lastRead });
+      const back: Session = { ...s, turn, pageInTurn: 0 };
+      // Only what the circle finished last is un-read: the turn before a
+      // jump was never read, and stepping back to it takes nothing away
+      // but moves the circle there, as a jump would.
+      const last =
+        undone.ayat > 0 &&
+        undone.range.from >= s.from &&
+        undone.range.to - 1 === s.lastRead;
+      if (!last) return set(withRun(s, back));
+      // What was finished before it ends where it begins, or, if it began
+      // the run, where the reading before the run stopped (nothing, if
+      // none did).
+      return set({
+        ...back,
+        pagesRead: Math.max(0, s.pagesRead - undone.pages),
+        ayatRead: Math.max(0, s.ayatRead - undone.ayat),
+        lastRead: undone.range.from > s.from ? undone.range.from - 1 : s.before,
+      });
     }
 
     case 'nextPage': {
@@ -722,8 +754,10 @@ export type Sitter = { id: string; kind: MemberKind; name: string };
 export type Place = { ayah: number; key: string; page: number };
 
 export type Summary = {
-  /** Where the sitting began. */
-  from: Place;
+  /** Where what the circle finished begins, when it is one stretch from
+      here to `to`; null when it finished nothing, or when a jump broke off
+      what it had read, and `to` alone says where it stopped. */
+  from: Place | null;
   /** The last ayah the circle finished; null if it finished none. */
   to: Place | null;
   pagesRead: number;
@@ -743,11 +777,14 @@ const placeAt = (ayah: number): Place => ({
 /**
  * The close of a sitting: from where to where, how much, how long, and who
  * sat. What was read is what the circle finished, the same count as
- * `pagesRead`: a turn under way when the sitting ends is not counted.
+ * `pagesRead`: a turn under way when the sitting ends is not counted. From
+ * where is said only of one unbroken stretch, never of a range that runs
+ * over pages a jump passed by.
  */
 export function summaryOf(s: Session, endedAt: number): Summary {
+  const whole = s.lastRead > 0 && !s.before && s.from <= s.lastRead;
   return {
-    from: placeAt(s.from),
+    from: whole ? placeAt(s.from) : null,
     to: s.lastRead ? placeAt(s.lastRead) : null,
     pagesRead: s.pagesRead,
     ayatRead: s.ayatRead,
@@ -914,9 +951,10 @@ export function sanitizeState(raw: unknown): State {
           ? stored
           : null,
       from: intIn(s.from, 1, AYAH_COUNT, sc.start),
+      before: 0,
       until: intIn(s.until, 2, END, 0) || null,
     };
-    session = {
+    const placed: Session = {
       ...built,
       pageInTurn: Math.min(
         intIn(s.pageInTurn, 0, Number.MAX_SAFE_INTEGER, 0),
@@ -924,8 +962,39 @@ export function sanitizeState(raw: unknown): State {
       ),
       lastRead: intIn(s.lastRead, 0, AYAH_COUNT, lastBefore(built)),
     };
+    session =
+      'before' in s
+        ? {
+            ...placed,
+            before: Math.min(
+              intIn(s.before, 0, AYAH_COUNT, 0),
+              placed.lastRead,
+            ),
+          }
+        : runBefore(placed);
   }
   return { prefs, config, session };
+}
+
+/**
+ * For a sitting saved before a jump could break what it read, its run as
+ * far as what was kept can tell it. With nothing read, the run begins
+ * where the circle is. With something read, it is one stretch from `from`
+ * if the circle stands just past it and the ayat counted fill it (a
+ * sitting saved before ayat were counted has none to compare); otherwise
+ * the circle jumped after reading, and what it read is broken off where it
+ * stopped.
+ */
+function runBefore(s: Session): Session {
+  const at = currentRange(s).from;
+  if (!s.lastRead) return { ...s, from: Math.min(at, AYAH_COUNT) };
+  const whole =
+    s.from <= s.lastRead &&
+    at === s.lastRead + 1 &&
+    (!s.ayatRead || s.ayatRead === s.lastRead - s.from + 1);
+  return whole
+    ? s
+    : { ...s, from: Math.min(at, AYAH_COUNT), before: s.lastRead };
 }
 
 /** For a sitting saved before the last ayah read was kept: the end of the

@@ -22,7 +22,8 @@ export type CardText = {
       is left out where the browser has no Umm al-Qura calendar, rather than
       showing the Gregorian twice. */
   dates: string[];
-  /** From where to where, or one gentle line when nothing was finished. */
+  /** From where to where; where the circle stopped, when a jump broke
+      off what it read; or one gentle line when nothing was finished. */
   read: string[];
   /** «٤ صفحات · ٣٠ آية · ٢٥ دقيقة»; null when nothing was finished, since
       a card that read nothing has nothing to count. */
@@ -46,6 +47,10 @@ export const BRAND = 'مجلس نور';
 
 /** Said instead of from-and-to when the circle finished no turn. */
 export const NOTHING_READ = 'لم تكتمل قراءة بعد';
+
+/** Said instead of from-and-to when what was read is not one stretch:
+    «من الفاتحة إلى الكهف» after a jump would claim every page between. */
+export const STOPPED_AT = 'وقفتم عند';
 
 /* Both made once. The Hijri date is the Umm al-Qura calendar, the one most
    Arabic readers' phones and mosques keep, in Arabic-Indic digits; the
@@ -79,7 +84,10 @@ export function cardDates(at: number) {
 }
 
 /** «من سورة آل عمران، الآية ١ (الصفحة ٥٠)». */
-export function placeLine(word: 'من' | 'إلى', place: Place) {
+export function placeLine(
+  word: 'من' | 'إلى' | typeof STOPPED_AT,
+  place: Place,
+) {
   const { surah, ayah } = verseOf(place.ayah);
   return `${word} ${surahTitle(surah)}، الآية ${arabic(ayah)} (الصفحة ${arabic(place.page)})`;
 }
@@ -162,9 +170,11 @@ export function cardText(summary: Summary, endedAt: number): CardText {
   return {
     title: CARD_TITLE,
     dates: cardDates(endedAt),
-    read: summary.to
-      ? [placeLine('من', summary.from), placeLine('إلى', summary.to)]
-      : [NOTHING_READ],
+    read: !summary.to
+      ? [NOTHING_READ]
+      : summary.from
+        ? [placeLine('من', summary.from), placeLine('إلى', summary.to)]
+        : [placeLine(STOPPED_AT, summary.to)],
     amount: amount || null,
     present: presentLine(summary.members),
     supplication: SUPPLICATION.split(/(?<=،) /),

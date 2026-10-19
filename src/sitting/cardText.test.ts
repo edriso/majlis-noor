@@ -133,6 +133,59 @@ describe('the close of a sitting', () => {
     );
   });
 
+  it('reads from where a jump took the circle before it read anything', () => {
+    const card = closed(
+      { members: [you, fatima] },
+      at(19, 10),
+      { type: 'goToPage', page: 300 },
+      ...finish(1),
+    );
+    expect(card.read).toEqual([
+      'من سورة الكهف، الآية ٥٤ (الصفحة ٣٠٠)',
+      'إلى سورة الكهف، الآية ٦١ (الصفحة ٣٠٠)',
+    ]);
+    expect(card.amount).toBe('صفحة واحدة · ٨ آيات · ١٠ دقائق');
+  });
+
+  it('reads on through a jump to the very place the circle had reached', () => {
+    const card = closed(
+      { members: [you, fatima] },
+      at(19, 10),
+      ...finish(1),
+      { type: 'goToPage', page: 2 },
+      ...finish(1),
+    );
+    expect(card.read).toEqual([
+      'من سورة الفاتحة، الآية ١ (الصفحة ١)',
+      'إلى سورة البقرة، الآية ٥ (الصفحة ٢)',
+    ]);
+  });
+
+  it('says only where the circle stopped once it jumped after reading', () => {
+    const card = closed(
+      { members: [you, fatima] },
+      at(19, 10),
+      ...finish(1),
+      { type: 'goToPage', page: 300 },
+      ...finish(1),
+    );
+    // Not «من الفاتحة إلى الكهف»: the pages between were never read.
+    expect(card.read).toEqual(['وقفتم عند سورة الكهف، الآية ٦١ (الصفحة ٣٠٠)']);
+    expect(card.amount).toBe('صفحتان · ١٥ آية · ١٠ دقائق');
+  });
+
+  it('says only where the circle stopped in a new khatm', () => {
+    const card = closed(
+      { members: [you], start: firstAyahOfPage(603) },
+      at(19, 20),
+      ...finish(2),
+      { type: 'restartMushaf' },
+      ...finish(1),
+    );
+    expect(card.read).toEqual(['وقفتم عند سورة الفاتحة، الآية ٧ (الصفحة ١)']);
+    expect(card.amount?.startsWith('٣ صفحات · ')).toBe(true);
+  });
+
   it('does not name «أنت» reading alone', () => {
     const card = closed({ members: [you] }, at(19, 30), ...finish(1));
     expect(card.present).toBeNull();

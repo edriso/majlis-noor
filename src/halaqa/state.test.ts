@@ -1071,6 +1071,71 @@ describe('the close of a sitting', () => {
     expect(summary.pagesRead).toBe(1);
   });
 
+  it('begins where a jump took the circle before it read anything', () => {
+    let s = run({ start: page(10) }, { type: 'goToPage', page: 300 });
+    expect(s.session!.from).toBe(page(300));
+    s = finish(s);
+    expect(summaryOf(s.session!, T0)).toMatchObject({
+      from: { page: 300 },
+      to: { page: 300 },
+    });
+  });
+
+  it('gives no range once the circle jumped after reading', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    expect(summaryOf(s.session!, T0)).toMatchObject({
+      from: null,
+      to: { page: 10 },
+    });
+    s = finish(s);
+    expect(summaryOf(s.session!, T0)).toMatchObject({
+      from: null,
+      to: { page: 300 },
+      pagesRead: 2,
+    });
+  });
+
+  it('stays broken off after a jump back to where the reading stopped', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    s = reduce(s, { type: 'goToPage', page: 11 });
+    // The run begins here now, for the way to the goal, but page 10 was
+    // read before a jump all the same.
+    expect(s.session!.from).toBe(page(11));
+    s = finish(s);
+    expect(summaryOf(s.session!, T0)).toMatchObject({
+      from: null,
+      to: { page: 11 },
+    });
+  });
+
+  it('steps back across a jump without un-reading a page never read', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    s = reduce(s, { type: 'previousTurn' });
+    expect(where(s)).toEqual({ page: 299, reader: 0 });
+    const session = s.session!;
+    expect(session.pagesRead).toBe(1);
+    expect(session.lastRead).toBe(page(11) - 1);
+  });
+
+  it('steps back to the start of a run, to where the reading before it stopped', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    s = finish(s);
+    s = reduce(s, { type: 'previousTurn' });
+    expect(where(s)).toEqual({ page: 300, reader: 1 });
+    const session = s.session!;
+    expect(session.pagesRead).toBe(1);
+    expect(session.lastRead).toBe(page(11) - 1);
+    // A turn begins a run only where it was read; the one before page 300
+    // never was.
+    s = reduce(s, { type: 'previousTurn' });
+    expect(s.session!.lastRead).toBe(page(11) - 1);
+    expect(s.session!.pagesRead).toBe(1);
+  });
+
   it('counts a repeated round once', () => {
     let s = run({ start: page(24), mode: 'repeat' });
     s = finish(s, 2);
@@ -1102,6 +1167,79 @@ describe('a saved halaqa', () => {
     s = reduce(s, { type: 'nextPage' });
     s = reduce(s, { type: 'prefs', prefs: { pageSize: 'width' } });
     expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it('survives a round trip after a jump broke what was read', () => {
+    let s = run({ start: page(10) }, { type: 'finishTurn' });
+    s = reduce(s, { type: 'goToPage', page: 300 });
+    s = finish(s);
+    expect(sanitizeState(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  describe('saved before a jump could break what was read', () => {
+    /** A sitting of three readers on page 301's turn, saved without
+        `before`, as an older version saved it. */
+    const saved = (session: object) =>
+      sanitizeState({
+        session: {
+          config: { members: threeReaders },
+          anchor: { turn: 2, at: 301 },
+          turn: 2,
+          startedAt: T0,
+          ...session,
+        },
+      }).session!;
+
+    it('reads it as one stretch where the counts fill it', () => {
+      const session = saved({
+        anchor: { turn: 2, at: 12 },
+        from: page(10),
+        lastRead: page(12) - 1,
+        pagesRead: 2,
+        ayatRead: page(12) - page(10),
+      });
+      expect(summaryOf(session, T0)).toMatchObject({
+        from: { page: 10 },
+        to: { page: 11 },
+      });
+    });
+
+    it('says only where it stopped where the counts do not', () => {
+      // Page 1 read, then a jump to page 300 and that page read.
+      const session = saved({
+        from: 1,
+        lastRead: page(301) - 1,
+        pagesRead: 2,
+        ayatRead: 15,
+      });
+      expect(summaryOf(session, T0)).toMatchObject({
+        from: null,
+        to: { page: 300 },
+      });
+      // And a step back does not un-read the page before the jump.
+      const back = reduce(
+        { ...initialState, session },
+        { type: 'previousTurn' },
+      ).session!;
+      expect(back.lastRead).toBe(page(301) - 1);
+    });
+
+    it('begins where the circle is when nothing was read', () => {
+      const session = saved({ from: 1, lastRead: 0 });
+      expect(session.from).toBe(page(301));
+    });
+
+    it('repairs a stretch it cannot trust', () => {
+      const base = {
+        from: page(10),
+        lastRead: page(12) - 1,
+        pagesRead: 2,
+        ayatRead: page(12) - page(10),
+      };
+      expect(saved({ ...base, before: 'x' }).before).toBe(0);
+      expect(saved({ ...base, before: -4 }).before).toBe(0);
+      expect(saved({ ...base, before: 5000 }).before).toBe(page(12) - 1);
+    });
   });
 
   it('keeps following the word, and follows the ayah until asked', () => {
@@ -1192,7 +1330,9 @@ describe('a saved halaqa', () => {
     expect(session.pageInTurn).toBe(0);
     expect(session.ayatRead).toBe(0);
     expect(session.startedAt).toBeNull();
-    expect(session.from).toBe(1);
+    // Nothing was read, so the run begins where the circle is.
+    expect(session.from).toBe(currentRange(session).from);
+    expect(session.before).toBe(0);
     expect(session.until).toBeNull();
     expect(session.lastRead).toBe(0);
   });
