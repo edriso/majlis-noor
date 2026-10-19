@@ -3,6 +3,7 @@ import { CloseCard, type Closing } from '@/components/CloseCard';
 import { Minimize } from '@/components/icons';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { AYAH_COUNT } from '@/data/mushaf';
+import { backLabel } from '@/halaqa/labels';
 import {
   placeOf,
   summaryOf,
@@ -169,6 +170,18 @@ export function ReadingScreen({
             onRestart={actions.restart}
             onCarryOn={actions.carryOn}
             onEnd={() => setClosing(closeSitting())}
+            back={
+              turn.canGoBack
+                ? {
+                    label: backLabel({
+                      pageInTurn: session.pageInTurn,
+                      alone: turn.alone,
+                      unit: turn.unit,
+                    }),
+                    onClick: actions.back,
+                  }
+                : null
+            }
           />
         ) : showing === 'circle' ? (
           <CircleView turn={turn} onEdit={() => setSheet('halaqa')} />

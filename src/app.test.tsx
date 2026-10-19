@@ -730,6 +730,16 @@ describe('the end of a sitting', () => {
     expect(document.activeElement).toBe(again);
     expect(screen.getByRole('button', { name: 'إنهاء المجلس' })).toBeTruthy();
   });
+
+  it('goes back from the khatm to the last turn, for a tap too soon', async () => {
+    const user = await startWith({ members: [you, omar], start: 6236 });
+    await user.click(primary());
+    expect(screen.getByRole('heading', { name: 'خُتم المصحف' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'القارئ السابق' }));
+    expect(screen.queryByRole('heading', { name: 'خُتم المصحف' })).toBeNull();
+    expect(status()).toContain('دورك');
+    expect(place()).toBe('ص ٦٠٤');
+  });
 });
 
 describe('moving between the screens', () => {

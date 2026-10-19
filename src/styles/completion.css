@@ -10,7 +10,10 @@
   gap: var(--space-4);
   width: min(560px, 100%);
   margin: auto;
-  padding: var(--space-6) var(--space-4);
+  /* A little above the middle of the room, where the eye puts the middle:
+     centred exactly, under the light at the top of the screen, it looked
+     low. */
+  padding: var(--space-6) var(--space-4) calc(var(--space-6) + 10vh);
   text-align: center;
   animation: khatm-in var(--duration-long) var(--ease) both;
 }
@@ -86,6 +89,20 @@
 }
 .khatm-end:hover {
   border-color: var(--gold);
+  background: var(--hover);
+}
+/* The way back to the last turn: the quietest of the three, set a little
+   apart, as it undoes rather than goes on. */
+.khatm-back {
+  justify-self: center;
+  margin-top: var(--space-2);
+  min-height: var(--target);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+.khatm-back:hover {
+  color: var(--fg);
   background: var(--hover);
 }
 
