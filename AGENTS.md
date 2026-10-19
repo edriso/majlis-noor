@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Notes for anyone, human or AI, working on Majlis Noor.
+Notes for anyone working on Majlis Noor.
 
 ## What this app is
 

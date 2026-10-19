@@ -1,9 +1,9 @@
 # The revamp
 
 The plan for taking Majlis Noor from a working first version to a calm,
-complete halaqa app. It is written for whoever picks up the next piece,
-human or AI. [AGENTS.md](../AGENTS.md) stays the reference for how the app
-works today; this file says where it is going, in what order, and why.
+complete halaqa app. It is written for whoever picks up the next piece.
+[AGENTS.md](../AGENTS.md) stays the reference for how the app works today;
+this file says where it is going, in what order, and why.
 
 Every phase leaves the app shippable. A phase is one or more pull requests,
 each passing the four checks, each updating the documents it changes in the
