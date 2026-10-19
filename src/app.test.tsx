@@ -191,6 +191,12 @@ describe('the start screen', () => {
     expect(sample.getAttribute('aria-pressed')).toBe('true');
     await user.click(sample);
     expect(sample.getAttribute('aria-pressed')).toBe('false');
+    // «أبو» after «إلى» is «أبي».
+    expect(
+      within(sheet).getByRole('button', {
+        name: 'استمع إلى أبي بكر الشاطري (مرتّل) يتلو الفاتحة',
+      }),
+    ).toBeTruthy();
     await user.click(
       within(sheet).getByRole('button', { name: /^محمد صديق المنشاوي/ }),
     );
@@ -214,7 +220,7 @@ describe('the start screen', () => {
     await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
     expect(status()).toContain('يتلو المنشاوي');
     expect(screen.getByRole('button', { name: /تلاوة المنشاوي/ })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: /^تخطَّ إلى أنت/ }));
+    await user.click(screen.getByRole('button', { name: /^تخطَّ إليك/ }));
     expect(status()).toContain('دورك');
     expect(place()).toBe('ص ٢');
   });
@@ -564,7 +570,7 @@ describe('a circle that reads by the ayah', () => {
     });
     expect(status()).toContain('يتلو المنشاوي · الآيات ٥–٩');
     expect(
-      screen.getByRole('button', { name: 'تخطَّ إلى أنت، الآيات ١٠–١٤' }),
+      screen.getByRole('button', { name: 'تخطَّ إليك، الآيات ١٠–١٤' }),
     ).toBeTruthy();
   });
 

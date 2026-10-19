@@ -94,3 +94,14 @@ const ordinals = [
   'العاشر',
 ];
 export const ordinal = (n: number) => ordinals[n - 1] ?? arabic(n);
+
+/**
+ * A name as it is said after a preposition or a noun it belongs to: «أبو»
+ * is one of the five nouns, which show their case in their last letter,
+ * so «أبو بكر الشاطري» is «استمع إلى أبي بكر الشاطري» and «أبو أحمد» is
+ * «دور أبي أحمد». Only a whole word «أبو» before another word changes
+ * (with the «و» of a list on it, «وأبو»); every other name reads the
+ * same in any case.
+ */
+export const genitive = (name: string) =>
+  name.replace(/(^|\s)(و?)أبو(?=\s)/g, '$1$2أبي');

@@ -379,6 +379,13 @@ describe('a reciter’s turn', () => {
 
   it('names «تخطَّ» by where it leads', () => {
     expect(skipLabel(base.next, null)).toBe('تخطَّ إلى عمر، الصفحة ٥١');
+    // «أنت» takes the preposition onto itself, and «أبو» is «أبي» after it.
+    expect(skipLabel({ ...base.next, name: 'أنت' }, null)).toBe(
+      'تخطَّ إليك، الصفحة ٥١',
+    );
+    expect(skipLabel({ ...base.next, name: 'أبو أحمد' }, null)).toBe(
+      'تخطَّ إلى أبي أحمد، الصفحة ٥١',
+    );
     expect(skipLabel({ ...base.next, name: null }, null)).toBe(
       'تخطَّ إلى الصفحة ٥١',
     );

@@ -1,6 +1,6 @@
 import { Check, Play, Square } from './icons';
 import { useId } from 'react';
-import { clock } from '@/data/arabic';
+import { clock, genitive } from '@/data/arabic';
 import { paceLabel, reciters, type Reciter } from '@/data/reciters';
 import { useSample, useTimings } from '@/halaqa/useRecitation';
 import { ReciterAvatar } from './ReciterAvatar';
@@ -88,7 +88,7 @@ export function ReciterPicker({
                   <button
                     type="button"
                     className="icon-button reciter-sample"
-                    aria-label={`استمع إلى ${r.name} (${r.style}) يتلو الفاتحة`}
+                    aria-label={`استمع إلى ${genitive(r.name)} (${r.style}) يتلو الفاتحة`}
                     aria-pressed={phase !== undefined}
                     data-phase={phase}
                     onClick={() => sample.toggle(r.id)}
@@ -106,7 +106,7 @@ export function ReciterPicker({
         </section>
       ))}
       <p className="visually-hidden" aria-live="polite">
-        {failed ? `تعذّر تشغيل الفاتحة بصوت ${failed.name}.` : ''}
+        {failed ? `تعذّر تشغيل الفاتحة بصوت ${genitive(failed.name)}.` : ''}
       </p>
     </div>
   );

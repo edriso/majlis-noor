@@ -4,6 +4,7 @@ import {
   ayatCount,
   clock,
   digits,
+  genitive,
   hoursCount,
   minutesCount,
   pagesCount,
@@ -75,5 +76,17 @@ describe('durations', () => {
     expect(clock(5_000)).toBe('٠:٠٥');
     expect(clock(-1)).toBe('٠:٠٠');
     expect(clock(Number.NaN)).toBe('٠:٠٠');
+  });
+});
+
+describe('names', () => {
+  it('says «أبو» as «أبي» after a preposition, and nothing else', () => {
+    expect(genitive('أبو بكر الشاطري')).toBe('أبي بكر الشاطري');
+    expect(genitive('الشيخ أبو بكر')).toBe('الشيخ أبي بكر');
+    expect(genitive('أبو أحمد وأبو خالد')).toBe('أبي أحمد وأبي خالد');
+    // Not a word of its own, or with nothing after it.
+    expect(genitive('أبوظبي')).toBe('أبوظبي');
+    expect(genitive('أبو')).toBe('أبو');
+    expect(genitive('فاطمة')).toBe('فاطمة');
   });
 });

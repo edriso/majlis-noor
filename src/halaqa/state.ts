@@ -3,7 +3,7 @@
    Plain functions with no React in them, so all of it is testable without a
    browser. `useHalaqa.ts` is the only file that connects this to React. */
 
-import { ordinal } from '@/data/arabic';
+import { genitive, ordinal } from '@/data/arabic';
 import {
   AYAH_COUNT,
   clampPage,
@@ -240,10 +240,11 @@ export function memberName(m: Member) {
 const isYou = (m: Member) =>
   m.kind === 'person' && m.id === 'p1' && !m.name.trim();
 
-/** «دورك», «دور أحمد», or «يتلو الحصري» for a reciter's turn. */
+/** «دورك», «دور أحمد» («دور أبي أحمد»: see `genitive`), or «يتلو
+    الحصري» for a reciter's turn. */
 export function turnPhrase(m: Member) {
   if (m.kind === 'reciter') return `يتلو ${memberName(m)}`;
-  return isYou(m) ? 'دورك' : `دور ${memberName(m)}`;
+  return isYou(m) ? 'دورك' : `دور ${genitive(memberName(m))}`;
 }
 
 const prefixOf = (kind: MemberKind) => (kind === 'person' ? 'p' : 'r');

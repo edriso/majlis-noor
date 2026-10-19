@@ -5,7 +5,7 @@
    (`sanitizeConfig`), so the screen never offers what the model would
    quietly drop. */
 
-import { arabic, ayatCount, pagesCount } from '@/data/arabic';
+import { arabic, ayatCount, genitive, pagesCount } from '@/data/arabic';
 import {
   firstAyahOfPage,
   juzOfAyah,
@@ -198,7 +198,7 @@ export function resumeLines(s: Session) {
     : config.members.length > 1
       ? turnPhrase(member)
       : member.kind === 'reciter'
-        ? `استماع إلى ${memberName(member)}`
+        ? `استماع إلى ${genitive(memberName(member))}`
         : 'قراءة فردية';
   return { place, turn };
 }

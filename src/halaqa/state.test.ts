@@ -512,6 +512,7 @@ describe('member names', () => {
   });
   it('uses a given name', () => {
     expect(turnPhrase(person('p2', 'عمر'))).toBe('دور عمر');
+    expect(turnPhrase(person('p2', 'أبو أحمد'))).toBe('دور أبي أحمد');
     expect(turnPhrase(person('p1', 'عمر'))).toBe('دور عمر');
   });
   it('numbers the rest by who they are, not where they sit', () => {

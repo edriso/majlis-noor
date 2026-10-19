@@ -1,4 +1,11 @@
-import { arabic, ayatCount, clock, counted, pagesCount } from '@/data/arabic';
+import {
+  arabic,
+  ayatCount,
+  clock,
+  counted,
+  genitive,
+  pagesCount,
+} from '@/data/arabic';
 import {
   PAGE_COUNT,
   pagesOfRange,
@@ -320,11 +327,18 @@ export function doneLabels({
   };
 }
 
+/** «إلى عمر», «إلى أبي أحمد», and «إليك» for the unnamed «أنت»: a
+    pronoun takes the preposition onto itself. */
+const toward = (name: string) =>
+  name === 'أنت' ? 'إليك' : `إلى ${genitive(name)}`;
+
 /** «تخطَّ»'s name: where skipping a reciter's turn leads. */
 export function skipLabel(next: Next, end: End | null) {
   if (end) return `تخطَّ، ${endNote(end, !next.name)}`;
   const portion = portionLabel(next.unit, next.range);
-  return next.name ? `تخطَّ إلى ${next.name}، ${portion}` : `تخطَّ إلى ${portion}`;
+  return next.name
+    ? `تخطَّ ${toward(next.name)}، ${portion}`
+    : `تخطَّ إلى ${portion}`;
 }
 
 /** A button's two lines and its name, which begins with them. */
@@ -347,7 +361,7 @@ export function untimedLabel(unit: Unit, range: AyahRange, reciter: string) {
           : range.to - range.from > 1
             ? 'هذه الآيات'
             : 'هذه الآية';
-  return `لا تتوفّر تلاوة ${what} بصوت الشيخ ${reciter}`;
+  return `لا تتوفّر تلاوة ${what} بصوت الشيخ ${genitive(reciter)}`;
 }
 
 /**
@@ -381,7 +395,7 @@ export function recitationLabels({
   range: AyahRange;
 }): ButtonLabels {
   const time = left !== null ? `بقي ${clock(left)}` : '';
-  const his = `تلاوة ${reciter}`;
+  const his = `تلاوة ${genitive(reciter)}`;
   const named = (main: string, sub: Sized, after: string): ButtonLabels => ({
     main,
     sub,
@@ -411,7 +425,7 @@ export function recitationLabels({
       return named('متابعة', plain(time || 'متوقفة'), his);
     case 'blocked':
     case 'idle': {
-      const sub = `إلى ${reciter}`;
+      const sub = toward(reciter);
       return { main: 'استمع', sub: plain(sub), name: `استمع ${sub}` };
     }
     case 'playing':
@@ -497,7 +511,7 @@ export function turnAnnouncement(t: {
   if (r?.untimed)
     return `${said}. ${untimedLabel(t.unit, t.range, r.name)}: اضغط «تخطَّ» لتنتقل إلى التالي.`;
   if (r?.status === 'blocked')
-    return `${said}. اضغط «استمع إلى ${r.name}» لتبدأ تلاوته.`;
+    return `${said}. اضغط «استمع ${toward(r.name)}» لتبدأ تلاوته.`;
   if (r?.status === 'error')
     return `${said}. تعذّر تشغيل التلاوة: اضغط «تخطَّ» لتنتقل إلى التالي، أو أعد المحاولة.`;
   return said;
