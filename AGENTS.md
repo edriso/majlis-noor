@@ -238,7 +238,13 @@ the reciters' photos, the speed of recitations (0.75, 1 or 1.25; beyond
 them tajweed suffers, so there is no slider), how many times «استمع» recites
 the page, and a soft tone (`src/halaqa/chime.ts`, Web Audio, never on the
 recitations' element) when a turn passes on its own. They are in the
-settings and behind the gear on the start screen. The halaqa's own
+settings and behind the gear on the start screen. One more is chosen
+where it is used: the design of the picture saved at the close of a
+sitting (`cardDesign`: the framed 4:5 `ornate`, the default; the 9:16
+`status`, kept inside the band a status or a story leaves clear; the
+square `simple`), picked over «احفظ صورة» and kept for the next sitting.
+All three are laid out by `src/sitting/cardImage.ts` from the same words
+(`cardText.ts`). The halaqa's own
 «مهلة الدور» (a timed reader's turn ×1, ×1.25 or ×1.5 of the reciter's
 time) is in `config`, since it is the circle's choice.
 
