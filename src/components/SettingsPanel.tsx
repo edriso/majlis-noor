@@ -170,8 +170,8 @@ export function SettingsPanel({
   );
 }
 
-/** A titled part of the menu. */
-function Section({
+/** A titled part of the menu, and of the start screen's gear sheet. */
+export function Section({
   title,
   className = '',
   children,

@@ -18,6 +18,7 @@ import { LogoMark } from '@/components/Logo';
 import { PlacePicker } from '@/components/PlacePicker';
 import { AppearanceFields, SoundFields } from '@/components/Preferences';
 import { ReciterPicker } from '@/components/ReciterPicker';
+import { Section } from '@/components/SettingsPanel';
 import { Sheet } from '@/components/Sheet';
 import { SummaryRow } from '@/components/SummaryRow';
 import { UpdateNotice } from '@/components/UpdateNotice';
@@ -216,24 +217,12 @@ export function SetupScreen({
         >
           {panel.kind === 'gear' ? (
             <>
-              <section
-                className="settings-section"
-                aria-labelledby="setup-look"
-              >
-                <h3 id="setup-look" className="settings-heading">
-                  المظهر
-                </h3>
+              <Section title="المظهر">
                 <AppearanceFields prefs={prefs} onChange={onPrefs} />
-              </section>
-              <section
-                className="settings-section"
-                aria-labelledby="setup-sound"
-              >
-                <h3 id="setup-sound" className="settings-heading">
-                  الصوت
-                </h3>
+              </Section>
+              <Section title="الصوت">
                 <SoundFields prefs={prefs} onChange={onPrefs} />
-              </section>
+              </Section>
             </>
           ) : panel.kind === 'place' ? (
             <PlacePicker

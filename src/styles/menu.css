@@ -1,5 +1,6 @@
 /* The reading screen's menu (SettingsPanel.tsx): sections under small
-   headings, the about text and the keys. */
+   headings, the about text and the keys. The start screen's gear sheet
+   draws its two sections the same way. */
 
 .menu-section {
   display: grid;
