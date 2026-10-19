@@ -13,6 +13,7 @@ import {
   searchable,
   type PlaceChoice,
 } from './PlacePicker';
+import { Sheet } from './Sheet';
 
 /** Al-Imran 1, on page 50, in the third juz. */
 const here: PlaceChoice = { ayah: surahRange(3).from, page: 50 };
@@ -86,6 +87,40 @@ describe('the place picker', () => {
         .getByRole('button', { name: '٢. البقرة — الصفحة ٢' })
         .getAttribute('aria-pressed'),
     ).toBe('false');
+  });
+
+  it('opens in its sheet scrolled to the current surah', async () => {
+    // jsdom lays nothing out, so a layout is made up here: one that exists
+    // only once the sheet's dialog is open, as a browser's does.
+    const drawn = (el: Element) => el.closest('dialog')?.open ?? false;
+    const spies = [
+      vi
+        .spyOn(HTMLElement.prototype, 'offsetTop', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return drawn(this) && this.getAttribute('aria-pressed') === 'true'
+            ? 4000
+            : 0;
+        }),
+      vi
+        .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return drawn(this) ? 40 : 0;
+        }),
+      vi
+        .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return drawn(this) ? 400 : 0;
+        }),
+    ];
+    render(
+      <Sheet open onOpenChange={() => {}} title="من أين نبدأ؟">
+        <PlacePicker current={here} onChoose={() => {}} />
+      </Sheet>,
+    );
+    await new Promise((done) => requestAnimationFrame(done));
+    // The surah in the middle of the list's 400px: 4000 - (400 - 40) / 2.
+    expect(screen.getByRole('list').scrollTop).toBe(3820);
+    for (const spy of spies) spy.mockRestore();
   });
 
   it('filters as it is typed, and says how many it found', async () => {

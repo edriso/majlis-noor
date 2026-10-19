@@ -174,14 +174,21 @@ function SurahSearch({ current, onChoose }: Part) {
   const here = surahOfAyah(current.ayah);
 
   // Opened scrolled to where the reader is, which is otherwise as far down
-  // as an-Nas, in the list's own scroll and nowhere else.
+  // as an-Nas, in the list's own scroll and nowhere else. Not at once: this
+  // runs before the sheet around it has opened its dialog, which until then
+  // is not drawn and has no size to scroll in; by the next frame it has,
+  // and nothing has been painted yet. Measured in layout (the list is its
+  // items' offset parent), not on screen, where the sheet opening is still
+  // scaled.
   useEffect(() => {
-    const box = list.current;
-    const item = box?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!box || !item) return;
-    const offset =
-      item.getBoundingClientRect().top - box.getBoundingClientRect().top;
-    box.scrollTop += offset - (box.clientHeight - item.offsetHeight) / 2;
+    const frame = requestAnimationFrame(() => {
+      const box = list.current;
+      const item = box?.querySelector<HTMLElement>('[aria-pressed="true"]');
+      if (!box || !item) return;
+      box.scrollTop =
+        item.offsetTop - (box.clientHeight - item.offsetHeight) / 2;
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   return (

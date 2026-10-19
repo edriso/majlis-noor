@@ -27,6 +27,9 @@
   line-height: var(--leading-tight);
 }
 .place-list {
+  /* Its items' offset parent, so the surah chosen is scrolled to by where
+     it is laid out (see PlacePicker). */
+  position: relative;
   display: grid;
   align-content: start;
   gap: 2px;
