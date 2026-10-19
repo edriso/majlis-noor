@@ -450,14 +450,21 @@ describe('a halaqa', () => {
   });
 
   it('draws only the clock as a timed turn’s clock runs', async () => {
-    await startWith({ members: [you, omar], turnChange: 'reciter' });
-    const timer = await screen.findByRole('button', { name: /^[٠-٩]+:/ });
-    const before = timer.getAttribute('aria-label');
-    const { page, screen: drawn } = draws;
-    await act(() => new Promise((r) => setTimeout(r, 1300)));
-    expect(timer.getAttribute('aria-label')).not.toBe(before);
-    expect(draws.page).toBe(page);
-    expect(draws.screen).toBe(drawn);
+    // Fake time, from before the clock starts, so its interval is one the
+    // test can move on; it still advances on its own for userEvent.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await startWith({ members: [you, omar], turnChange: 'reciter' });
+      const timer = await screen.findByRole('button', { name: /^[٠-٩]+:/ });
+      const before = timer.getAttribute('aria-label');
+      const { page, screen: drawn } = draws;
+      await act(async () => vi.advanceTimersByTime(1300));
+      expect(timer.getAttribute('aria-label')).not.toBe(before);
+      expect(draws.page).toBe(page);
+      expect(draws.screen).toBe(drawn);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
