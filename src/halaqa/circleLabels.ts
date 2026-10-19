@@ -153,13 +153,15 @@ export function placeSummary(start: number, unit: Unit) {
 /**
  * What a goal comes to from where the sitting starts, said under the
  * choice: «حتى آخر سورة آل عمران، في الصفحة ٧٦». A page before the start
- * is no goal at all, and the model drops it; the reader is told so.
+ * is no goal at all, and the model drops it; the reader is told so. A
+ * circle of one (`alone`) is spoken to as one.
  */
-export function goalNote(goal: Goal, from: number) {
-  if (goal.to === 'none') return 'تقرؤون حتى تُنهوا المجلس.';
+export function goalNote(goal: Goal, from: number, alone = false) {
+  if (goal.to === 'none')
+    return alone ? 'تقرأ حتى تُنهي المجلس.' : 'تقرؤون حتى تُنهوا المجلس.';
   const end = goalEnd(goal, from);
   if (end === null)
-    return 'هذه الصفحة قبل موضع البدء، فلا غاية بها. اختاروا صفحة بعده.';
+    return `هذه الصفحة قبل موضع البدء، فلا غاية بها. ${alone ? 'اختر' : 'اختاروا'} صفحة بعده.`;
   const last = pageOfAyah(end - 1);
   if (goal.to === 'surah')
     return `حتى آخر ${surahTitle(surahOfAyah(from))}، في الصفحة ${arabic(last)}.`;
@@ -192,7 +194,7 @@ export function resumeLines(s: Session) {
   }
   const member = config.members[readerOf(planOf(config), s.turn)];
   const turn = end
-    ? endTitle(end)
+    ? endTitle(end, config.members.length === 1)
     : config.members.length > 1
       ? turnPhrase(member)
       : member.kind === 'reciter'

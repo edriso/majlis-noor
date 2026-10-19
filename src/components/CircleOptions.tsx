@@ -87,6 +87,7 @@ export function CircleOptions({
       <GoalField
         goal={config.goal}
         from={from}
+        alone={!many}
         onChange={(goal) => set({ goal })}
       />
 
@@ -323,10 +324,13 @@ function TurnChangeField({
 function GoalField({
   goal,
   from,
+  alone,
   onChange,
 }: {
   goal: Goal;
   from: number;
+  /** A circle of one, spoken to as one. */
+  alone: boolean;
   onChange: (goal: Goal) => void;
 }) {
   const id = useId();
@@ -380,7 +384,7 @@ function GoalField({
       <p className="field-note" id={`${id}-note`}>
         {goal.to === 'page' && !valid
           ? `اكتب رقمًا من ١ إلى ${arabic(PAGE_COUNT)}.`
-          : goalNote(goal, from)}
+          : goalNote(goal, from, alone)}
       </p>
     </div>
   );

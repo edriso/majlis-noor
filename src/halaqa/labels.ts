@@ -150,14 +150,24 @@ export type Sized = { long: string; short: string };
 /** How a sitting with nothing left ended, as the model says it. */
 type End = 'khatm' | 'goal';
 
+/* The sitting is spoken to in the plural, «قرأتم», since a circle is
+   several people; one reading alone is spoken to as one, «قرأتَ». The
+   fatha says who is meant: «قرأت» bare could be the app speaking of
+   itself. `alone` is a circle of one. */
+
 /** «خُتم المصحف» or «بلغتم الغاية»: the line at the top once nothing is
     left to read. */
-export const endTitle = (end: End) =>
-  end === 'khatm' ? 'خُتم المصحف' : 'بلغتم الغاية';
+export const endTitle = (end: End, alone = false) =>
+  end === 'khatm' ? 'خُتم المصحف' : alone ? 'بلغتَ الغاية' : 'بلغتم الغاية';
 
-/** What finishing the last turn leads to, under «تمّ» and in «تخطَّ». */
-const endNote = (end: End) =>
-  end === 'khatm' ? 'وبه يُختم المصحف' : 'وبه تبلغون الغاية';
+/** What finishing the last turn leads to, under «تمّ» and in «تخطَّ».
+    A circle of one has nobody next (`Next.name` is null). */
+const endNote = (end: End, alone: boolean) =>
+  end === 'khatm'
+    ? 'وبه يُختم المصحف'
+    : alone
+      ? 'وبه تبلغ الغاية'
+      : 'وبه تبلغون الغاية';
 
 /** The chip in the top bar that opens the jump: the page open, «ص ٥٠»,
     as every reader of a Mushaf writes it, and a name that begins with
@@ -207,6 +217,7 @@ export function sittingProgress({
   place,
   from,
   until,
+  alone = false,
 }: {
   unit: Unit;
   /** The page open. */
@@ -216,6 +227,8 @@ export function sittingProgress({
   /** Where the sitting began, and where its goal is reached (exclusive). */
   from: number;
   until: number | null;
+  /** A circle of one, spoken to as one. */
+  alone?: boolean;
 }) {
   if (until === null || until <= from)
     return {
@@ -230,7 +243,7 @@ export function sittingProgress({
       : ayatCount(until - at);
   return {
     name: 'الطريق إلى الغاية',
-    text: at >= until ? 'بلغتم الغاية' : `${left} إلى الغاية`,
+    text: at >= until ? endTitle('goal', alone) : `${left} إلى الغاية`,
     share: (at - from) / (until - from),
   };
 }
@@ -299,7 +312,7 @@ export function doneLabels({
     const line = next.name ? `${where} · ثم ${next.name}` : where;
     return { main: nextPage, sub: { long: line, short: where } };
   }
-  if (end) return { main: plain('تمّ'), sub: plain(endNote(end)) };
+  if (end) return { main: plain('تمّ'), sub: plain(endNote(end, !next.name)) };
   const alonePaging = !next.name && next.unit === 'page';
   return {
     main: alonePaging ? nextPage : plain('تمّ — التالي'),
@@ -309,7 +322,7 @@ export function doneLabels({
 
 /** «تخطَّ»'s name: where skipping a reciter's turn leads. */
 export function skipLabel(next: Next, end: End | null) {
-  if (end) return `تخطَّ، ${endNote(end)}`;
+  if (end) return `تخطَّ، ${endNote(end, !next.name)}`;
   const portion = portionLabel(next.unit, next.range);
   return next.name ? `تخطَّ إلى ${next.name}، ${portion}` : `تخطَّ إلى ${portion}`;
 }
@@ -378,7 +391,7 @@ export function recitationLabels({
   if (untimed || status === 'error') {
     const portion = portionLabel(next.unit, next.range);
     const after = end
-      ? endNote(end)
+      ? endNote(end, !next.name)
       : `التالي: ${next.name ? `${next.name}، ` : ''}${portion}`;
     return named(
       'تخطَّ',
@@ -472,8 +485,11 @@ export function turnAnnouncement(t: {
   /** A seated reciter's short name and his recitation's status, on his
       turn, and whether his recording of it does not fit its timings. */
   reciter: { name: string; status: PlayerStatus; untimed: boolean } | null;
+  /** A circle of one, spoken to as one. */
+  alone?: boolean;
 }) {
-  if (t.end) return `${endTitle(t.end)}. تقبّل الله منكم.`;
+  if (t.end)
+    return `${endTitle(t.end, t.alone)}. تقبّل الله ${t.alone ? 'منك' : 'منكم'}.`;
   const pages = pagesOfRange(t.range);
   const where = pages.length > 1 ? `، الآن الصفحة ${arabic(t.page)}` : '';
   const said = `${t.phrase}، ${rangeLabel(t.unit, t.range)}${where}`;
@@ -497,15 +513,21 @@ export function roundDone(unit: Unit, range: AyahRange) {
 }
 
 /** How much a sitting has read, in the unit it counts: «قرأتم ٣ صفحات في
-    هذا المجلس», or that nothing is read yet. The count follows a verb
-    here, so its dual is the accusative «صفحتين». */
-export function sittingNote(unit: Unit, pagesRead: number, ayatRead: number) {
+    هذا المجلس» («قرأتَ» alone), or that nothing is read yet. The count
+    follows a verb here, so its dual is the accusative «صفحتين». */
+export function sittingNote(
+  unit: Unit,
+  pagesRead: number,
+  ayatRead: number,
+  alone = false,
+) {
+  const read = alone ? 'قرأتَ' : 'قرأتم';
   if (unit === 'page')
     return pagesRead
-      ? `قرأتم ${counted(pagesRead, { one: 'صفحة واحدة', two: 'صفحتين', few: 'صفحات', many: 'صفحة' })} في هذا المجلس`
+      ? `${read} ${counted(pagesRead, { one: 'صفحة واحدة', two: 'صفحتين', few: 'صفحات', many: 'صفحة' })} في هذا المجلس`
       : 'لم تُقرأ صفحة بعد';
   return ayatRead
-    ? `قرأتم ${counted(ayatRead, { one: 'آية واحدة', two: 'آيتين', few: 'آيات', many: 'آية' })} في هذا المجلس`
+    ? `${read} ${counted(ayatRead, { one: 'آية واحدة', two: 'آيتين', few: 'آيات', many: 'آية' })} في هذا المجلس`
     : 'لم تُقرأ آية بعد';
 }
 

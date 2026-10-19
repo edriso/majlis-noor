@@ -133,16 +133,16 @@ describe('closing a sitting at its end', () => {
       goal: { to: 'page', page: 1 },
     });
     await user.click(primary());
-    expect(screen.getByRole('heading', { name: 'بلغتم الغاية' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /^بلغت/ })).toBeTruthy();
     const end = screen.getByRole('button', { name: 'إنهاء المجلس' });
     await user.click(end);
     expect(card().textContent).toContain('إلى سورة الفاتحة، الآية ٧ (الصفحة ١)');
-    // «أنت» alone is not named.
+    // «أنت» alone is not named, and is spoken to as one.
     expect(card().textContent).not.toContain('الحاضر');
     await user.click(
-      within(card()).getByRole('button', { name: 'تابعوا القراءة' }),
+      within(card()).getByRole('button', { name: 'تابع القراءة' }),
     );
-    expect(screen.getByRole('heading', { name: 'بلغتم الغاية' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /^بلغت/ })).toBeTruthy();
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: 'إنهاء المجلس' }),
     );

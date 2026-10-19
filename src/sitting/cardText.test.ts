@@ -182,7 +182,8 @@ describe('the close of a sitting', () => {
       { type: 'restartMushaf' },
       ...finish(1),
     );
-    expect(card.read).toEqual(['وقفتم عند سورة الفاتحة، الآية ٧ (الصفحة ١)']);
+    // Read alone, and spoken to as one.
+    expect(card.read).toEqual(['وقفتَ عند سورة الفاتحة، الآية ٧ (الصفحة ١)']);
     expect(card.amount?.startsWith('٣ صفحات · ')).toBe(true);
   });
 

@@ -218,6 +218,17 @@ describe('the progress line', () => {
       until: kahf(10, 10).from,
     });
     expect(reached).toMatchObject({ text: 'بلغتم الغاية', share: 1 });
+    // One reading alone is spoken to as one.
+    expect(
+      sittingProgress({
+        unit: 'ayah',
+        page: 294,
+        place: kahf(10, 10).from,
+        from: kahf(1, 1).from,
+        until: kahf(10, 10).from,
+        alone: true,
+      }).text,
+    ).toBe('بلغتَ الغاية');
   });
 });
 
@@ -284,6 +295,10 @@ describe('the main button on a reader’s turn', () => {
     expect(
       doneLabels({ step: null, next: next('عمر'), end: 'goal' }).sub?.long,
     ).toBe('وبه تبلغون الغاية');
+    // Nobody next: a circle of one, spoken to as one.
+    expect(
+      doneLabels({ step: null, next: next(null), end: 'goal' }).sub?.long,
+    ).toBe('وبه تبلغ الغاية');
   });
 });
 
@@ -368,6 +383,9 @@ describe('a reciter’s turn', () => {
       'تخطَّ إلى الصفحة ٥١',
     );
     expect(skipLabel(base.next, 'goal')).toBe('تخطَّ، وبه تبلغون الغاية');
+    expect(skipLabel({ ...base.next, name: null }, 'goal')).toBe(
+      'تخطَّ، وبه تبلغ الغاية',
+    );
   });
 });
 
@@ -465,6 +483,11 @@ describe('what a screen reader hears', () => {
       'بلغتم الغاية. تقبّل الله منكم.',
     );
     expect(endTitle('goal')).toBe('بلغتم الغاية');
+    expect(turnAnnouncement({ ...turn, end: 'goal', alone: true })).toBe(
+      'بلغتَ الغاية. تقبّل الله منك.',
+    );
+    expect(endTitle('goal', true)).toBe('بلغتَ الغاية');
+    expect(endTitle('khatm', true)).toBe('خُتم المصحف');
   });
 
   it('says a round of repeat mode is read', () => {
@@ -506,6 +529,11 @@ describe('the circle', () => {
     expect(sittingNote('page', 3, 9)).toBe('قرأتم ٣ صفحات في هذا المجلس');
     expect(sittingNote('ayah', 1, 0)).toBe('لم تُقرأ آية بعد');
     expect(sittingNote('ayah', 0, 11)).toBe('قرأتم ١١ آية في هذا المجلس');
+    // One reading alone is spoken to as one, «قرأتَ», not «قرأتم».
+    expect(sittingNote('page', 1, 9, true)).toBe(
+      'قرأتَ صفحة واحدة في هذا المجلس',
+    );
+    expect(sittingNote('ayah', 0, 2, true)).toBe('قرأتَ آيتين في هذا المجلس');
   });
 
   it('says what each seat does', () => {

@@ -183,9 +183,13 @@ describe('where the sitting starts', () => {
       'حتى آخر الصفحة ٦٠، في سورة آل عمران.',
     );
     expect(goalNote({ to: 'page', page: 10 }, imran)).toMatch(
-      /^هذه الصفحة قبل موضع البدء/,
+      /^هذه الصفحة قبل موضع البدء.*اختاروا صفحة بعده\.$/,
+    );
+    expect(goalNote({ to: 'page', page: 10 }, imran, true)).toMatch(
+      /اختر صفحة بعده\.$/,
     );
     expect(goalNote({ to: 'none' }, imran)).toBe('تقرؤون حتى تُنهوا المجلس.');
+    expect(goalNote({ to: 'none' }, imran, true)).toBe('تقرأ حتى تُنهي المجلس.');
   });
 });
 
@@ -236,10 +240,23 @@ describe('the card for a sitting left open', () => {
       },
       { type: 'finishTurn' },
     ).session!;
+    // Read alone, and spoken to as one.
     expect(resumeLines(goal)).toEqual({
       place: 'الصفحة ١ · سورة الفاتحة',
-      turn: 'بلغتم الغاية',
+      turn: 'بلغتَ الغاية',
     });
+    const together = reduce(
+      {
+        ...initialState,
+        session: started({
+          members: [you, fatima],
+          start: 1,
+          goal: { to: 'page', page: 1 },
+        }),
+      },
+      { type: 'finishTurn' },
+    ).session!;
+    expect(resumeLines(together).turn).toBe('بلغتم الغاية');
   });
 
   it('listens with one sheikh alone', () => {

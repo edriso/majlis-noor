@@ -278,6 +278,7 @@ export function useTurn({
           untimed: recitation.untimed,
         }
       : null,
+    alone,
   });
   // Said once as it happens, beside the turn: a round read by everyone,
   // or «استمع» that could not play.

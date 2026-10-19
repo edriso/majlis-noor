@@ -668,10 +668,12 @@ describe('the end of a sitting', () => {
       start: 1,
       goal: { to: 'page', page: 1 },
     });
-    expect(primary().textContent).toContain('وبه تبلغون الغاية');
+    // Read alone, and spoken to as one.
+    expect(primary().textContent).toContain('وبه تبلغ الغاية');
     await user.click(primary());
-    expect(screen.getByRole('heading', { name: 'بلغتم الغاية' })).toBeTruthy();
-    expect(status()).toContain('بلغتم الغاية');
+    expect(screen.getByRole('heading', { name: /^بلغت/ })).toBeTruthy();
+    expect(status()).toMatch(/^بلغت/);
+    expect(said()).toBe('بلغتَ الغاية. تقبّل الله منك.');
     // The buttons it replaced had the focus; the card takes it.
     const carryOn = screen.getByRole('button', { name: 'تابعوا' });
     expect(document.activeElement).toBe(carryOn);

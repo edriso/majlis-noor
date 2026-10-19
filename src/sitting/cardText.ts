@@ -49,8 +49,10 @@ export const BRAND = 'مجلس نور';
 export const NOTHING_READ = 'لم تكتمل قراءة بعد';
 
 /** Said instead of from-and-to when what was read is not one stretch:
-    «من الفاتحة إلى الكهف» after a jump would claim every page between. */
+    «من الفاتحة إلى الكهف» after a jump would claim every page between.
+    One who read alone is spoken to as one. */
 export const STOPPED_AT = 'وقفتم عند';
+export const STOPPED_AT_ALONE = 'وقفتَ عند';
 
 /* Both made once. The Hijri date is the Umm al-Qura calendar, the one most
    Arabic readers' phones and mosques keep, in Arabic-Indic digits; the
@@ -85,7 +87,7 @@ export function cardDates(at: number) {
 
 /** «من سورة آل عمران، الآية ١ (الصفحة ٥٠)». */
 export function placeLine(
-  word: 'من' | 'إلى' | typeof STOPPED_AT,
+  word: 'من' | 'إلى' | typeof STOPPED_AT | typeof STOPPED_AT_ALONE,
   place: Place,
 ) {
   const { surah, ayah } = verseOf(place.ayah);
@@ -174,7 +176,12 @@ export function cardText(summary: Summary, endedAt: number): CardText {
       ? [NOTHING_READ]
       : summary.from
         ? [placeLine('من', summary.from), placeLine('إلى', summary.to)]
-        : [placeLine(STOPPED_AT, summary.to)],
+        : [
+            placeLine(
+              summary.members.length === 1 ? STOPPED_AT_ALONE : STOPPED_AT,
+              summary.to,
+            ),
+          ],
     amount: amount || null,
     present: presentLine(summary.members),
     supplication: SUPPLICATION.split(/(?<=،) /),

@@ -50,9 +50,10 @@ function Ornament() {
  * «ختام المجلس»: what the sitting read, from where to where, how long and
  * who sat, ending on the supplication that closes a gathering. «احفظ صورة»
  * draws the same card as a picture and hands it to the share sheet or the
- * downloads; «تابعوا القراءة» goes back to the sitting with nothing lost
- * (so do Escape, «إغلاق» and a tap outside); «إنهاء» ends it. Once closed,
- * the card is gone: the app keeps no record of past sittings (D2).
+ * downloads; «تابعوا القراءة» («تابع» to one alone) goes back to the
+ * sitting with nothing lost (so do Escape, «إغلاق» and a tap outside);
+ * «إنهاء» ends it. Once closed, the card is gone: the app keeps no record
+ * of past sittings (D2).
  *
  * Open while `closing` is set. The card keeps the last one through the
  * sheet's exit, which plays after the parent has let it go.
@@ -185,7 +186,9 @@ export function CloseCard({
           </button>
           <div className="close-actions-row">
             <button type="button" className="button" onClick={onContinue}>
-              تابعوا القراءة
+              {shown.summary.members.length === 1
+                ? 'تابع القراءة'
+                : 'تابعوا القراءة'}
             </button>
             <button
               type="button"
