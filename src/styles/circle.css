@@ -194,7 +194,7 @@
   height: var(--seat-size);
   /* What a reader's letter is measured against. */
   font-size: var(--seat-size);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   box-shadow: 0 0 0 1px var(--control-border);
   transition:
@@ -212,7 +212,7 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--gold);
   color: var(--on-gold);
   box-shadow: 0 0 0 2px var(--bg);

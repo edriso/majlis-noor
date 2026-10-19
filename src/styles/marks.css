@@ -257,7 +257,7 @@
   position: absolute;
   inset-inline: var(--space-3);
   bottom: var(--space-2);
-  z-index: 10;
+  z-index: var(--z-overlay);
 }
 .ayah-dock[data-at='top'] {
   top: var(--space-2);

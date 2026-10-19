@@ -4,7 +4,7 @@
 
 .topbar {
   flex: none;
-  z-index: 20;
+  z-index: var(--z-top);
   display: flex;
   align-items: center;
   gap: var(--space-3);

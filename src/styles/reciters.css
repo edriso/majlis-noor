@@ -41,7 +41,7 @@
 .reciter-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   padding-inline-end: 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);

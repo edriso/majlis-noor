@@ -152,7 +152,7 @@
   position: absolute;
   inset-inline-end: max(var(--space-2), env(safe-area-inset-left));
   bottom: max(var(--space-2), env(safe-area-inset-bottom));
-  z-index: 20;
+  z-index: var(--z-top);
   display: grid;
   place-items: center;
   width: var(--screen-target);

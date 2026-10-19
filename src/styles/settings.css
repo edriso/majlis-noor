@@ -22,6 +22,6 @@
   display: inline-block;
   width: 14px;
   height: 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: 0 0 0 1px var(--control-border);
 }

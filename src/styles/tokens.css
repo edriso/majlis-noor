@@ -66,6 +66,16 @@
   --target: 44px;
   --target-primary: 56px;
 
+  /* What stands over what, lowest first: the start button's band over the
+     column scrolling under it; what floats over the page (the ayah bar, a
+     toast); the action bar; the top bar, and the way back from a page
+     alone; the skip link, over everything. */
+  --z-raised: 1;
+  --z-overlay: 10;
+  --z-bar: 15;
+  --z-top: 20;
+  --z-skip: 100;
+
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --duration-short: 160ms; /* a hover, a press, a chosen state */
   --duration-medium: 240ms; /* a sheet, a fade */
@@ -82,6 +92,8 @@
 
   --paper: #fbf6e8;
   --paper-shade: #f1e6c8;
+  /* The warm shade the paper deepens to towards its edges. */
+  --paper-edge: rgb(170 130 60 / 0.1);
   --ink: #1c1610;
   --ink-soft: #5e4c33;
   --frame: #b48c45;
