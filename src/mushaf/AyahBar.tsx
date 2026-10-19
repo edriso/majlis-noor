@@ -151,11 +151,20 @@ export function AyahBar({
   // The listeners are set once, and close as the bar stands now.
   const closeFromOutside = useEffectEvent(close);
 
+  // The focus comes to the bar when it opens and whenever another ayah is
+  // chosen while it is open, from a marker by the keyboard most often.
   useEffect(() => {
-    opener.current = document.activeElement;
+    const had = document.activeElement;
+    if (!bar.current?.contains(had)) opener.current = had;
     first.current?.focus();
+  }, [ayah, word]);
+
+  useEffect(() => {
     const escape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // A sheet open over the screen takes its own Escape.
+      const t = e.target instanceof Element ? e.target : null;
+      if (t?.closest('dialog[open], [role="dialog"]')) return;
       e.preventDefault();
       closeFromOutside(true);
     };
