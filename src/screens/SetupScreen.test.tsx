@@ -335,6 +335,15 @@ describe('a full circle', () => {
       ).toBe('اكتملت الحلقة: ٨ مقاعد.');
     }
   });
+
+  it('says so above the add buttons, clear of the held start button', () => {
+    open({ config: { members: eight } });
+    const note = screen.getByText('اكتملت الحلقة: ٨ مقاعد.');
+    const add = screen.getByRole('button', { name: /^أضف قارئًا/ });
+    expect(
+      note.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });
 
 describe('a sitting left open', () => {

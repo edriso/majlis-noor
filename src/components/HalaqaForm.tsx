@@ -241,6 +241,13 @@ export function Members({
         })}
       </ol>
 
+      {/* Above the add buttons it explains, where it is seen with them:
+          under them it fell behind the start screen's held button. */}
+      {full ? (
+        <p className="field-note member-full" id={`${id}-full`}>
+          اكتملت الحلقة: {seatsCount(MAX_MEMBERS)}.
+        </p>
+      ) : null}
       <div className="member-add">
         <button
           type="button"
@@ -278,11 +285,6 @@ export function Members({
           </span>
         </button>
       </div>
-      {full ? (
-        <p className="field-note member-full" id={`${id}-full`}>
-          اكتملت الحلقة: {seatsCount(MAX_MEMBERS)}.
-        </p>
-      ) : null}
 
       <output className="visually-hidden" aria-live="polite">
         {message}

@@ -284,6 +284,7 @@ html:has(.setup-start) {
 }
 .member-full {
   margin-top: var(--space-2);
+  margin-bottom: 0;
 }
 
 /* ---------- How the circle reads ---------- */
