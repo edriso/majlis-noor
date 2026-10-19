@@ -44,6 +44,17 @@
   margin-inline: 5.5cqi;
 }
 
+/* The words about the page, its running head and its number, are not the
+   Mushaf: they follow the reader's text size, where the page is small
+   enough for that to matter. 3.5cqi of the page, but never under 13px at
+   the default text size (0.8125rem, so 26px at 200%), and never over 5cqi,
+   which the head's 7.2cqi and the folio's 7cqi still hold and the head's
+   two or three parts still fit across. The boxes keep their sizes in cqi,
+   so the page keeps its shape. */
+.mushaf-page {
+  --page-meta: clamp(3.5cqi, 0.8125rem, 5cqi);
+}
+
 .mushaf-running-head {
   display: flex;
   align-items: center;
@@ -53,7 +64,7 @@
   padding-inline: 1cqi;
   color: var(--ink-soft);
   font-family: var(--font-naskh);
-  font-size: 3.5cqi;
+  font-size: var(--page-meta);
   font-weight: 700;
   line-height: 1;
 }
@@ -62,7 +73,7 @@
 }
 .mushaf-sajdah {
   color: var(--frame);
-  font-size: 3.2cqi;
+  font-size: calc(var(--page-meta) * 0.92);
 }
 
 .mushaf-frame {
@@ -224,14 +235,14 @@
 .mushaf-folio span {
   display: grid;
   place-items: center;
-  min-width: 7cqi;
-  height: 5cqi;
+  min-width: max(7cqi, 2.2em);
+  height: max(5cqi, 1.45em);
   padding-inline: 1.4cqi;
   border: 0.25cqi solid var(--frame-soft);
   border-radius: var(--radius-pill);
   color: var(--ink-soft);
   font-family: var(--font-naskh);
-  font-size: 3.2cqi;
+  font-size: calc(var(--page-meta) * 0.92);
   font-weight: 700;
   line-height: 1;
 }
