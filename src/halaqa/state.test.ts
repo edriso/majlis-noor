@@ -285,6 +285,55 @@ describe('the circle', () => {
     expect(where(s).page).toBe(11);
   });
 
+  it('keeps the reader on the pages of their turn when someone joins or leaves', () => {
+    // The sheikh reads pages 20 and 21, and is on 21.
+    const sheikh: Member = { id: 'r1', kind: 'reciter', reciter: 'minshawi' };
+    let s = run(
+      { start: page(20), size: 2, members: [sheikh, person('p1')] },
+      { type: 'nextPage' },
+    );
+    const reading = currentRange(s.session!);
+    for (const members of [
+      [sheikh, person('p1'), person('p2')],
+      [person('p2'), sheikh],
+    ]) {
+      s = reduce(s, {
+        type: 'configure',
+        config: { ...s.session!.config, members },
+      });
+      const session = s.session!;
+      expect(session.config.members[where(s).reader].id).toBe('r1');
+      expect(currentRange(session)).toEqual(reading);
+      expect(currentPage(session)).toBe(21);
+    }
+    // And the circle goes on from the end of the turn.
+    s = reduce(s, { type: 'finishTurn' });
+    expect(currentPages(s.session!)).toEqual([22, 23]);
+  });
+
+  it('keeps a turn of ayat whole when someone joins on its second page', () => {
+    // Al-Baqarah 14 to 18 runs from page 3 onto page 4.
+    let s = run(
+      {
+        start: ayahIndex(2, 14),
+        unit: 'ayah',
+        size: 5,
+        members: [person('p1'), person('p2')],
+      },
+      { type: 'nextPage' },
+    );
+    expect(currentPage(s.session!)).toBe(4);
+    s = reduce(s, {
+      type: 'configure',
+      config: {
+        ...s.session!.config,
+        members: [person('p1'), person('p2'), person('p3')],
+      },
+    });
+    expect(ayat(s)).toEqual([ayahIndex(2, 14), ayahIndex(2, 18)]);
+    expect(currentPage(s.session!)).toBe(4);
+  });
+
   it('changes nothing about the turn when only a name changes', () => {
     const s = run({ start: page(10) }, { type: 'finishTurn' });
     const members = s.session!.config.members.map((m) =>

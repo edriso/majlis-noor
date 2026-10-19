@@ -618,13 +618,22 @@ export function reduce(state: State, action: Action): State {
       const start = (roundOf(plan, s.turn) + 1) * next.readers;
 
       // Continue mode carries on from the place being read; a goal reached
-      // and kept stays reached.
+      // and kept stays reached. A reader who keeps the turn, in turns of
+      // the same unit and size, keeps its ayat too: on the second of two
+      // pages they still read those two, not that one and the next.
       if (!repeating) {
         const turn = start + reader;
+        const own = startOf(plan, s.anchor, s.turn);
         const at =
           reached && keptGoal
             ? unitAfter(next.unit, here)
-            : unitOf(next.unit, here);
+            : moved !== -1 &&
+                !reached &&
+                own !== null &&
+                next.unit === plan.unit &&
+                next.size === plan.size
+              ? own
+              : unitOf(next.unit, here);
         const carried: Session = {
           ...s,
           config,
