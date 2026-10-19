@@ -36,6 +36,7 @@ export function Sheet({
   description,
   onBack,
   variant = 'drawer',
+  onClosed,
   children,
 }: {
   open: boolean;
@@ -47,6 +48,9 @@ export function Sheet({
   /** On a wide screen: `drawer` for a long panel (settings, the reciter
       list), `dialog` for a short one (the jump, a confirmation). */
   variant?: 'drawer' | 'dialog';
+  /** Once it has gone, its exit played and the focus given back: for a
+      panel that must open after it rather than over it. */
+  onClosed?: () => void;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -155,6 +159,7 @@ export function Sheet({
     opener.current = null;
     if (back instanceof HTMLElement) back.focus({ preventScroll: true });
     if (open) onOpenChange(false);
+    onClosed?.();
   };
 
   if (!mounted) return null;

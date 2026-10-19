@@ -146,4 +146,36 @@ describe('a sheet', () => {
         ?.getAttribute('data-variant'),
     ).toBe('dialog');
   });
+
+  it('says when it has gone, after giving the focus back', async () => {
+    const user = userEvent.setup();
+    let focused: Element | null = null;
+    const onClosed = vi.fn(() => {
+      focused = document.activeElement;
+    });
+    function Closing() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            افتح
+          </button>
+          <Sheet
+            open={open}
+            onOpenChange={setOpen}
+            onClosed={onClosed}
+            title="تمضي"
+          >
+            <p>سطر</p>
+          </Sheet>
+        </>
+      );
+    }
+    render(<Closing />);
+    await user.click(screen.getByRole('button', { name: 'افتح' }));
+    expect(onClosed).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'إغلاق' }));
+    expect(onClosed).toHaveBeenCalledTimes(1);
+    expect(focused).toBe(screen.getByRole('button', { name: 'افتح' }));
+  });
 });
