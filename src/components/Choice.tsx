@@ -36,8 +36,10 @@ export function Choice<T extends string | number>({
   options: Option<T>[];
   value: T;
   onChange: (value: T) => void;
-  /** `pills` for short labels in a row, `cards` for options with a hint. */
-  variant?: 'pills' | 'cards';
+  /** `pills` for short labels in a row, `cards` for options with a hint,
+      `tiles` for a row of equal options, each a small picture beside
+      its word. */
+  variant?: 'pills' | 'cards' | 'tiles';
 }) {
   const name = useId();
   return (
