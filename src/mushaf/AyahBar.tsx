@@ -14,7 +14,15 @@ import {
   X,
 } from '@/components/icons';
 import { arabic, timesCount } from '@/data/arabic';
-import { pageOfAyah, surah, verseKey, verseOf } from '@/data/mushaf';
+import {
+  loadedPage,
+  loadPage,
+  pageOfAyah,
+  surah,
+  verseKey,
+  verseOf,
+  type Page,
+} from '@/data/mushaf';
 import { reciterById } from '@/data/reciters';
 import {
   ayahTimed,
@@ -24,6 +32,7 @@ import {
   type Timings,
 } from '@/data/timings';
 import type { AyahStatus } from '@/halaqa/useAyahListen';
+import { ayahText } from './words';
 
 /** What the bar needs of `useAyahListen`, which the reading screen holds
     (its turn's `ayah`), so Space and the one pause reach the ayah too. */
@@ -48,6 +57,22 @@ const ids = (key: string, word: number | null) => ({
   repeat: `${key}×${REPEAT}`,
   word: `${key}@${word}`,
 });
+
+export const COPIED = 'نُسخت الآية';
+/** Where the browser has no clipboard to give (a page not served
+    securely) or refuses it, the ayah can still be copied by hand: words
+    selected on the page copy as their text (MushafPage). */
+export const COPY_FAILED = 'تعذّر نسخ الآية؛ حدّد كلماتها في الصفحة وانسخها';
+
+/** How long «نُسخت الآية» stays before the bar's note is its own again. */
+const COPIED_MS = 3000;
+
+/** An ayah as «انسخ الآية» copies it from its page: its text, ending in
+    its number, and where it is, «… ﴿١٤﴾ [النمل: ١٤]». */
+export function ayahToCopy(page: Page, ayah: number) {
+  const v = verseOf(ayah);
+  return `${ayahText(page, ayah)} [${surah(v.surah).name}: ${arabic(v.ayah)}]`;
+}
 
 /** Where a word of an ayah is first heard in the reciter's recording, and
     so where «من هذه الكلمة» starts; null until his words are in, and for
@@ -83,8 +108,9 @@ function useWordStart(
 /**
  * One ayah, chosen by a tap on the page or by its marker: its name, and
  * the sheikh reciting it once, three times, or from the word tapped, to
- * hear how it is read or to repeat after him. Docked above the action bar
- * by the reading screen.
+ * hear how it is read or to repeat after him; and its text to copy, with
+ * where it is, which the page's glyphs cannot give. Docked above the
+ * action bar by the reading screen.
  *
  * It plays through the reading screen's `useAyahListen`, so whatever was
  * playing (a sheikh's turn, «استمع») waits and carries on after. Closing
@@ -130,6 +156,32 @@ export function AyahBar({
       : null;
   const sounding =
     !!mine && (listen.status === 'playing' || listen.status === 'loading');
+  // What the last «انسخ الآية» came to, for the ayah it copied: done, said
+  // for a moment, or not, said until the reader does something else.
+  const [copied, setCopied] = useState<{ ayah: number; ok: boolean }>();
+  const copyNote =
+    copied?.ayah === ayah ? (copied.ok ? COPIED : COPY_FAILED) : '';
+
+  useEffect(() => {
+    if (!copied?.ok) return;
+    const clear = setTimeout(() => setCopied(undefined), COPIED_MS);
+    return () => clearTimeout(clear);
+  }, [copied]);
+
+  const copy = () => {
+    const n = pageOfAyah(ayah);
+    const page = loadedPage(n);
+    // Async, so a browser with no clipboard at all rejects like one that
+    // says no.
+    const write = async (p: Page) =>
+      navigator.clipboard.writeText(ayahToCopy(p, ayah));
+    // Written in the press itself where its page is in, as it always is
+    // once drawn: a browser may allow the clipboard only then.
+    (page ? write(page) : loadPage(n).then(write)).then(
+      () => setCopied({ ayah, ok: true }),
+      () => setCopied({ ayah, ok: false }),
+    );
+  };
 
   const stretches = (from?: number): Segment[] =>
     timings
@@ -184,6 +236,7 @@ export function AyahBar({
   }, []);
 
   const toggle = (id: string, start: () => void) => () => {
+    setCopied(undefined);
     if (mine === id && sounding) listen.stop();
     else start();
   };
@@ -198,8 +251,9 @@ export function AyahBar({
       idle
     );
 
-  const note =
-    timings === undefined
+  const note = copyNote
+    ? copyNote
+    : timings === undefined
       ? 'جارٍ تحميل التلاوة…'
       : timings === null
         ? `تعذّر تحميل تلاوة الشيخ ${sheikh}`
@@ -268,6 +322,13 @@ export function AyahBar({
             ) : null}
           </>
         ) : null}
+        <button
+          type="button"
+          className="button ayah-bar-button ayah-bar-copy"
+          onClick={copy}
+        >
+          انسخ الآية
+        </button>
       </div>
       {/* Polite, and not a status: the reading screen's one status is
           whose turn it is. */}

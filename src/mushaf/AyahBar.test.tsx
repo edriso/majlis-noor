@@ -1,16 +1,36 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { encodeAyahWords, encodeSpans, type Span } from '@/data/audio';
-import { ayahIndex, pageOfAyah } from '@/data/mushaf';
+import {
+  ayahIndex,
+  loadedPage,
+  loadPage,
+  pageOfAyah,
+  type Page,
+} from '@/data/mushaf';
 import { loadWords, readWords, type Timings } from '@/data/timings';
 import type { AyahStatus } from '@/halaqa/useAyahListen';
 import { misnamed, unnamed } from '@/test-names';
-import { AyahBar, type AyahListen } from './AyahBar';
+import {
+  AyahBar,
+  ayahToCopy,
+  COPIED,
+  COPY_FAILED,
+  type AyahListen,
+} from './AyahBar';
+import { ayahText } from './words';
 
 vi.mock('@/data/timings', async (actual) => ({
   ...(await actual<typeof import('@/data/timings')>()),
   loadWords: vi.fn(),
+}));
+vi.mock('@/data/mushaf', async (actual) => ({
+  ...(await actual<typeof import('@/data/mushaf')>()),
+  loadedPage: vi.fn(),
+  loadPage: vi.fn(),
 }));
 
 // Al Imran's first seven ayat, ten seconds each from the start of its file.
@@ -203,5 +223,74 @@ describe('the ayah bar', () => {
     // Nothing of its own was playing, so nothing is stopped.
     expect(listen.stop).not.toHaveBeenCalled();
     page.remove();
+  });
+});
+
+describe('«انسخ الآية»', () => {
+  // Page 50 as it is, which holds Al Imran 7.
+  const page50 = JSON.parse(
+    readFileSync(
+      join(import.meta.dirname, '../../public/pages/50.json'),
+      'utf8',
+    ),
+  ) as Page;
+  const text = `${ayahText(page50, ayah)} [آل عمران: ٧]`;
+  /** A clipboard that answers as given, or none at all; its writeText. */
+  const clipboard = (answer?: () => Promise<void>) => {
+    const writeText = vi.fn(answer);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: answer ? { writeText } : undefined,
+      configurable: true,
+    });
+    return writeText;
+  };
+
+  beforeEach(() => {
+    vi.mocked(loadedPage).mockReset().mockReturnValue(page50);
+    vi.mocked(loadPage).mockReset().mockResolvedValue(page50);
+  });
+
+  it('copies the ayah’s text and where it is, and says so', async () => {
+    const writeText = clipboard(() => Promise.resolve());
+    const { listen } = bar();
+    // Compared composed: the Mushaf's text writes آ as ا and its madda.
+    expect(text.normalize()).toMatch(
+      new RegExp(`^${'هُوَ ٱلَّذِىٓ'.normalize()} .* ﴿٧﴾ \\[آل عمران: ٧\\]$`),
+    );
+    expect(ayahToCopy(page50, ayah)).toBe(text);
+    fireEvent.click(button('انسخ الآية'));
+    expect(writeText).toHaveBeenCalledWith(text);
+    expect(await screen.findByText(COPIED));
+    // Whatever the reader does next, the bar's note is its own again.
+    fireEvent.click(button('استمع'));
+    expect(listen.play).toHaveBeenCalled();
+    expect(screen.queryByText(COPIED)).toBeNull();
+  });
+
+  it('waits for the ayah’s page where it is not in yet', async () => {
+    const writeText = clipboard(() => Promise.resolve());
+    vi.mocked(loadedPage).mockReturnValue(undefined);
+    bar();
+    fireEvent.click(button('انسخ الآية'));
+    expect(await screen.findByText(COPIED));
+    expect(loadPage).toHaveBeenCalledWith(50);
+    expect(writeText).toHaveBeenCalledWith(text);
+  });
+
+  it('says how to copy it by hand where the clipboard will not take it', async () => {
+    clipboard(() => Promise.reject(new Error('denied')));
+    const first = bar();
+    fireEvent.click(button('انسخ الآية'));
+    expect(await screen.findByText(COPY_FAILED));
+    first.unmount();
+    clipboard(); // none at all: a page not served securely
+    bar();
+    fireEvent.click(button('انسخ الآية'));
+    expect(await screen.findByText(COPY_FAILED));
+  });
+
+  it('is there where the sheikh’s recitation is not', () => {
+    bar({ timings: null });
+    expect(button('انسخ الآية'));
   });
 });
