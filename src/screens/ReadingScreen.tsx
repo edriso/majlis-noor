@@ -32,9 +32,9 @@ import { useTurn } from './reading/useTurn';
  * reading order (every seat says what it does next). A button in the top
  * bar turns from one to the other; the buttons below stay with both.
  *
- * The bars can be hidden for the page alone (`useQuiet`), from the menu or
- * by turning a phone on its side, with a small button at the edge and
- * Escape to bring them back.
+ * The bars can be hidden for the page alone (`useQuiet`), from the menu,
+ * with a button at the edge and Escape to bring them back. On a phone held
+ * on its side they are not hidden but stand beside the page (reading.css).
  *
  * On a reciter's turn his recitation plays, the page follows it, and the
  * turn passes on when it ends; the primary button pauses it instead.
@@ -147,16 +147,17 @@ export function ReadingScreen({
         ) : null}
         {quiet.hidden ? (
           // The bars hidden: a way back at the corner of the room, which
-          // the page, centred in it, leaves free.
+          // the page, centred in it, leaves free. It says what it does in
+          // words: an icon alone was a riddle.
           <button
             type="button"
             className="quiet-return"
             onClick={quiet.show}
-            aria-label="إظهار الأزرار"
             aria-keyshortcuts="Escape"
             title="إظهار الأزرار (Esc)"
           >
             <Minimize size={20} aria-hidden="true" />
+            إظهار الأزرار
           </button>
         ) : null}
         {turn.end ? (

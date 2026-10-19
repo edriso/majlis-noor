@@ -259,6 +259,60 @@
   }
 }
 
+/* A phone on its side (reading.css): the bar is a rail on the left of the
+   page, the main button across it and the quiet ones in a row above, all
+   in the middle of its height, where a thumb holding the phone reaches.
+   The line runs along its top edge, with its words under it. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .action-bar {
+    flex-wrap: wrap;
+    align-content: center;
+    gap: var(--space-2);
+    padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-2)
+      max(var(--space-3), env(safe-area-inset-bottom))
+      max(var(--space-2), env(safe-area-inset-left));
+    border-top: 0;
+    border-inline-start: 1px solid var(--line);
+  }
+  .progress-line {
+    top: 0;
+  }
+  .progress-label {
+    top: var(--space-2);
+    inset-inline-start: var(--space-2);
+    transform: none;
+  }
+  .action-primary {
+    flex: 1 1 100%;
+    order: 1;
+    padding-inline: var(--space-3);
+  }
+  /* A reciter's button stands its icon over its words, which a rail is
+     too narrow to hold beside it, and so is a rounded block, not a pill. */
+  .action-recitation {
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border-radius: var(--radius-lg);
+    text-align: center;
+  }
+  .action-recitation .reciter-avatar {
+    display: none;
+  }
+  .recitation-text {
+    flex: none;
+    width: 100%;
+  }
+  .recitation-text .action-primary-main,
+  .recitation-text .action-primary-sub {
+    justify-content: center;
+    text-align: center;
+  }
+  .recitation-icon {
+    order: -1;
+  }
+}
+
 @media (forced-colors: active) {
   .progress-line {
     background: Canvas;

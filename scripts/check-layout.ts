@@ -26,8 +26,9 @@
      lines     with the page font host blocked, the page is drawn from its
                text, and no line is wider than the page or clipped
 
-   A phone on its side hides the bars by itself: there the button, the
-   targets and the type are not measured, and the way back must be shown.
+   A phone on its side keeps both bars, as rails beside the page, and is
+   measured like any other screen. Nothing here hides the bars, so finding
+   them hidden is a failure.
 
    It prints a table, and exits 1 if any check failed. Run it before and
    after any change to the layout. */
@@ -52,10 +53,10 @@ const SELECTORS = {
   /** Every page drawn on the stage: one, or a spread of two, the one
       beside hidden where the room has no space for it. */
   pages: '.mushaf-leaf .mushaf-page',
-  /** The bars above and below, and the way back when they are hidden. */
+  /** The bars above and below (beside, on a phone on its side), and the
+      screen with them hidden. */
   bars: '.topbar, .action-bar',
   quiet: '.reading[data-quiet]',
-  quietReturn: '.quiet-return',
   /** The page's lines, once drawn; `data-font` says glyphs or text. */
   lines: '.mushaf-leaf[data-current] .mushaf-lines[data-font]',
   /** One line's readable text, which is the line itself in text mode. */
@@ -80,6 +81,8 @@ const SIZES: [number, number][] = [
   [375, 667],
   [390, 844],
   [844, 390],
+  [740, 360],
+  [568, 320],
   [820, 1180],
   [1100, 700],
   [1440, 900],
@@ -465,17 +468,12 @@ function measure({
       });
   }
 
-  const quiet = document.querySelector(sel.quiet);
   const button = document.querySelector<HTMLElement>(sel.primary);
-  if (quiet) {
-    // The bars hidden: nothing in them to measure, but a way back.
-    found.button = null;
-    const back = document.querySelector(sel.quietReturn);
-    if (!back || !shown(back)) found.overflow!.push('no way back to the bars');
-  } else measureBars(sel, found);
-  if (quiet) {
-    // Measured above.
-  } else if (!button) found.button!.push('no main button');
+  // Only the menu hides the bars, and this never opens it.
+  if (document.querySelector(sel.quiet))
+    found.overflow!.push('the bars are hidden');
+  measureBars(sel, found);
+  if (!button || !shown(button)) found.button!.push('no main button');
   else {
     const { width } = button.getBoundingClientRect();
     if (width < 140) found.button!.push(`the main button is ${px(width)} wide`);

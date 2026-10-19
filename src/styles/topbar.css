@@ -195,6 +195,45 @@
   }
 }
 
+/* A phone on its side (reading.css): the bar is a rail on the right of
+   the page, the turn at its head, the controls at its foot, wrapping
+   onto a second row where the rail is narrow. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .topbar {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 0;
+    overflow-y: auto;
+    padding: max(var(--space-3), env(safe-area-inset-top))
+      max(var(--space-3), env(safe-area-inset-right))
+      max(var(--space-3), env(safe-area-inset-bottom)) var(--space-3);
+    border-bottom: 0;
+    border-inline-end: 1px solid var(--line);
+  }
+  .turn-strip {
+    flex: none;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-1);
+    margin-inline-start: 0;
+  }
+  .topbar-button {
+    width: var(--screen-target);
+    padding: 0;
+  }
+  .topbar-label {
+    display: none;
+  }
+  .place-chip {
+    padding: 0 var(--space-2);
+  }
+}
+
 @media (forced-colors: active) {
   .turn-ring circle {
     stroke: Highlight;

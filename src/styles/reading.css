@@ -7,6 +7,10 @@
      action bar   the buttons that pass the turn on, under both
                   (action-bar.css)
 
+   On a phone on its side, too short for a bar above the page and another
+   below it, the two bars stand beside the page instead, as rails: see "A
+   phone on its side" below.
+
    The page is sized by both sides of the room it has (its shape,
    `--page-height`, is in tokens.css and itemised in mushaf.css): as wide as
    the room allows and no taller than it, so it is always whole on screen,
@@ -95,7 +99,8 @@
 .label-short {
   display: none;
 }
-@media (max-width: 400px) {
+/* A phone, upright or in a rail beside the page. */
+@media (max-width: 400px), (orientation: landscape) and (max-height: 520px) {
   .label-long {
     position: absolute;
     width: 1px;
@@ -114,10 +119,44 @@
     padding: 10px 8px 4px;
   }
 }
-/* A phone on its side. */
-@media (max-height: 520px) {
-  .reading-main {
-    padding-block: 6px 2px;
+
+/* ---------- A phone on its side ---------- */
+
+/* Too short for a bar above the page and another below it, which would
+   leave the page a strip, and too precious to hide them: whose turn it is
+   and «تمّ» must stay in sight. So the bars become rails beside the page,
+   which keeps the whole height: the turn and the controls on the right,
+   where a right-to-left eye starts, and the buttons on the left, the way
+   the turn travels and the side «←» passes it to. A page held to the
+   height of a phone on its side is no wider than about 230px, so a spread
+   of two still fits between the rails on most phones. Each bar lays out
+   its own rail (topbar.css, action-bar.css); the same query is in each. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .reading {
+    /* Wide enough for «تمّ — التالي» and the next reader's name, and
+       for a face and a name that wraps rather than being cut. */
+    --rail: clamp(160px, 21vw, 220px);
+    display: grid;
+    grid-template-columns:
+      calc(var(--rail) + env(safe-area-inset-right))
+      minmax(0, 1fr)
+      calc(var(--rail) + env(safe-area-inset-left));
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .reading > .topbar {
+    grid-area: 1 / 1;
+  }
+  .reading > .reading-main {
+    grid-area: 1 / 2;
+    padding: max(6px, env(safe-area-inset-top)) 8px
+      max(6px, env(safe-area-inset-bottom));
+  }
+  .reading > .action-bar {
+    grid-area: 1 / 3;
+  }
+  /* The page alone, from the menu: all the width is the page's. */
+  .reading[data-quiet] > .reading-main {
+    grid-column: 1 / -1;
   }
 }
 
@@ -146,22 +185,27 @@
     max(var(--space-2), env(safe-area-inset-right));
 }
 
-/* The way back: small, quiet, in the room's lower left corner, which a
-   page centred in the room leaves free, below it or beside it. */
+/* The way back: quiet, in the room's lower left corner, which a page
+   centred in the room leaves free, below it or beside it; and in words,
+   since an icon alone did not say what it brings back. */
 .quiet-return {
   position: absolute;
   inset-inline-end: max(var(--space-2), env(safe-area-inset-left));
   bottom: max(var(--space-2), env(safe-area-inset-bottom));
   z-index: var(--z-top);
-  display: grid;
-  place-items: center;
-  width: var(--screen-target);
-  height: var(--screen-target);
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--screen-target);
+  padding: 0 var(--space-4);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--surface) 85%, transparent);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--fg);
+  font-size: var(--screen-text-sm);
+  font-weight: 500;
+  line-height: var(--leading-tight);
+  white-space: nowrap;
   transition:
     color var(--duration-short) var(--ease),
     border-color var(--duration-short) var(--ease);
@@ -172,6 +216,8 @@
   color: var(--gold);
 }
 .quiet-return svg {
+  flex: none;
   width: var(--screen-icon);
   height: var(--screen-icon);
+  color: var(--gold);
 }
