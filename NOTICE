@@ -10,7 +10,7 @@ listed here with what was taken from it.
 
 The Mushaf pages
 ----------------
-src/data/pages/1.json through 604.json, and src/data/mushaf.json, generated
+public/pages/1.json through 604.json, and src/data/mushaf.json, generated
 by scripts/build-mushaf.ts.
 
     Quran.com API v4, https://api.quran.com/api/v4
@@ -63,9 +63,9 @@ recording has been replaced.
 
 The recordings themselves are streamed from https://download.quranicaudio.com
 (QuranicAudio, a Quran Foundation project, which offers them free for
-non-commercial use) when a reader listens to a page, a reciter seated in
-the circle recites his turn, or a reciter is sampled in the list, and none
-is stored here.
+non-commercial use) when a reader listens to a page or to one ayah, a
+reciter seated in the circle recites his turn, or a reciter is sampled in
+the list, and none is stored here.
 
 
 The icons
@@ -91,8 +91,8 @@ Lucide, https://lucide.dev (lucide-react 1.31.0), under the ISC License:
 
 Lucide's licence says which of its icons come from the Feather project. Of
 those here, these do: arrow-down, arrow-left, arrow-right, arrow-up, check,
-chevron-left, chevrons-left, headphones, square and x. They are under the
-MIT License:
+chevron-left, chevrons-left, headphones, maximize, minimize, square and x.
+They are under the MIT License:
 
     The MIT License (MIT)
 
@@ -157,7 +157,7 @@ initial instead.
       International, https://creativecommons.org/licenses/by-sa/4.0/
       This crop is an adaptation and is under the same licence.
 
-In the app, «عن مجلس نور» in the settings links to this file.
+In the app, «عن مجلس نور» in the menu links to this file.
 
 
 The interface fonts
