@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PhotosContext } from './components/photos';
 import { ReadingScreen } from './screens/ReadingScreen';
 import { SetupScreen } from './screens/SetupScreen';
@@ -17,6 +17,20 @@ export function App() {
   const [state, dispatch] = useHalaqa();
   const [reading, setReading] = useState(false);
   const { theme, speed, photos } = state.prefs;
+  const screen = reading && state.session ? 'reading' : 'setup';
+
+  // A new screen takes the focus to its heading, which a screen reader
+  // then says, rather than leave it on the page's body with the button
+  // that was pressed gone. Not on arrival: the app does not move a focus
+  // nobody has placed yet.
+  const shown = useRef(screen);
+  useEffect(() => {
+    if (shown.current === screen) return;
+    shown.current = screen;
+    document
+      .querySelector<HTMLElement>('[data-screen-title]')
+      ?.focus({ preventScroll: true });
+  }, [screen]);
 
   // How recitations sound and what the lock screen shows follow the
   // reader's settings, from whichever screen they were changed on.
@@ -44,7 +58,7 @@ export function App() {
 
   return (
     <PhotosContext value={state.prefs.photos}>
-      {reading && state.session ? (
+      {screen === 'reading' && state.session ? (
         <ReadingScreen
           session={state.session}
           prefs={state.prefs}

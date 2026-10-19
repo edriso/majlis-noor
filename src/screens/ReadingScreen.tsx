@@ -1,4 +1,4 @@
-import { useState, type Dispatch } from 'react';
+import { useId, useState, type Dispatch } from 'react';
 import { CloseCard, type Closing } from '@/components/CloseCard';
 import { Minimize } from '@/components/icons';
 import { SettingsPanel } from '@/components/SettingsPanel';
@@ -57,6 +57,7 @@ export function ReadingScreen({
   dispatch: Dispatch<Action>;
 }) {
   const turn = useTurn({ session, prefs, dispatch });
+  const turnId = useId();
   const { actions } = turn;
   const marks = useMarks(turn, prefs);
   const [sheet, setSheet] = useState<
@@ -124,8 +125,20 @@ export function ReadingScreen({
       </p>
 
       <main className="reading-main" id="reading-main" tabIndex={-1}>
-        {/* The heading says where in the app a screen reader has landed. */}
-        <h1 className="visually-hidden">مجلس نور: الحلقة</h1>
+        {/* The heading says where in the app a screen reader has landed,
+            and takes the focus when the screen opens (App.tsx); whose
+            turn it is comes with it, once, as its description. */}
+        <h1
+          className="visually-hidden"
+          tabIndex={-1}
+          data-screen-title
+          aria-describedby={turnId}
+        >
+          مجلس نور: الحلقة
+        </h1>
+        <span id={turnId} hidden>
+          {turn.announcement}
+        </span>
         {turn.toast ? (
           // Said aloud by the notice above already; this is for the eye.
           <p key={turn.toast.id} className="toast" aria-hidden="true">

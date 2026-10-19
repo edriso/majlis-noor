@@ -40,6 +40,9 @@ html:has(.setup-start) {
   font-size: var(--text-xl);
   font-weight: 600;
   line-height: 1.2;
+  /* Focused when the screen opens (App.tsx), for a screen reader to say;
+     a heading is not a control, and draws no ring. */
+  outline: none;
 }
 
 @keyframes settle {

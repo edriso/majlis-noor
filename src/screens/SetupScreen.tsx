@@ -100,7 +100,9 @@ export function SetupScreen({
     <main className="setup" id="main">
       <header className="setup-header">
         <LogoMark size={32} />
-        <h1 className="setup-title">مجلس نور</h1>
+        <h1 className="setup-title" tabIndex={-1} data-screen-title>
+          مجلس نور
+        </h1>
         {/* How the app looks and sounds, before a halaqa starts: its
             colour, whether the sheikhs' faces are shown, blurred or hidden
             (which some would settle before the first photo appears), and

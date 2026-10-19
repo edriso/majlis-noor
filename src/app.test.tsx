@@ -699,6 +699,49 @@ describe('the end of a sitting', () => {
   });
 });
 
+describe('moving between the screens', () => {
+  const heading = () => screen.getByRole('heading', { level: 1 });
+
+  it('takes the focus to the new screen’s heading, and the turn with it', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    // Not on arrival: nobody has placed the focus yet.
+    expect(document.activeElement).toBe(document.body);
+    await user.click(screen.getByRole('button', { name: /ابدأ المجلس/ }));
+    expect(document.activeElement).toBe(heading());
+    expect(heading().textContent).toBe('مجلس نور: الحلقة');
+    // Whose turn it is is heard once, with the heading; the turn's own
+    // region, already holding it, says it again only when it changes.
+    const description = document.getElementById(
+      heading().getAttribute('aria-describedby')!,
+    );
+    expect(description?.textContent).toBe(said());
+    expect(said()).toBe('دورك، الصفحة ١');
+  });
+
+  it('takes it to the start screen’s heading once the sitting has ended', async () => {
+    const user = await start();
+    await user.click(screen.getByRole('button', { name: 'القائمة' }));
+    await user.click(screen.getByRole('button', { name: 'إنهاء المجلس' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'ختام المجلس' })).getByRole(
+        'button',
+        { name: 'إنهاء' },
+      ),
+    );
+    expect(heading().textContent).toBe('مجلس نور');
+    expect(document.activeElement).toBe(heading());
+  });
+
+  it('does the same carrying on a sitting left open', async () => {
+    const user = await start();
+    cleanup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /^متابعة/ }));
+    expect(document.activeElement).toBe(heading());
+  });
+});
+
 describe('the menu and the jump', () => {
   const menu = () => screen.getByRole('dialog', { name: 'القائمة' });
 
