@@ -140,8 +140,9 @@ export function Sheet({
     };
   }, [mounted]);
 
-  // A sheet that leaves with its screen («إنهاء الحلقة» in the settings)
-  // never hears `close`, so the scrollbar's room is given back here too.
+  // A sheet that leaves with its screen (the close card, whose «إنهاء»
+  // ends the sitting) never hears `close`, so the scrollbar's room is
+  // given back here too.
   useEffect(
     () => () => {
       document.documentElement.style.removeProperty('scrollbar-gutter');

@@ -316,9 +316,11 @@ function PageRetry({
  * the line's `--fit`, read by mushaf.css.
  *
  * A line's natural width is read from its probe, the same text unfitted,
- * never from the line itself just after its size was changed: that is laid
- * out at once only when nothing animates, and with reduced motion every
- * property is given a transition, if a short one.
+ * never from the line itself: once fitted, a line measures its fitted
+ * width, and learning its natural one again would mean clearing `--fit`
+ * and laying the page out once a line. The probe never changes when a
+ * line is fitted, and changes size when a font for its letters comes in,
+ * which is the moment to measure again.
  */
 export function fitLines(
   lines: readonly HTMLElement[],

@@ -8,7 +8,9 @@ afterEach(() => {
   localStorage.clear();
 });
 
-// jsdom has neither; the app only feature-detects them.
+// jsdom has no matchMedia, and the app calls it without asking first
+// (useQuiet, Sheet, saveImage), so every test needs this stand-in. It
+// matches nothing: no reduced motion, no phone on its side, no touch.
 if (!window.matchMedia)
   window.matchMedia = (query: string) =>
     ({
