@@ -304,8 +304,6 @@ export function completion(s: Session): Completion {
   return isEmpty(rangeOf(plan, s.anchor, s.turn)) ? 'khatm' : 'goal';
 }
 
-export const isComplete = (s: Session) => completion(s) !== null;
-
 /**
  * Where the circle is: the first ayah it has not yet left behind. That is
  * the start of the turn, or of the page open in it if the reader has turned

@@ -32,7 +32,6 @@ import {
   firstAyahOfPage,
   PAGE_COUNT,
   pageOfAyah,
-  pagesOfRange,
   RUB_COUNT,
   rubOfAyah,
   rubStart,
@@ -282,10 +281,6 @@ export function rangeOf(
   if (units.to <= units.from) return { from, to: from };
   return { from, to: Math.min(unitStart(plan.unit, units.to), end) };
 }
-
-/** The pages a turn's ayat are printed on, in order. */
-export const pagesOf = (plan: Plan, anchor: Anchor, turn: number, end = END) =>
-  pagesOfRange(rangeOf(plan, anchor, turn, end));
 
 /** A turn that would end before the first unit, which cannot be stepped
     back to. */

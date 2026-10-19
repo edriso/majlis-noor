@@ -3,12 +3,12 @@ import {
   AYAH_COUNT,
   ayahIndex,
   firstAyahOfPage,
+  pagesOfRange,
   surahRange,
 } from '@/data/mushaf';
 import {
   endsRound,
   isBeforeStart,
-  pagesOf,
   rangeOf,
   readerOf,
   round,
@@ -23,6 +23,10 @@ import {
   type Plan,
   type Unit,
 } from './schedule';
+
+/** The pages a turn's ayat are printed on, in order. */
+const pagesOf = (plan: Plan, anchor: Anchor, turn: number, end?: number) =>
+  pagesOfRange(rangeOf(plan, anchor, turn, end));
 
 const start = { turn: 0, at: 20 };
 

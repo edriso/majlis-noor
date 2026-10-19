@@ -15,7 +15,6 @@ import {
   currentRange,
   defaultConfig,
   initialState,
-  isComplete,
   MAX_MEMBERS,
   memberName,
   newMember,
@@ -188,7 +187,6 @@ describe('a halaqa', () => {
       { start: page(604), members: [person('p1')] },
       { type: 'finishTurn' },
     );
-    expect(isComplete(s.session!)).toBe(true);
     expect(completion(s.session!)).toBe('khatm');
     expect(currentPage(s.session!)).toBe(604);
     expect(reduce(s, { type: 'finishTurn' })).toBe(s);
@@ -787,7 +785,6 @@ describe('a sitting with a goal', () => {
     expect(completion(s.session!)).toBeNull();
     s = finish(s);
     expect(completion(s.session!)).toBe('goal');
-    expect(isComplete(s.session!)).toBe(true);
     expect(reduce(s, { type: 'finishTurn' })).toBe(s);
     expect(placeOf(s.session!)).toBe(ayahIndex(19, 1));
     expect(currentPage(s.session!)).toBe(304);
