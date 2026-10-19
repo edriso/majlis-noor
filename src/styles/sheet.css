@@ -52,7 +52,9 @@ html:has(dialog[open]) {
   display: flex;
   flex-direction: column;
   width: min(440px, 100vw);
-  background: var(--surface);
+  /* What the panel stands on, which the scroll hint below draws over. */
+  --sheet-ground: var(--surface);
+  background: var(--sheet-ground);
   color: var(--fg);
   border-inline-start: 1px solid var(--line);
   box-shadow: 24px 0 60px rgb(var(--shadow-rgb) / 0.35);
@@ -91,6 +93,19 @@ html:has(dialog[open]) {
   align-content: start;
   gap: var(--space-5);
   padding: 20px 20px max(28px, env(safe-area-inset-bottom));
+  /* A shade along the edge that has more beyond it, so a panel cut by
+     the window says it scrolls. The shades stay with the box; two covers
+     of the ground scroll with the content and hide each one when its end
+     is reached. Forced colours drop all four, and nothing is lost. */
+  background:
+    linear-gradient(var(--sheet-ground) 40%, transparent) top / 100% 40px
+      no-repeat local,
+    linear-gradient(transparent, var(--sheet-ground) 60%) bottom / 100% 40px
+      no-repeat local,
+    linear-gradient(rgb(var(--shadow-rgb) / 0.55), transparent) top / 100% 24px
+      no-repeat scroll,
+    linear-gradient(transparent, rgb(var(--shadow-rgb) / 0.55)) bottom / 100%
+      24px no-repeat scroll;
 }
 
 /* A short panel on a wide screen (`variant="dialog"`): a box in the middle,
@@ -104,7 +119,9 @@ html:has(dialog[open]) {
     top: 50%;
     left: 50%;
     width: min(520px, 100vw - 48px);
-    max-height: min(85dvh, 760px);
+    /* Tall enough on a tablet upright for the start screen's settings
+       whole; shorter windows scroll, with the shade saying so. */
+    max-height: min(85dvh, 920px);
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);

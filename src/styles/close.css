@@ -8,6 +8,7 @@
    name, centred, with an empty box on its right as wide as «إغلاق» on its
    left. Chosen from inside, since Sheet takes no class of its own. */
 .sheet:has(> .sheet-body > .close-card) {
+  --sheet-ground: var(--bg);
   background-color: var(--bg);
   background-image: radial-gradient(
     ellipse 90% 45% at 50% -10%,
