@@ -19,6 +19,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
+  type PointerEvent,
   type RefObject,
 } from 'react';
 
@@ -110,7 +112,7 @@ export const MushafPage = memo(function MushafPage({
   const drawn = ready?.page;
   const words = useMemo(() => (drawn ? pageWords(drawn) : []), [drawn]);
   const lineAyat = useMemo(() => words.map(ayatOfLine), [words]);
-  useTap(linesRef, ready && ready.font, onAyahTap);
+  const tap = useTap(onAyahTap);
 
   return (
     <article
@@ -143,6 +145,7 @@ export const MushafPage = memo(function MushafPage({
             key={ready.font}
             ref={linesRef}
             className="mushaf-lines"
+            {...tap}
             data-font={ready.font}
             style={
               ready.font === 'glyphs'
@@ -238,7 +241,7 @@ function sameProps(a: MushafPageProps, b: MushafPageProps) {
 
 /**
  * A tap on a word, or a press of a marker, told to `onAyahTap`, from one
- * listener on the lines rather than one on every word. The lines are not a
+ * handler on the lines rather than one on every word. The lines are not a
  * control, only where the words' clicks meet: the keyboard's way in is the
  * markers, which are buttons, and their clicks come here too.
  *
@@ -247,26 +250,21 @@ function sameProps(a: MushafPageProps, b: MushafPageProps) {
  * click from the keyboard, or from a screen reader, has no press before it
  * and always counts.
  *
- * `drawn` changes whenever the lines are drawn afresh (the page arrives,
- * or its font), since the listeners belong to the element.
+ * The handlers are props of the lines, so they are there from the moment
+ * the lines are, a page drawn afresh for its font included.
  */
-function useTap(
-  lines: RefObject<HTMLDivElement | null>,
-  drawn: unknown,
-  onAyahTap: MushafPageProps['onAyahTap'],
-) {
-  useEffect(() => {
-    const box = lines.current;
-    if (!box || !drawn || !onAyahTap) return;
-    let pressed: { x: number; y: number } | null = null;
-    const down = (e: PointerEvent) => {
-      pressed = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
-    };
-    const click = (e: MouseEvent) => {
-      const from = pressed;
-      pressed = null;
+function useTap(onAyahTap: MushafPageProps['onAyahTap']) {
+  const pressed = useRef<{ x: number; y: number } | null>(null);
+  if (!onAyahTap) return undefined;
+  return {
+    onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+      pressed.current = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
+    },
+    onClick: (e: MouseEvent<HTMLDivElement>) => {
+      const from = pressed.current;
+      pressed.current = null;
       const target = (e.target as Element).closest<HTMLElement>('[data-ayah]');
-      if (!target || !box.contains(target)) return;
+      if (!target || !e.currentTarget.contains(target)) return;
       if (
         e.detail > 0 &&
         from &&
@@ -276,14 +274,8 @@ function useTap(
         return;
       const { ayah, word } = target.dataset;
       onAyahTap(Number(ayah), word ? Number(word) : null);
-    };
-    box.addEventListener('pointerdown', down);
-    box.addEventListener('click', click);
-    return () => {
-      box.removeEventListener('pointerdown', down);
-      box.removeEventListener('click', click);
-    };
-  }, [lines, drawn, onAyahTap]);
+    },
+  };
 }
 
 function PageRetry({
