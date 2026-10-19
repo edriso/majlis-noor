@@ -1,10 +1,10 @@
 import { chime, wakeChime } from '@/halaqa/chime';
 import type { Photos, Prefs, Speed, Theme } from '@/halaqa/state';
-import { THEMES as COLOURS } from '@/styles/themes';
+import { THEMES } from '@/styles/themes';
 import { Choice } from './Choice';
 import { Switch } from './Switch';
 
-const THEMES: { value: Theme; label: string }[] = [
+const THEME_CHOICES: { value: Theme; label: string }[] = [
   { value: 'green', label: 'أخضر' },
   { value: 'burgundy', label: 'عنّابي' },
   { value: 'blue', label: 'أزرق' },
@@ -31,13 +31,13 @@ export function AppearanceFields({
           legend="اللون"
           value={prefs.theme}
           onChange={(theme) => onChange({ theme })}
-          options={THEMES.map((t) => ({
+          options={THEME_CHOICES.map((t) => ({
             value: t.value,
             label: (
               <>
                 <span
                   className="swatch"
-                  style={{ background: COLOURS[t.value].swatch }}
+                  style={{ background: THEMES[t.value].swatch }}
                   aria-hidden="true"
                 />
                 {t.label}
