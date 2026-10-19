@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '@/App';
 import { defaultPrefs } from '@/halaqa/state';
-import { LEGACY_KEYS, STORAGE_KEY } from '@/halaqa/storage';
+import { STORAGE_KEY } from '@/halaqa/storage';
 import {
   bootScript,
   DEFAULT_THEME,
@@ -166,17 +166,6 @@ describe('index.html as the build writes it', () => {
     expect(boot()).toEqual({ theme: 'sand', color: THEMES.sand.ground });
   });
 
-  it('paints the theme saved under the old name’s key', () => {
-    localStorage.setItem(
-      'majlis-ayah:v1',
-      JSON.stringify({ prefs: { theme: 'burgundy' } }),
-    );
-    expect(boot()).toEqual({
-      theme: 'burgundy',
-      color: THEMES.burgundy.ground,
-    });
-  });
-
   it('leaves the default for a theme it does not know', () => {
     localStorage.setItem(
       'majlis-noor:v1',
@@ -213,8 +202,7 @@ describe('index.html as the build writes it', () => {
     );
     expect(boot('light').theme).toBe('green');
     // Saved before themes could be chosen: the default, as the app reads it.
-    localStorage.setItem('majlis-ayah:v1', JSON.stringify({ readers: ['أ'] }));
-    localStorage.removeItem('majlis-noor:v1');
+    localStorage.setItem('majlis-noor:v1', JSON.stringify({ readers: ['أ'] }));
     expect(boot('light').color).toBe(THEMES[DEFAULT_THEME].ground);
   });
 
@@ -266,9 +254,9 @@ describe('a first visit', () => {
     expect(document.documentElement.dataset.theme).toBe('blue');
   });
 
-  it('reads the halaqa under the keys the app keeps it under', () => {
+  it('reads the halaqa under the key the app keeps it under', () => {
     expect(bootScript()).toContain(
-      JSON.stringify([STORAGE_KEY, ...LEGACY_KEYS]),
+      `localStorage.getItem(${JSON.stringify(STORAGE_KEY)})`,
     );
   });
 });

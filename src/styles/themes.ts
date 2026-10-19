@@ -71,9 +71,9 @@ export function systemTheme(): Theme {
   return FIRST_VISIT[light ? 'light' : 'dark'];
 }
 
-/** Where the halaqa is kept, and the old name's key read when it is empty:
-    src/halaqa/storage.ts's, which themes.test.ts holds these to. */
-const KEYS = ['majlis-noor:v1', 'majlis-ayah:v1'];
+/** Where the halaqa is kept: src/halaqa/storage.ts's key, which
+    themes.test.ts holds this to. */
+const KEY = 'majlis-noor:v1';
 
 /** The tokens in index.html that `themeHtml` fills, so a page that lost
     one fails the build instead of shipping a theme with no colour. */
@@ -88,10 +88,10 @@ export const THEME_TOKENS = [
  * The script index.html runs before the bundle, so that the first paint is
  * already in the reader's theme. It reads the theme the way the app will
  * (src/halaqa/storage.ts, then sanitizeState): the halaqa under the app's
- * key or the old name's; a saved halaqa with no theme, or one it does not
- * know, keeps the default; nothing saved, or nothing readable, takes the
- * system's side (`FIRST_VISIT`). Old JavaScript, since it runs in whatever
- * browser opens the page, and it must never throw.
+ * key; a saved halaqa with no theme, or one it does not know, keeps the
+ * default; nothing saved, or nothing readable, takes the system's side
+ * (`FIRST_VISIT`). Old JavaScript, since it runs in whatever browser
+ * opens the page, and it must never throw.
  */
 export function bootScript(): string {
   const colours = JSON.stringify(
@@ -102,10 +102,7 @@ export function bootScript(): string {
         var colors = ${colours};
         var theme;
         try {
-          var keys = ${q(KEYS)};
-          var raw = null;
-          for (var i = 0; i < keys.length && raw === null; i++)
-            raw = localStorage.getItem(keys[i]);
+          var raw = localStorage.getItem(${q(KEY)});
           if (raw !== null) {
             var saved = JSON.parse(raw);
             theme = (saved && saved.prefs && saved.prefs.theme) || ${q(DEFAULT_THEME)};
